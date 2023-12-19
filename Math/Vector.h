@@ -98,16 +98,16 @@ namespace Engine
         template <uint8_t n, typename T>
         inline VectorT<n, T> VectorT<n, T>::operator+(T value) const
         {
-            T[n] newData = { 0 };
-            for(int i = 0; i < n; i++) { newData[i] = vector.data[i] + value; }
+            T newData[n] = { 0 };
+            for(int i = 0; i < n; i++) { newData[i] = data[i] + value; }
             return VectorT<n, T>(data);
         }
         
         template <uint8_t n, typename T>
         inline VectorT<n, T> VectorT<n, T>::operator-(T value) const
         {
-            T[n] newData = { 0 };
-            for(int i = 0; i < n; i++) { newData[i] = vector.data[i] - value; }
+            T newData[n] = { 0 };
+            for(int i = 0; i < n; i++) { newData[i] = data[i] - value; }
             return VectorT<n, T>(data);
         }
 
