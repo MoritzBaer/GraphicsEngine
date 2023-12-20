@@ -40,9 +40,6 @@ namespace Engine
 
             private:
                 T data[n];
-                T length;
-                T sqrMagnitude;
-                bool changeSincePrecalc = true;
         };
         
         template<uint8_t n>
@@ -56,26 +53,20 @@ namespace Engine
 
         template<uint8_t n, typename T>
         inline T VectorT<n, T>::SqrMagnitude() {
-            if(changeSincePrecalc) {
-                sqrMagnitude = 0;
-                for(int i = 0; i < n; i++) { sqrMagnitude += data[i] * data[i]; }
-            }
+            T sqrMagnitude = 0;
+            for(int i = 0; i < n; i++) { sqrMagnitude += data[i] * data[i]; }
             return sqrMagnitude;
         }
 
         template<uint8_t n, typename T>
         inline T VectorT<n, T>::Length() {
-            if(changeSincePrecalc) { length = std::sqrt(this->SqrMagnitude()); }
-            return length;
+            return std::sqrt(this->SqrMagnitude());
         }
 
         template <uint8_t n, typename T>
         inline VectorT<n, T> &VectorT<n, T>::operator=(VectorT<n, T> const &other)
         {
             for(int i = 0; i < n; i++) { this->data[i] = data[i]; } 
-            this->length = other.length; 
-            this->sqrMagnitude = other.sqrMagnitude; 
-            this->changeSincePrecalc = other.changeSincePrecalc; 
             return *this;
         }
 
