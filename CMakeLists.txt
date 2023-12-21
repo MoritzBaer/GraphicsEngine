@@ -1,6 +1,16 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.21)
 
 project(GRAPHICS_ENGINE)
-set(CMAKE_CXX_STANDARD 20)
+
+set(CMAKE_CXX_STANDARD 23)
+
+find_package(Vulkan REQUIRED)
+
+include_directories("dependencies/glfw-3.3.9.bin.WIN64/include/GLFW")
+include_directories(${Vulkan_INCLUDE_DIR})
+
 
 add_executable(MAIN "main.cpp")
+
+target_link_libraries(MAIN "${CMAKE_SOURCE_DIR}/dependencies/glfw-3.3.9.bin.WIN64/lib-vc2022/glfw3_mt.lib")
+target_link_libraries(MAIN Vulkan::Vulkan)
