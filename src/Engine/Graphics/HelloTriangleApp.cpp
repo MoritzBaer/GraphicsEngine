@@ -17,6 +17,7 @@ void HelloTriangleApp::InitVulkan()
 {
     CreateVKInstance();
     PickPhysicalDevice();
+    CreateLogicalDevice();
 }
 
 void HelloTriangleApp::MainLoop()
@@ -31,6 +32,7 @@ void HelloTriangleApp::Cleanup()
     glfwDestroyWindow(window);
     glfwTerminate();
 
+    vkDestroyDevice(graphicsHandler, nullptr);
     vkDestroyInstance(vulkanInstance, nullptr);
 }
     
@@ -52,19 +54,6 @@ bool HelloTriangleApp::CheckValidationLayerSupport() {
     return true;
 }
 
-uint32_t PhysicalDeviceScore(VkPhysicalDevice const &device) { 
-    VkPhysicalDeviceProperties deviceProperties;
-    VkPhysicalDeviceFeatures deviceFeatures;
-    vkGetPhysicalDeviceProperties(device, &deviceProperties);
-    vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
-
-    auto queueFamilies = FindQueueFamilies(device);
-
-    return  ( 1000 * (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) )
-        * deviceFeatures.geometryShader
-        * queueFamilies.graphicsFamily.has_value();
-}
-
 struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsFamily;
 };
@@ -84,6 +73,21 @@ QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice const &device) {
     return indices;
 }
 
+uint32_t PhysicalDeviceScore(VkPhysicalDevice const &device) { 
+    VkPhysicalDeviceProperties deviceProperties;
+    VkPhysicalDeviceFeatures deviceFeatures;
+    vkGetPhysicalDeviceProperties(device, &deviceProperties);
+    vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+    auto queueFamilies = FindQueueFamilies(device);
+
+    uint32_t score = ( 1000 * (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) )
+        * deviceFeatures.geometryShader
+        * queueFamilies.graphicsFamily.has_value();
+
+    return score;
+}
+
 void HelloTriangleApp::PickPhysicalDevice()
 {
     uint32_t deviceCount = 0;
@@ -97,6 +101,46 @@ void HelloTriangleApp::PickPhysicalDevice()
     auto it = std::max_element(devices.begin(), devices.end(), [](VkPhysicalDevice const &a, VkPhysicalDevice const &b) { return PhysicalDeviceScore(a) < PhysicalDeviceScore(b); });
     if(it == devices.end()) { throw std::runtime_error("Failed to find a suitable GPU!"); }
     physicalGPU = *it;
+
+#ifdef NDEBUG
+#else
+    VkPhysicalDeviceProperties deviceProperties;
+    vkGetPhysicalDeviceProperties(physicalGPU, &deviceProperties);
+    std::cout << "Device '" << deviceProperties.deviceName << "' selected for executing graphics commands\n";
+#endif
+}
+
+void HelloTriangleApp::CreateLogicalDevice()
+{
+    QueueFamilyIndices indices = FindQueueFamilies(physicalGPU);
+
+    float queuePriority = 1.0f;
+    VkDeviceQueueCreateInfo queueCreateInfo{};
+    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value();
+    queueCreateInfo.queueCount = 1;
+    queueCreateInfo.pQueuePriorities = &queuePriority;
+
+    VkPhysicalDeviceFeatures features{};
+
+    VkDeviceCreateInfo deviceCreateInfo{};
+    deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    deviceCreateInfo.pQueueCreateInfos = &queueCreateInfo;
+    deviceCreateInfo.queueCreateInfoCount = 1;
+    deviceCreateInfo.pEnabledFeatures = &features;
+    deviceCreateInfo.enabledExtensionCount = 0;
+
+    // Only here for compatibility with older Vulkan implementations
+    if (enableValidationLayers) {
+        deviceCreateInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+        deviceCreateInfo.ppEnabledLayerNames = validationLayers.data();
+    } else {
+        deviceCreateInfo.enabledLayerCount = 0;
+    }
+
+    if (vkCreateDevice(physicalGPU, &deviceCreateInfo, nullptr, &graphicsHandler) != VK_SUCCESS) { throw std::runtime_error("failed to create logical device!"); }
+
+    vkGetDeviceQueue(graphicsHandler, indices.graphicsFamily.value(), 0, &graphicsQueue);
 }
 
 void HelloTriangleApp::CreateVKInstance()

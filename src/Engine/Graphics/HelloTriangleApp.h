@@ -16,6 +16,7 @@ private:
 
     bool CheckValidationLayerSupport();
     void PickPhysicalDevice();
+    void CreateLogicalDevice();
 
     GLFWwindow *window;
 
@@ -24,7 +25,8 @@ private:
 
     VkInstance vulkanInstance;
     VkPhysicalDevice physicalGPU = VK_NULL_HANDLE;
-
+    VkDevice graphicsHandler;
+    VkQueue graphicsQueue;
     
     const std::vector<const char*> validationLayers = {
         "VK_LAYER_KHRONOS_validation"
