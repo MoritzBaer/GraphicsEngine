@@ -60,9 +60,33 @@ void HelloTriangleApp::CreateSwapchain()
     vkGetSwapchainImagesKHR(graphicsHandler, swapchain, &imageCount, nullptr);
     swapchainImages.resize(imageCount);
     vkGetSwapchainImagesKHR(graphicsHandler, swapchain, &imageCount, swapchainImages.data());
-    
+
     swapchainImageFormat = format.format;
     swapchainExtent = extent;
+}
+
+void HelloTriangleApp::CreateImageViews()
+{
+    swapchainImageViews.resize(swapchainImages.size());
+
+    for(int i = 0; i < swapchainImages.size(); i++) {
+        VkImageViewCreateInfo imageViewInfo{};
+        imageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        imageViewInfo.image = swapchainImages[i];
+        imageViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        imageViewInfo.format = swapchainImageFormat;
+        imageViewInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        imageViewInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        imageViewInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        imageViewInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+        imageViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        imageViewInfo.subresourceRange.baseMipLevel = 0;
+        imageViewInfo.subresourceRange.levelCount = 1;
+        imageViewInfo.subresourceRange.baseArrayLayer = 0;
+        imageViewInfo.subresourceRange.layerCount = 1;
+
+        if(vkCreateImageView(graphicsHandler, &imageViewInfo, nullptr, &swapchainImageViews[i]) != VK_SUCCESS) { throw std::runtime_error("Failed to create image view for image " + i); }
+    }
 }
 
 VkPresentModeKHR HelloTriangleApp::ChooseSwapchainPresentMode(const std::vector<VkPresentModeKHR> & availableModes) const {
@@ -105,6 +129,8 @@ void HelloTriangleApp::InitVulkan()
     CreateSurface();
     PickPhysicalDevice();
     CreateLogicalDevice();
+    CreateSwapchain();
+    CreateImageViews();
 }
 
 void HelloTriangleApp::MainLoop()
@@ -119,6 +145,7 @@ void HelloTriangleApp::Cleanup()
     glfwDestroyWindow(window);
     glfwTerminate();
 
+    for(auto imageView : swapchainImageViews) { vkDestroyImageView(graphicsHandler, imageView, nullptr); }
     vkDestroySwapchainKHR(graphicsHandler, swapchain, nullptr);
     vkDestroyDevice(graphicsHandler, nullptr);
     vkDestroySurfaceKHR(vulkanInstance, surface, nullptr);
