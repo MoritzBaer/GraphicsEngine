@@ -15,6 +15,12 @@ private:
         std::optional<uint32_t> presentFamily;
     };
 
+    struct SwapchainSupportDetails {
+        VkSurfaceCapabilitiesKHR surfaceCapabilities;
+        std::vector<VkSurfaceFormatKHR> surfaceFormats;
+        std::vector<VkPresentModeKHR> presentModes;
+    };
+
     void InitWindow();
     void InitVulkan();
     void MainLoop();
@@ -27,6 +33,12 @@ private:
     void PickPhysicalDevice();
     void CreateLogicalDevice();
     void CreateSurface();
+    bool CheckDeviceExtensionSupport(VkPhysicalDevice const &device) const;
+    SwapchainSupportDetails QuerySwapchainSupport(VkPhysicalDevice const &device) const;
+    VkExtent2D ChooseSwapExtent(VkSurfaceCapabilitiesKHR const & capabilities) const;
+    VkPresentModeKHR ChooseSwapchainPresentMode(const std::vector<VkPresentModeKHR> & availableModes) const;
+    VkSurfaceFormatKHR ChooseSwapchainFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats) const;
+    void CreateSwapchain();
 
     GLFWwindow *window;
 
@@ -39,9 +51,17 @@ private:
     VkQueue graphicsQueue;
     VkQueue presentationQueue;
     VkSurfaceKHR surface;
+    VkSwapchainKHR swapchain;
+    VkFormat swapchainImageFormat;
+    VkExtent2D swapchainExtent;
+    std::vector<VkImage> swapchainImages;
     
-    const std::vector<const char*> validationLayers = {
+    const std::vector<const char*> requiredValidationLayers = {
         "VK_LAYER_KHRONOS_validation"
+    };
+
+    const std::vector<const char*> requiredDeviceExtensions = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME
     };
 
 #ifdef NDEBUG
