@@ -40,6 +40,8 @@ private:
     VkSurfaceFormatKHR ChooseSwapchainFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats) const;
     void CreateSwapchain();
     void CreateImageViews();
+    void CreateGraphicsPipeline();
+    VkShaderModule CreateShaderModule(std::vector<char> const & code) const;
 
     GLFWwindow *window;
 
@@ -57,6 +59,7 @@ private:
     VkExtent2D swapchainExtent;
     std::vector<VkImage> swapchainImages;
     std::vector<VkImageView> swapchainImageViews;
+    VkPipelineLayout pipelineLayout;
     
     const std::vector<const char*> requiredValidationLayers = {
         "VK_LAYER_KHRONOS_validation"
