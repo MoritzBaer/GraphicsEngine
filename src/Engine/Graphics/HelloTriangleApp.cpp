@@ -37,6 +37,59 @@ VkShaderModule HelloTriangleApp::CreateShaderModule(std::vector<char> const & co
     return shaderModule;
 }
 
+void HelloTriangleApp::CreateRenderPass()
+{
+    VkAttachmentDescription colourAttachment{};
+    colourAttachment.format = swapchainImageFormat;
+    colourAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    colourAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colourAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colourAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colourAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colourAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    colourAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    VkAttachmentReference colourAttachmentReference{};
+    colourAttachmentReference.attachment = 0;
+    colourAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkSubpassDescription subpassDescription{};
+    subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpassDescription.colorAttachmentCount = 1;
+    subpassDescription.pColorAttachments = &colourAttachmentReference;
+    
+    VkRenderPassCreateInfo renderPassInfo{};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderPassInfo.attachmentCount = 1;
+    renderPassInfo.pAttachments = &colourAttachment;
+    renderPassInfo.subpassCount = 1;
+    renderPassInfo.pSubpasses = &subpassDescription;
+
+    if(vkCreateRenderPass(graphicsHandler, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) { throw std::runtime_error("Failed to create render pass!"); }
+}
+
+void HelloTriangleApp::CreateFramebuffers()
+{
+    swapchainFramebuffers.resize(swapchainImageViews.size());
+
+    for (size_t i = 0; i < swapchainImageViews.size(); i++) {
+        VkImageView attachments[] = {
+            swapchainImageViews[i]
+        };
+
+        VkFramebufferCreateInfo framebufferInfo{};
+        framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebufferInfo.renderPass = renderPass;
+        framebufferInfo.attachmentCount = 1;
+        framebufferInfo.pAttachments = attachments;
+        framebufferInfo.width = swapchainExtent.width;
+        framebufferInfo.height = swapchainExtent.height;
+        framebufferInfo.layers = 1;
+
+        if (vkCreateFramebuffer(graphicsHandler, &framebufferInfo, nullptr, &swapchainFramebuffers[i]) != VK_SUCCESS) { throw std::runtime_error("failed to create framebuffer!"); }
+    }
+}   
+
 VkSurfaceFormatKHR HelloTriangleApp::ChooseSwapchainFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats) const {
     auto it = std::find_if(availableFormats.begin(), availableFormats.end(), [](VkSurfaceFormatKHR const &format) { return 
         format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
@@ -201,16 +254,16 @@ void HelloTriangleApp::CreateGraphicsPipeline()
     colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO; // Optional
     colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD; // Optional
 
-    VkPipelineColorBlendStateCreateInfo colorBlending{};
-    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    colorBlending.logicOpEnable = VK_FALSE;
-    colorBlending.logicOp = VK_LOGIC_OP_COPY; // Optional
-    colorBlending.attachmentCount = 1;
-    colorBlending.pAttachments = &colorBlendAttachment;
-    colorBlending.blendConstants[0] = 0.0f; // Optional
-    colorBlending.blendConstants[1] = 0.0f; // Optional
-    colorBlending.blendConstants[2] = 0.0f; // Optional
-    colorBlending.blendConstants[3] = 0.0f; // Optional
+    VkPipelineColorBlendStateCreateInfo colourBlending{};
+    colourBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colourBlending.logicOpEnable = VK_FALSE;
+    colourBlending.logicOp = VK_LOGIC_OP_COPY; // Optional
+    colourBlending.attachmentCount = 1;
+    colourBlending.pAttachments = &colorBlendAttachment;
+    colourBlending.blendConstants[0] = 0.0f; // Optional
+    colourBlending.blendConstants[1] = 0.0f; // Optional
+    colourBlending.blendConstants[2] = 0.0f; // Optional
+    colourBlending.blendConstants[3] = 0.0f; // Optional
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -220,6 +273,26 @@ void HelloTriangleApp::CreateGraphicsPipeline()
     pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
 
     if (vkCreatePipelineLayout(graphicsHandler, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) { throw std::runtime_error("failed to create pipeline layout!"); }
+
+    VkGraphicsPipelineCreateInfo pipelineInfo{};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipelineInfo.stageCount = 2;
+    pipelineInfo.pStages = shaderStages;
+    pipelineInfo.pVertexInputState = &vertexInputInfo;
+    pipelineInfo.pInputAssemblyState = &inputAssembly;
+    pipelineInfo.pViewportState = &viewportState;
+    pipelineInfo.pRasterizationState = &rasterizer;
+    pipelineInfo.pMultisampleState = &multisampling;
+    pipelineInfo.pDepthStencilState = nullptr;
+    pipelineInfo.pColorBlendState = &colourBlending;
+    pipelineInfo.pDynamicState = &dynamicState;
+    pipelineInfo.layout = pipelineLayout;
+    pipelineInfo.renderPass = renderPass;
+    pipelineInfo.subpass = 0;
+    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+    pipelineInfo.basePipelineIndex = -1;
+
+    if(vkCreateGraphicsPipelines(graphicsHandler, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) { throw std::runtime_error("Failed to create graphics pipeline!"); }
 
     vkDestroyShaderModule(graphicsHandler, vertexShader, nullptr);
     vkDestroyShaderModule(graphicsHandler, fragmentShader, nullptr);
@@ -267,7 +340,9 @@ void HelloTriangleApp::InitVulkan()
     CreateLogicalDevice();
     CreateSwapchain();
     CreateImageViews();
+    CreateRenderPass();
     CreateGraphicsPipeline();
+    CreateFramebuffers();
 }
 
 void HelloTriangleApp::MainLoop()
@@ -282,7 +357,10 @@ void HelloTriangleApp::Cleanup()
     glfwDestroyWindow(window);
     glfwTerminate();
 
+    for(auto framebuffer : swapchainFramebuffers) { vkDestroyFramebuffer(graphicsHandler, framebuffer, nullptr); }
+    vkDestroyPipeline(graphicsHandler, graphicsPipeline, nullptr);
     vkDestroyPipelineLayout(graphicsHandler, pipelineLayout, nullptr);
+    vkDestroyRenderPass(graphicsHandler, renderPass, nullptr);
     for(auto imageView : swapchainImageViews) { vkDestroyImageView(graphicsHandler, imageView, nullptr); }
     vkDestroySwapchainKHR(graphicsHandler, swapchain, nullptr);
     vkDestroyDevice(graphicsHandler, nullptr);

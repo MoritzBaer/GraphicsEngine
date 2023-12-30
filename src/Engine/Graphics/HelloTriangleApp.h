@@ -42,6 +42,8 @@ private:
     void CreateImageViews();
     void CreateGraphicsPipeline();
     VkShaderModule CreateShaderModule(std::vector<char> const & code) const;
+    void CreateRenderPass();
+    void CreateFramebuffers();
 
     GLFWwindow *window;
 
@@ -59,7 +61,10 @@ private:
     VkExtent2D swapchainExtent;
     std::vector<VkImage> swapchainImages;
     std::vector<VkImageView> swapchainImageViews;
+    std::vector<VkFramebuffer> swapchainFramebuffers;
+    VkRenderPass renderPass;
     VkPipelineLayout pipelineLayout;
+    VkPipeline graphicsPipeline;
     
     const std::vector<const char*> requiredValidationLayers = {
         "VK_LAYER_KHRONOS_validation"
