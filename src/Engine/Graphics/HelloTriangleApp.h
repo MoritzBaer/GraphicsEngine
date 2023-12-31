@@ -54,8 +54,9 @@ private:
     void CreateFramebuffers();
     void CreateCommandPool();
     void CreateCommandBuffer();
-    void RecordCommandBuffer(VkCommandBuffer const & commandBuffer, uint32_t imageIndex);
+    void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
     void Draw();
+    void CreateSyncObjects();
 
     GLFWwindow *window;
 
@@ -80,6 +81,9 @@ private:
     VkPipeline graphicsPipeline;
     VkCommandPool commandPool;
     VkCommandBuffer commandBuffer;
+    VkSemaphore imageAvailableSemaphore;
+    VkSemaphore renderFinishedSemaphore;
+    VkFence inFlightFence;
     
     const std::vector<const char*> requiredValidationLayers = {
         "VK_LAYER_KHRONOS_validation"
