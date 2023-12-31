@@ -88,7 +88,120 @@ void HelloTriangleApp::CreateFramebuffers()
 
         if (vkCreateFramebuffer(graphicsHandler, &framebufferInfo, nullptr, &swapchainFramebuffers[i]) != VK_SUCCESS) { throw std::runtime_error("failed to create framebuffer!"); }
     }
-}   
+}
+
+void HelloTriangleApp::CreateCommandPool()
+{
+    QueueFamilyIndices queueFamilyIndices = FindQueueFamilies(physicalGPU);
+
+    VkCommandPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+
+    if(vkCreateCommandPool(graphicsHandler, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) { throw std::runtime_error("Failed to create command buffer!"); }
+}
+
+void HelloTriangleApp::CreateCommandBuffer()
+{
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = commandPool;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = 1;
+
+    if (vkAllocateCommandBuffers(graphicsHandler, &allocInfo, &commandBuffer) != VK_SUCCESS) { throw std::runtime_error("failed to allocate command buffers!"); }
+}
+
+void HelloTriangleApp::RecordCommandBuffer(VkCommandBuffer const & commandBuffer, uint32_t imageIndex)
+{
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) { throw std::runtime_error("failed to begin recording command buffer!"); }
+
+    VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
+    VkRenderPassBeginInfo renderPassInfo{};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassInfo.renderPass = renderPass;
+    renderPassInfo.framebuffer = swapchainFramebuffers[imageIndex];
+    renderPassInfo.renderArea.offset = { 0, 0 };
+    renderPassInfo.renderArea.extent = swapchainExtent;
+    renderPassInfo.clearValueCount = 1;
+    renderPassInfo.pClearValues = &clearColor;
+
+    // Vulkan does EVERYTHING with structs, why tf is there a state machine here??!!
+    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);      
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = static_cast<float>(swapchainExtent.width);
+    viewport.height = static_cast<float>(swapchainExtent.height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+    
+
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = swapchainExtent;
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+    vkCmdDraw(commandBuffer, 3, 1, 0, 0);                   // Finally!!!
+    vkCmdEndRenderPass(commandBuffer);
+
+    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) { throw std::runtime_error("failed to record command buffer!"); }
+}
+
+VKAPI_ATTR VkBool32 VKAPI_CALL HelloTriangleApp::debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData)
+{
+    std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+
+    return VK_FALSE;
+}
+
+std::vector<const char *> HelloTriangleApp::GetRequiredExtensions() {
+    uint32_t glfwExtensionCount = 0;
+    const char** glfwExtensions;
+    glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+
+    std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+
+    if (enableValidationLayers) {
+        extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    }
+
+    return extensions;
+}
+
+VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
+    auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+    if (func != nullptr) {
+        return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+    } else {
+        return VK_ERROR_EXTENSION_NOT_PRESENT;
+    }
+}
+
+void HelloTriangleApp::SetupDebugMessenger()
+{
+    if(!enableValidationLayers) { return; }
+
+    VkDebugUtilsMessengerCreateInfoEXT createInfo;
+    PopulateDebugMessengerCreateInfo(createInfo);
+
+    if (CreateDebugUtilsMessengerEXT(vulkanInstance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) { throw std::runtime_error("failed to set up debug messenger!"); }
+}
+
+void HelloTriangleApp::PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo) {
+    createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+    createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+    createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+    createInfo.pfnUserCallback = debugCallback;
+}
 
 VkSurfaceFormatKHR HelloTriangleApp::ChooseSwapchainFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats) const {
     auto it = std::find_if(availableFormats.begin(), availableFormats.end(), [](VkSurfaceFormatKHR const &format) { return 
@@ -335,6 +448,7 @@ void HelloTriangleApp::InitWindow()
 void HelloTriangleApp::InitVulkan()
 {
     CreateVKInstance();
+    SetupDebugMessenger();
     CreateSurface();
     PickPhysicalDevice();
     CreateLogicalDevice();
@@ -343,12 +457,21 @@ void HelloTriangleApp::InitVulkan()
     CreateRenderPass();
     CreateGraphicsPipeline();
     CreateFramebuffers();
+    CreateCommandPool();
+    CreateCommandBuffer();
 }
 
 void HelloTriangleApp::MainLoop()
 {
     while(!glfwWindowShouldClose(window)) {
         glfwPollEvents();
+    }
+}
+
+void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
+    auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+    if (func != nullptr) {
+        func(instance, debugMessenger, pAllocator);
     }
 }
 
@@ -365,6 +488,7 @@ void HelloTriangleApp::Cleanup()
     vkDestroySwapchainKHR(graphicsHandler, swapchain, nullptr);
     vkDestroyDevice(graphicsHandler, nullptr);
     vkDestroySurfaceKHR(vulkanInstance, surface, nullptr);
+    if(enableValidationLayers) { DestroyDebugUtilsMessengerEXT(vulkanInstance, debugMessenger, nullptr); }
     vkDestroyInstance(vulkanInstance, nullptr);
 }
     
@@ -544,16 +668,21 @@ void HelloTriangleApp::CreateVKInstance()
     VkInstanceCreateInfo instanceCreateInfo{};
     instanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     instanceCreateInfo.pApplicationInfo = &appInfo;
+
+    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
     if(enableValidationLayers) {
         instanceCreateInfo.enabledLayerCount = static_cast<uint32_t>(requiredValidationLayers.size());
         instanceCreateInfo.ppEnabledLayerNames = requiredValidationLayers.data();
+
+        PopulateDebugMessengerCreateInfo(debugCreateInfo);
+        instanceCreateInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*) &debugCreateInfo;
+
     } else { instanceCreateInfo.enabledLayerCount = 0; }
 
-    uint32_t glfwExtensionCount = 0;
-    const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+    auto extensions = GetRequiredExtensions();
 
-    instanceCreateInfo.enabledExtensionCount = glfwExtensionCount;
-    instanceCreateInfo.ppEnabledExtensionNames = glfwExtensions;
+    instanceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+    instanceCreateInfo.ppEnabledExtensionNames = extensions.data();
     instanceCreateInfo.enabledLayerCount = 0;
 
     VkResult result = vkCreateInstance(&instanceCreateInfo, nullptr, &vulkanInstance);
@@ -566,10 +695,6 @@ void HelloTriangleApp::CreateVKInstance()
     vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
     std::vector<VkExtensionProperties> extensionProperties(extensionCount);
     vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensionProperties.data());
-
-    std::cout << "available extensions:\n";
-
-    for (const auto& extension : extensionProperties) { std::cout << '\t' << extension.extensionName << '\n'; }
 }
 
 void HelloTriangleApp::Run()

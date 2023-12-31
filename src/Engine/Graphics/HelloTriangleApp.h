@@ -28,6 +28,14 @@ private:
 
     void CreateVKInstance();
     bool CheckValidationLayerSupport();
+    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+        VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+        VkDebugUtilsMessageTypeFlagsEXT messageType,
+        const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+        void* pUserData);
+    std::vector<const char*> GetRequiredExtensions();
+    void SetupDebugMessenger();
+    void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
     QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice const &device) const;
     uint32_t PhysicalDeviceScore(VkPhysicalDevice const &device) const;
     void PickPhysicalDevice();
@@ -44,6 +52,10 @@ private:
     VkShaderModule CreateShaderModule(std::vector<char> const & code) const;
     void CreateRenderPass();
     void CreateFramebuffers();
+    void CreateCommandPool();
+    void CreateCommandBuffer();
+    void RecordCommandBuffer(VkCommandBuffer const & commandBuffer, uint32_t imageIndex);
+    void Draw();
 
     GLFWwindow *window;
 
@@ -51,6 +63,7 @@ private:
     const uint16_t WINDOW_HEIGHT = 900;
 
     VkInstance vulkanInstance;
+    VkDebugUtilsMessengerEXT debugMessenger;
     VkPhysicalDevice physicalGPU = VK_NULL_HANDLE;
     VkDevice graphicsHandler;
     VkQueue graphicsQueue;
@@ -65,6 +78,8 @@ private:
     VkRenderPass renderPass;
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
+    VkCommandPool commandPool;
+    VkCommandBuffer commandBuffer;
     
     const std::vector<const char*> requiredValidationLayers = {
         "VK_LAYER_KHRONOS_validation"
