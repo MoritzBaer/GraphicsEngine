@@ -112,15 +112,17 @@ void HelloTriangleApp::CreateCommandPool()
     if(vkCreateCommandPool(graphicsHandler, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) { throw std::runtime_error("Failed to create command buffer!"); }
 }
 
-void HelloTriangleApp::CreateCommandBuffer()
+void HelloTriangleApp::CreateCommandBuffers()
 {
+    commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.commandPool = commandPool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = 1;
+    allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
 
-    if (vkAllocateCommandBuffers(graphicsHandler, &allocInfo, &commandBuffer) != VK_SUCCESS) { throw std::runtime_error("failed to allocate command buffers!"); }
+    if (vkAllocateCommandBuffers(graphicsHandler, &allocInfo, commandBuffers.data()) != VK_SUCCESS) { throw std::runtime_error("failed to allocate command buffers!"); }
 }
 
 void HelloTriangleApp::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
@@ -167,28 +169,28 @@ void HelloTriangleApp::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32
 
 void HelloTriangleApp::Draw()
 {
-    vkWaitForFences(graphicsHandler, 1, &inFlightFence, VK_TRUE, UINT64_MAX);
-    vkResetFences(graphicsHandler, 1, &inFlightFence);
+    vkWaitForFences(graphicsHandler, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+    vkResetFences(graphicsHandler, 1, &inFlightFences[currentFrame]);
 
     uint32_t imageIndex;
-    vkAcquireNextImageKHR(graphicsHandler, swapchain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
-    vkResetCommandBuffer(commandBuffer, 0);
-    RecordCommandBuffer(commandBuffer, imageIndex);
+    vkAcquireNextImageKHR(graphicsHandler, swapchain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+    vkResetCommandBuffer(commandBuffers[currentFrame], 0);
+    RecordCommandBuffer(commandBuffers[currentFrame], imageIndex);
     
-    VkSemaphore waitSemaphores[] = { imageAvailableSemaphore };
+    VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
     VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-    VkSemaphore signalSemaphores[] = { renderFinishedSemaphore };
+    VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = waitSemaphores;
     submitInfo.pWaitDstStageMask = waitStages;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
+    submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;  
 
-    if(vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFence) != VK_SUCCESS) { throw std::runtime_error("Failed to submit command buffer for draw command!"); }
+    if(vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS) { throw std::runtime_error("Failed to submit command buffer for draw command!"); }
     
     VkSwapchainKHR swapchains[] = { swapchain };
     VkPresentInfoKHR presentInfo{};
@@ -200,20 +202,28 @@ void HelloTriangleApp::Draw()
     presentInfo.pImageIndices = &imageIndex;
 
     vkQueuePresentKHR(presentationQueue, &presentInfo);
+
+    (++currentFrame) %= MAX_FRAMES_IN_FLIGHT;
 }
 
 void HelloTriangleApp::CreateSyncObjects()
 {
+    imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+    renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+    inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+
     VkSemaphoreCreateInfo semaphoreInfo{};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     VkFenceCreateInfo fenceInfo{};
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-    if( vkCreateSemaphore(graphicsHandler, &semaphoreInfo, nullptr, &imageAvailableSemaphore) != VK_SUCCESS
-    ||  vkCreateSemaphore(graphicsHandler, &semaphoreInfo, nullptr, &renderFinishedSemaphore) != VK_SUCCESS
-    ||  vkCreateFence(graphicsHandler, &fenceInfo, nullptr, &inFlightFence) != VK_SUCCESS)
-    { throw std::runtime_error("Failed to create synchronization objects!"); }
+    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        if( vkCreateSemaphore(graphicsHandler, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS
+        ||  vkCreateSemaphore(graphicsHandler, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS
+        ||  vkCreateFence(graphicsHandler, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS)
+        { throw std::runtime_error("Failed to create synchronization objects for frame " + i + '!'); }
+    }
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL HelloTriangleApp::debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData)
@@ -519,7 +529,7 @@ void HelloTriangleApp::InitVulkan()
     CreateGraphicsPipeline();
     CreateFramebuffers();
     CreateCommandPool();
-    CreateCommandBuffer();
+    CreateCommandBuffers();
     CreateSyncObjects();
 }
 
@@ -545,9 +555,9 @@ void HelloTriangleApp::Cleanup()
     glfwDestroyWindow(window);
     glfwTerminate();
 
-    vkDestroySemaphore(graphicsHandler, imageAvailableSemaphore, nullptr);
-    vkDestroySemaphore(graphicsHandler, renderFinishedSemaphore, nullptr);
-    vkDestroyFence(graphicsHandler, inFlightFence, nullptr);
+    for(auto sem : imageAvailableSemaphores) { vkDestroySemaphore(graphicsHandler, sem, nullptr); }
+    for(auto sem : renderFinishedSemaphores) { vkDestroySemaphore(graphicsHandler, sem, nullptr); }
+    for(auto fence : inFlightFences) { vkDestroyFence(graphicsHandler, fence, nullptr); }
     for(auto framebuffer : swapchainFramebuffers) { vkDestroyFramebuffer(graphicsHandler, framebuffer, nullptr); }
     vkDestroyPipeline(graphicsHandler, graphicsPipeline, nullptr);
     vkDestroyPipelineLayout(graphicsHandler, pipelineLayout, nullptr);
