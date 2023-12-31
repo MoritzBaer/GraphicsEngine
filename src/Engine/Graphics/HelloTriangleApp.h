@@ -59,6 +59,8 @@ private:
     void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
     void Draw();
     void CreateSyncObjects();
+    void CleanupSwapchain();
+    void RecreateSwapchain();
 
     GLFWwindow *window;
 
@@ -88,6 +90,7 @@ private:
     std::vector<VkFence> inFlightFences;
 
     uint32_t currentFrame = 0;
+    bool framebufferResized = false;
     
     const std::vector<const char*> requiredValidationLayers = {
         "VK_LAYER_KHRONOS_validation"
@@ -96,6 +99,8 @@ private:
     const std::vector<const char*> requiredDeviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME
     };
+
+    static void FramebufferResizeCallback(GLFWwindow* window, int w, int h);
 
 #ifdef NDEBUG
     const bool enableValidationLayers = false;
