@@ -10,6 +10,8 @@
 
 #include "../Maths/Matrix.h"
 
+#define TRY_VULKAN_CALL(CALL, ERROR_TEXT) if(CALL != VK_SUCCESS) { throw std::runtime_error(ERROR_TEXT); }
+
 using namespace Engine;
 
 struct VertexData
@@ -19,6 +21,12 @@ struct VertexData
 
     static VkVertexInputBindingDescription BindingDescription();
     static std::array<VkVertexInputAttributeDescription, 2> AttributeDescription();
+};
+
+const std::vector<VertexData> vertices = {
+    {{ 0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{ 0.5f,  0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{-0.5f,  0.5f}, {0.0f, 0.0f, 1.0f}},
 };
 
 
@@ -115,6 +123,34 @@ void HelloTriangleApp::CreateFramebuffers()
     }
 }
 
+void HelloTriangleApp::CreateVertexBuffer()
+{
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = sizeof(vertices[0]) * static_cast<uint32_t>(vertices.size());
+    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    TRY_VULKAN_CALL(vkCreateBuffer(graphicsHandler, &bufferInfo, nullptr, &vertexBuffer), "Failed to create vertex buffer!")
+
+    VkMemoryRequirements memReq{};
+    vkGetBufferMemoryRequirements(graphicsHandler, vertexBuffer, &memReq);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memReq.size;
+    allocInfo.memoryTypeIndex = FindMemoryType(memReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    TRY_VULKAN_CALL(vkAllocateMemory(graphicsHandler, &allocInfo, nullptr, &vertexBufferMemory), "Failed to allocate memory for the vertex buffer!")
+
+    vkBindBufferMemory(graphicsHandler, vertexBuffer, vertexBufferMemory, 0);
+    
+    void* data;
+    vkMapMemory(graphicsHandler, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
+    memcpy(data, vertices.data(), (size_t) bufferInfo.size);
+    vkUnmapMemory(graphicsHandler, vertexBufferMemory);
+}
+
 void HelloTriangleApp::CreateCommandPool()
 {
     QueueFamilyIndices queueFamilyIndices = FindQueueFamilies(physicalGPU);
@@ -161,6 +197,10 @@ void HelloTriangleApp::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);      
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
+    VkBuffer vertexBuffers[] = { vertexBuffer };
+    VkDeviceSize offsets[] = { 0 };
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+
     VkViewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
@@ -176,7 +216,7 @@ void HelloTriangleApp::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32
     scissor.extent = swapchainExtent;
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    vkCmdDraw(commandBuffer, 3, 1, 0, 0);                   // Finally!!!
+    vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);                   // Finally!!!
     vkCmdEndRenderPass(commandBuffer);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) { throw std::runtime_error("failed to record command buffer!"); }
@@ -271,6 +311,18 @@ void HelloTriangleApp::RecreateSwapchain()
     CreateSwapchain();
     CreateImageViews();
     CreateFramebuffers();
+}
+
+uint32_t HelloTriangleApp::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
+{
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(physicalGPU, &memProperties);
+
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) { 
+        if (typeFilter & (1 << i) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) { return i; } 
+    }
+
+    throw std::runtime_error("failed to find suitable memory type!");
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL HelloTriangleApp::debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData)
@@ -581,6 +633,7 @@ void HelloTriangleApp::InitVulkan()
     CreateGraphicsPipeline();
     CreateFramebuffers();
     CreateCommandPool();
+    CreateVertexBuffer();
     CreateCommandBuffers();
     CreateSyncObjects();
 }
@@ -605,6 +658,8 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
 void HelloTriangleApp::Cleanup()
 {
     CleanupSwapchain();
+    vkDestroyBuffer(graphicsHandler, vertexBuffer, nullptr);
+    vkFreeMemory(graphicsHandler, vertexBufferMemory, nullptr);
     for(auto sem : imageAvailableSemaphores) { vkDestroySemaphore(graphicsHandler, sem, nullptr); }
     for(auto sem : renderFinishedSemaphores) { vkDestroySemaphore(graphicsHandler, sem, nullptr); }
     for(auto fence : inFlightFences) { vkDestroyFence(graphicsHandler, fence, nullptr); }

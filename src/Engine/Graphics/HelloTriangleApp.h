@@ -54,6 +54,7 @@ private:
     VkShaderModule CreateShaderModule(std::vector<char> const & code) const;
     void CreateRenderPass();
     void CreateFramebuffers();
+    void CreateVertexBuffer();
     void CreateCommandPool();
     void CreateCommandBuffers();
     void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
@@ -61,6 +62,7 @@ private:
     void CreateSyncObjects();
     void CleanupSwapchain();
     void RecreateSwapchain();
+    uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
     GLFWwindow *window;
 
@@ -88,6 +90,8 @@ private:
     std::vector<VkSemaphore> imageAvailableSemaphores;
     std::vector<VkSemaphore> renderFinishedSemaphores;
     std::vector<VkFence> inFlightFences;
+    VkBuffer vertexBuffer;
+    VkDeviceMemory vertexBufferMemory;
 
     uint32_t currentFrame = 0;
     bool framebufferResized = false;
