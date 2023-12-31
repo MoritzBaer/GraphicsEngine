@@ -6,6 +6,21 @@
 #include <limits>
 #include <algorithm>
 #include <fstream>
+#include <array>
+
+#include "../Maths/Matrix.h"
+
+using namespace Engine;
+
+struct VertexData
+{
+    Math::Vector2 position;
+    Math::Vector3 colour;
+
+    static VkVertexInputBindingDescription BindingDescription();
+    static std::array<VkVertexInputAttributeDescription, 2> AttributeDescription();
+};
+
 
 static std::vector<char> ReadFile(const std::string& filename) {
     std::cout << "Trying to open " << filename << "\n";
@@ -248,7 +263,7 @@ void HelloTriangleApp::RecreateSwapchain()
         glfwGetFramebufferSize(window, &width, &height);
         glfwWaitEvents();
     }
-    
+
     vkDeviceWaitIdle(graphicsHandler);
 
     CleanupSwapchain();
@@ -301,7 +316,7 @@ void HelloTriangleApp::SetupDebugMessenger()
 void HelloTriangleApp::PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo) {
     createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-    createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+    createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
     createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
     createInfo.pfnUserCallback = debugCallback;
 }
@@ -411,12 +426,15 @@ void HelloTriangleApp::CreateGraphicsPipeline()
 
     VkPipelineShaderStageCreateInfo shaderStages[] = {vertexStageInfo, fragmentStageInfo};
     
+    auto bindingDescription = VertexData::BindingDescription();
+    auto attributeDescription = VertexData::AttributeDescription();
+
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount = 0;
-    vertexInputInfo.pVertexBindingDescriptions = nullptr; // Optional
-    vertexInputInfo.vertexAttributeDescriptionCount = 0;
-    vertexInputInfo.pVertexAttributeDescriptions = nullptr; // Optional
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescription.size());
+    vertexInputInfo.pVertexAttributeDescriptions = attributeDescription.data();
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
     inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -543,10 +561,11 @@ void HelloTriangleApp::InitWindow()
 {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
     window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Hello Triangle", nullptr, nullptr);
-    glfwSetFramebufferSizeCallback(window, [&framebufferResized = framebufferResized](GLFWwindow* _, int w, int h){ framebufferResized = true; })
+    glfwSetWindowUserPointer(window, this);
+    glfwSetFramebufferSizeCallback(window, FramebufferResizeCallback);
 }
 
 void HelloTriangleApp::InitVulkan()
@@ -806,8 +825,7 @@ void HelloTriangleApp::CreateVKInstance()
     vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensionProperties.data());
 }
 
-void HelloTriangleApp::FramebufferResizeCallback(GLFWwindow *window, int w, int h) 
-{ reinterpret_cast<HelloTriangleApp*>(glfwGetWindowUserPointer(window))->framebufferResized = true; }
+void HelloTriangleApp::FramebufferResizeCallback(GLFWwindow *window, int w, int h) { reinterpret_cast<HelloTriangleApp*>(glfwGetWindowUserPointer(window))->framebufferResized = true; }
 
 void HelloTriangleApp::Run()
 {
@@ -815,4 +833,29 @@ void HelloTriangleApp::Run()
     InitVulkan();
     MainLoop();
     Cleanup();
+}
+
+VkVertexInputBindingDescription VertexData::BindingDescription()
+{
+    VkVertexInputBindingDescription description{};
+    description.binding = 0;
+    description.stride = sizeof(VertexData);
+    description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    return description;
+}
+
+std::array<VkVertexInputAttributeDescription, 2> VertexData::AttributeDescription()
+{
+    std::array<VkVertexInputAttributeDescription, 2> descriptions{};
+    descriptions[0].binding = 0;
+    descriptions[0].location = 0;
+    descriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+    descriptions[0].offset = offsetof(VertexData, position);
+    descriptions[1].binding = 0;
+    descriptions[1].location = 1;
+    descriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    descriptions[1].offset = offsetof(VertexData, colour);
+
+    return descriptions;
 }

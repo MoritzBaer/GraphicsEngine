@@ -43,6 +43,7 @@
         "xstddef": "cpp",
         "xtr1common": "cpp",
         "vector": "cpp",
-        "optional": "cpp"
+        "optional": "cpp",
+        "array": "cpp"
     }
 }
