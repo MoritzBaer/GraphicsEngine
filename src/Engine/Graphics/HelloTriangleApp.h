@@ -55,6 +55,7 @@ private:
     void CreateRenderPass();
     void CreateFramebuffers();
     void CreateVertexBuffer();
+    void CreateIndexBuffer();
     void CreateCommandPool();
     void CreateCommandBuffers();
     void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
@@ -94,6 +95,8 @@ private:
     std::vector<VkFence> inFlightFences;
     VkBuffer vertexBuffer;
     VkDeviceMemory vertexBufferMemory;
+    VkBuffer indexBuffer;
+    VkDeviceMemory indexBufferMemory;
 
     uint32_t currentFrame = 0;
     bool framebufferResized = false;

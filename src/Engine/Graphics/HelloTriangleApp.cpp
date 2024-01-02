@@ -24,11 +24,13 @@ struct VertexData
 };
 
 const std::vector<VertexData> vertices = {
-    {{ 0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{ 0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
     {{ 0.5f,  0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{-0.5f,  0.5f}, {0.0f, 0.0f, 1.0f}},
+    {{-0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}},
+    {{-0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}},
 };
 
+const std::vector<uint16_t> indices = { 0, 1, 2, 3, 2, 1 };
 
 static std::vector<char> ReadFile(const std::string& filename) {
     std::cout << "Trying to open " << filename << "\n";
@@ -143,6 +145,27 @@ void HelloTriangleApp::CreateVertexBuffer()
     vkFreeMemory(graphicsHandler, stagingBufferMemory, nullptr);
 }
 
+void HelloTriangleApp::CreateIndexBuffer()
+{
+    VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+    void* data;
+    vkMapMemory(graphicsHandler, stagingBufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, indices.data(), (size_t) bufferSize);
+    vkUnmapMemory(graphicsHandler, stagingBufferMemory);
+
+    CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+
+    CopyBuffer(stagingBuffer, indexBuffer, bufferSize);
+
+    vkDestroyBuffer(graphicsHandler, stagingBuffer, nullptr);
+    vkFreeMemory(graphicsHandler, stagingBufferMemory, nullptr);
+}
+
 void HelloTriangleApp::CreateCommandPool()
 {
     QueueFamilyIndices queueFamilyIndices = FindQueueFamilies(physicalGPU);
@@ -192,6 +215,7 @@ void HelloTriangleApp::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32
     VkBuffer vertexBuffers[] = { vertexBuffer };
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
     VkViewport viewport{};
     viewport.x = 0.0f;
@@ -208,7 +232,7 @@ void HelloTriangleApp::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32
     scissor.extent = swapchainExtent;
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);                   // Finally!!!
+    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);                   // Finally!!!
     vkCmdEndRenderPass(commandBuffer);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) { throw std::runtime_error("failed to record command buffer!"); }
@@ -685,6 +709,7 @@ void HelloTriangleApp::InitVulkan()
     CreateFramebuffers();
     CreateCommandPool();
     CreateVertexBuffer();
+    CreateIndexBuffer();
     CreateCommandBuffers();
     CreateSyncObjects();
 }
@@ -711,6 +736,8 @@ void HelloTriangleApp::Cleanup()
     CleanupSwapchain();
     vkDestroyBuffer(graphicsHandler, vertexBuffer, nullptr);
     vkFreeMemory(graphicsHandler, vertexBufferMemory, nullptr);
+    vkDestroyBuffer(graphicsHandler, indexBuffer, nullptr);
+    vkFreeMemory(graphicsHandler, indexBufferMemory, nullptr);
     for(auto sem : imageAvailableSemaphores) { vkDestroySemaphore(graphicsHandler, sem, nullptr); }
     for(auto sem : renderFinishedSemaphores) { vkDestroySemaphore(graphicsHandler, sem, nullptr); }
     for(auto fence : inFlightFences) { vkDestroyFence(graphicsHandler, fence, nullptr); }
