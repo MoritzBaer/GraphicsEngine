@@ -62,7 +62,9 @@ private:
     void CreateSyncObjects();
     void CleanupSwapchain();
     void RecreateSwapchain();
-    uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+    uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
+    void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperties, VkBuffer & buffer, VkDeviceMemory & memory) const;
+    void CopyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size) const;
 
     GLFWwindow *window;
 

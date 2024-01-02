@@ -124,31 +124,23 @@ void HelloTriangleApp::CreateFramebuffers()
 }
 
 void HelloTriangleApp::CreateVertexBuffer()
-{
-    VkBufferCreateInfo bufferInfo{};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = sizeof(vertices[0]) * static_cast<uint32_t>(vertices.size());
-    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+{   
+    VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
-    TRY_VULKAN_CALL(vkCreateBuffer(graphicsHandler, &bufferInfo, nullptr, &vertexBuffer), "Failed to create vertex buffer!")
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
-    VkMemoryRequirements memReq{};
-    vkGetBufferMemoryRequirements(graphicsHandler, vertexBuffer, &memReq);
-
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memReq.size;
-    allocInfo.memoryTypeIndex = FindMemoryType(memReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-    TRY_VULKAN_CALL(vkAllocateMemory(graphicsHandler, &allocInfo, nullptr, &vertexBufferMemory), "Failed to allocate memory for the vertex buffer!")
-
-    vkBindBufferMemory(graphicsHandler, vertexBuffer, vertexBufferMemory, 0);
-    
     void* data;
-    vkMapMemory(graphicsHandler, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
-    memcpy(data, vertices.data(), (size_t) bufferInfo.size);
-    vkUnmapMemory(graphicsHandler, vertexBufferMemory);
+    vkMapMemory(graphicsHandler, stagingBufferMemory, 0, bufferSize, 0, &data);
+        memcpy(data, vertices.data(), (size_t) bufferSize);
+    vkUnmapMemory(graphicsHandler, stagingBufferMemory);
+
+    CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
+    CopyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+
+    vkDestroyBuffer(graphicsHandler, stagingBuffer, nullptr);
+    vkFreeMemory(graphicsHandler, stagingBufferMemory, nullptr);
 }
 
 void HelloTriangleApp::CreateCommandPool()
@@ -313,7 +305,7 @@ void HelloTriangleApp::RecreateSwapchain()
     CreateFramebuffers();
 }
 
-uint32_t HelloTriangleApp::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
+uint32_t HelloTriangleApp::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const
 {
     VkPhysicalDeviceMemoryProperties memProperties;
     vkGetPhysicalDeviceMemoryProperties(physicalGPU, &memProperties);
@@ -323,6 +315,65 @@ uint32_t HelloTriangleApp::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyF
     }
 
     throw std::runtime_error("failed to find suitable memory type!");
+}
+
+void HelloTriangleApp::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperties, VkBuffer &buffer, VkDeviceMemory &memory) const
+{
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = size;
+    bufferInfo.usage = usage;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    TRY_VULKAN_CALL(vkCreateBuffer(graphicsHandler, &bufferInfo, nullptr, &buffer), "Failed to create vertex buffer!")
+
+    VkMemoryRequirements memReq{};
+    vkGetBufferMemoryRequirements(graphicsHandler, buffer, &memReq);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memReq.size;
+    allocInfo.memoryTypeIndex = FindMemoryType(memReq.memoryTypeBits, memoryProperties);
+
+    TRY_VULKAN_CALL(vkAllocateMemory(graphicsHandler, &allocInfo, nullptr, &memory), "Failed to allocate memory for the vertex buffer!")
+
+    vkBindBufferMemory(graphicsHandler, buffer, memory, 0);
+}
+
+void HelloTriangleApp::CopyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size) const
+{
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = commandPool;
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(graphicsHandler, &allocInfo, &commandBuffer);
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+    VkBufferCopy copyRegion{};
+    copyRegion.dstOffset = 0;
+    copyRegion.srcOffset = 0;
+    copyRegion.size = size;
+    vkCmdCopyBuffer(commandBuffer, src, dst, 1, &copyRegion);
+
+    vkEndCommandBuffer(commandBuffer);
+    
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+
+    vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(graphicsQueue);
+
+    vkFreeCommandBuffers(graphicsHandler, commandPool, 1, &commandBuffer);  
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL HelloTriangleApp::debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData)
