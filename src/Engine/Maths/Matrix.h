@@ -8,6 +8,29 @@
 namespace Engine::Math
 {
     template<uint8_t n, uint8_t m, typename T> 
+    struct MatrixT;
+
+    template<uint8_t n, uint8_t m>
+    using MatrixNM = MatrixT<n, m, float>;
+
+    template<uint8_t n>
+    using Matrix = MatrixNM<n, n>;
+
+    using Matrix2 = Matrix<2>;
+    using Matrix3 = Matrix<3>;
+    using Matrix4 = Matrix<4>;
+
+    template<uint8_t n, typename T>
+    using VectorT = MatrixT<n, 1, T>;
+
+    template<uint8_t n>
+    using Vector = VectorT<n, float>;
+    using Vector2 = Vector<2>;
+    using Vector3 = Vector<3>;
+    using Vector4 = Vector<4>;
+
+    // Saved in column form
+    template<uint8_t n, uint8_t m, typename T> 
     struct MatrixT
     {
         public:
@@ -38,6 +61,8 @@ namespace Engine::Math
             
             inline static MatrixT<n, n, T> Identity() requires(m == n);
 
+            static MatrixT<4, 4, T> LookAt(VectorT<3,T> const & eye, VectorT<3, T> const & target, VectorT<3, T> const & up) requires(m == 3 && n == 3);
+
             // +--------------------------------+
             // |    Vector-specific operations  |
             // +--------------------------------+
@@ -45,8 +70,9 @@ namespace Engine::Math
             inline T Length() const requires(m == 1) { return std::sqrt(SqrMagnitude()); }
             inline T &operator[](uint8_t i) requires(m == 1) { return data[i]; }
             inline T const &operator[](uint8_t i) const requires(m == 1) { return data[i]; }
-            inline MatrixT<n, 1, T> Normalized() const requires(m == 1) { return *this / this->Length(); }
-            inline MatrixT<n, 1, T> & Normalize() requires(m == 1) { return (*this /= this->Length); }
+            inline VectorT<n, T> Normalized() const requires(m == 1) { return *this / this->Length(); }
+            inline VectorT<n, T> & Normalize() requires(m == 1) { return (*this /= this->Length); }
+            inline VectorT<3, T> Cross(VectorT<3, T> const& other) const requires(m == 1 && n == 3);
 
             // "Properties" for easier access
         private:
@@ -124,25 +150,6 @@ namespace Engine::Math
             friend class MatrixT;
     };
 
-    template<uint8_t n, uint8_t m>
-    using MatrixNM = MatrixT<n, m, float>;
-
-    template<uint8_t n>
-    using Matrix = MatrixNM<n, n>;
-
-    using Matrix2 = Matrix<2>;
-    using Matrix3 = Matrix<3>;
-    using Matrix4 = Matrix<4>;
-
-    template<uint8_t n, typename T>
-    using VectorT = MatrixT<n, 1, T>;
-
-    template<uint8_t n>
-    using Vector = VectorT<n, float>;
-    using Vector2 = Vector<2>;
-    using Vector3 = Vector<3>;
-    using Vector4 = Vector<4>;
-
     // +------------------------+
     // |    IMPLEMENTATIONS     |
     // +------------------------+
@@ -202,6 +209,31 @@ namespace Engine::Math
         T values[n * n] = { 0 };
         for(int i = 0; i < n; i++) { values[i * n + i] = 1; }
         return MatrixT<n, n, T>(values);
+    }
+
+    template <uint8_t n, uint8_t m, typename T>
+    MatrixT<4, 4, T> MatrixT<n, m, T>::LookAt(VectorT<3, T> const & eye, VectorT<3, T> const & target, VectorT<3, T> const & up) requires(m == 3 && n == 3)
+    {
+        const VectorT<3, T> f = (target - eye).Normalized();
+        const VectorT<3, T> r = forward.Cross(up).Normalized();
+        const VectorT<3, T> u = right.Cross(forward).Normalized();
+
+        return MatrixT<3, 3, T>(
+            f[0], f[1], f[2], 0,
+            u[0], f[1], f[2], 0,
+            r[0], r[1], r[2], 0,
+            eye[0], eye[1], eye[2]
+        );
+    }
+
+    template <uint8_t n, uint8_t m, typename T>
+    inline VectorT<3, T> MatrixT<n, m, T>::Cross(VectorT<3, T> const &other) const requires(m == 1 && n == 3)
+    {
+        return VectorT<3, T>(
+            data[1] * other[2] - data[2] * other[1],
+            data[2] * other[0] - data[0] * other[2],
+            data[0] * other[1] - data[1] * other[0]
+        );
     }
 
     template <uint8_t n, uint8_t m, typename T>
