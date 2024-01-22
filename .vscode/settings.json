@@ -44,6 +44,11 @@
         "xtr1common": "cpp",
         "vector": "cpp",
         "optional": "cpp",
-        "array": "cpp"
+        "array": "cpp",
+        "algorithm": "cpp",
+        "fstream": "cpp",
+        "set": "cpp",
+        "string": "cpp",
+        "xtree": "cpp"
     }
 }

@@ -3,6 +3,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include "glfw3.h"
 #include "vulkan/vulkan.h"
+#include "shaderc/shaderc.hpp"
 #include <vector>
 #include <optional>
 
@@ -23,6 +24,7 @@ private:
 
     const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 
+    void InitShaderc();
     void InitWindow();
     void InitVulkan();
     void MainLoop();
@@ -52,6 +54,8 @@ private:
     void CreateImageViews();
     void CreateGraphicsPipeline();
     VkShaderModule CreateShaderModule(std::vector<char> const & code) const;
+    VkShaderModule CreateShaderModule(std::vector<uint32_t> const & code) const;
+    std::vector<uint32_t> CompileToBytecode(std::string const & source, shaderc_shader_kind type) const;
     void CreateRenderPass();
     void CreateFramebuffers();
     void CreateVertexBuffer();
@@ -71,6 +75,19 @@ private:
 
     const uint16_t WINDOW_WIDTH = 1600;
     const uint16_t WINDOW_HEIGHT = 900;
+
+    class ShaderFileIncluder : public shaderc::CompileOptions::IncluderInterface {
+        // Handles shaderc_include_resolver_fn callbacks.
+        shaderc_include_result* GetInclude(const char* requested_source,
+                                               shaderc_include_type type,
+                                               const char* requesting_source,
+                                               size_t include_depth);
+
+        // Handles shaderc_include_result_release_fn callbacks.
+        void ReleaseInclude(shaderc_include_result* data);
+    } shaderIncludeResolver;
+    shaderc::CompileOptions shaderCompileOptions;
+    shaderc::Compiler shaderCompiler;
 
     VkInstance vulkanInstance;
     VkDebugUtilsMessengerEXT debugMessenger;

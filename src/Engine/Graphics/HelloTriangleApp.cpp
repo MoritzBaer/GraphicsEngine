@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <fstream>
 #include <array>
-
 #include "../Maths/Matrix.h"
 
 #define TRY_VULKAN_CALL(CALL, ERROR_TEXT) if(CALL != VK_SUCCESS) { throw std::runtime_error(ERROR_TEXT); }
@@ -60,6 +59,33 @@ VkShaderModule HelloTriangleApp::CreateShaderModule(std::vector<char> const & co
     if (vkCreateShaderModule(graphicsHandler, &shaderInfo, nullptr, &shaderModule) != VK_SUCCESS) { throw std::runtime_error("failed to create shader module!"); }
 
     return shaderModule;
+}
+
+VkShaderModule HelloTriangleApp::CreateShaderModule(std::vector<uint32_t> const & code) const {
+    VkShaderModuleCreateInfo shaderInfo{};
+    shaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    shaderInfo.codeSize = code.size() * sizeof(uint32_t);
+    shaderInfo.pCode = code.data();
+    
+    VkShaderModule shaderModule;
+    if (vkCreateShaderModule(graphicsHandler, &shaderInfo, nullptr, &shaderModule) != VK_SUCCESS) { throw std::runtime_error("failed to create shader module!"); }
+
+    return shaderModule;
+}
+
+std::vector<uint32_t> HelloTriangleApp::CompileToBytecode(std::string const &source, shaderc_shader_kind type) const
+{
+
+    auto glslCode = ReadFile("../../shaders/" + source);
+
+    auto compilationResult = shaderCompiler.CompileGlslToSpv(glslCode.data(), glslCode.size(), type, source.c_str(), shaderCompileOptions);
+
+    if(compilationResult.GetCompilationStatus() != shaderc_compilation_status::shaderc_compilation_status_success) { 
+        std::cout << "Shader compilation error: " << compilationResult.GetErrorMessage(); 
+        return std::vector<uint32_t>();
+    }
+
+    return { compilationResult.cbegin(), compilationResult.cend() };
 }
 
 void HelloTriangleApp::CreateRenderPass()
@@ -533,11 +559,13 @@ void HelloTriangleApp::CreateImageViews()
 
 void HelloTriangleApp::CreateGraphicsPipeline()
 {
-    auto vertexShaderCode = ReadFile("../../shaders/compiled/vulkan-tutorial/vert.spv");
-    auto fragmentShaderCode = ReadFile("../../shaders/compiled/vulkan-tutorial/frag.spv");
+    auto vertexByteCode = CompileToBytecode("vulkan-tutorial/triangle.vert", shaderc_shader_kind::shaderc_vertex_shader);
+    if(vertexByteCode.empty()) { throw std::runtime_error("Vertex shader compilation failed."); }
+    auto fragmentByteCode = CompileToBytecode("vulkan-tutorial/triangle.frag", shaderc_shader_kind::shaderc_fragment_shader);
+    if(fragmentByteCode.empty()) { throw std::runtime_error("Fragment shader compilation failed."); }
 
-    auto vertexShader = CreateShaderModule(vertexShaderCode);
-    auto fragmentShader = CreateShaderModule(fragmentShaderCode);
+    auto vertexShader = CreateShaderModule(vertexByteCode);
+    auto fragmentShader = CreateShaderModule(fragmentByteCode);
 
     VkPipelineShaderStageCreateInfo vertexStageInfo{};
     vertexStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -682,6 +710,11 @@ VkExtent2D HelloTriangleApp::ChooseSwapExtent(VkSurfaceCapabilitiesKHR const & c
 
         return actualExtent;
     }
+}
+
+void HelloTriangleApp::InitShaderc()
+{
+    //shaderCompileOptions.SetIncluder(std::unique_ptr<shaderc::CompileOptions::IncluderInterface>(&shaderIncludeResolver));
 }
 
 void HelloTriangleApp::InitWindow()
@@ -962,6 +995,7 @@ void HelloTriangleApp::FramebufferResizeCallback(GLFWwindow *window, int w, int 
 
 void HelloTriangleApp::Run()
 {
+    InitShaderc();
     InitWindow();
     InitVulkan();
     MainLoop();
@@ -991,4 +1025,25 @@ std::array<VkVertexInputAttributeDescription, 2> VertexData::AttributeDescriptio
     descriptions[1].offset = offsetof(VertexData, colour);
 
     return descriptions;
+}
+
+shaderc_include_result *HelloTriangleApp::ShaderFileIncluder::GetInclude(
+    const char *requested_source, 
+    shaderc_include_type type, 
+    const char *requesting_source, 
+    size_t include_depth)
+{
+    auto shaderContent = ReadFile("../../shaders/" + std::string(requested_source));
+    shaderc_include_result * result = new shaderc_include_result();
+    result->content = shaderContent.data();
+    result->content_length = shaderContent.size();
+    result->source_name = requested_source;
+    result->source_name_length = strlen(requested_source);
+    result->user_data = this;
+    return result;
+}
+
+void HelloTriangleApp::ShaderFileIncluder::ReleaseInclude(shaderc_include_result *data)
+{
+    delete data;
 }

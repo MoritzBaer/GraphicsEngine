@@ -215,8 +215,8 @@ namespace Engine::Math
     MatrixT<4, 4, T> MatrixT<n, m, T>::LookAt(VectorT<3, T> const & eye, VectorT<3, T> const & target, VectorT<3, T> const & up) requires(m == 3 && n == 3)
     {
         const VectorT<3, T> f = (target - eye).Normalized();
-        const VectorT<3, T> r = forward.Cross(up).Normalized();
-        const VectorT<3, T> u = right.Cross(forward).Normalized();
+        const VectorT<3, T> r = f.Cross(up).Normalized();
+        const VectorT<3, T> u = r.Cross(f).Normalized();
 
         return MatrixT<3, 3, T>(
             f[0], f[1], f[2], 0,
