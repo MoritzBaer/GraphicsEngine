@@ -3,9 +3,9 @@
 #include <stdint.h>
 #include <initializer_list>
 #include <cmath>
+#define PI 3.14159265359
 
-
-namespace Engine::Math
+namespace Engine::Maths
 {
     template<uint8_t n, uint8_t m, typename T> 
     struct MatrixT;
@@ -60,13 +60,21 @@ namespace Engine::Math
             MatrixT<n, n, T>& Invert() requires(m == n);
             
             inline static MatrixT<n, n, T> Identity() requires(m == n);
+            inline static MatrixT<n, m, T> Zero();
 
-            static MatrixT<4, 4, T> LookAt(VectorT<3,T> const & eye, VectorT<3, T> const & target, VectorT<3, T> const & up) requires(m == 3 && n == 3);
+            // Transform matrices
+            // TODO: Probably refactor
+            static MatrixT<4, 4, T> LookAt(VectorT<3,T> const & eye, VectorT<3, T> const & target, VectorT<3, T> const & up) requires(m == 4 && n == 4);
+            static MatrixT<3, 3, T> RodriguesRotation(VectorT<3, T> const & axis, T theta) requires(m == 3 && n == 3);
+            static MatrixT<4, 4, T> Rotate(VectorT<3, T> const & axis, T theta) requires (m == 4 && n == 4);    // Rotate around origin
+            static MatrixT<4, 4, T> Rotate(VectorT<3, T> const & axis, VectorT<3, T> const & center, T theta) requires (m == 4 && n == 4);    // Rotate around center
+            static MatrixT<4, 4, T> Perspective(T near, T far, T fov, T aspectRatio) requires(m == 4 && n == 4);
 
             // +--------------------------------+
             // |    Vector-specific operations  |
             // +--------------------------------+
-            inline T SqrMagnitude() const requires(m == 1) { return (Transposed() * *this)[0]; }
+            inline T operator*(VectorT<n, T> const& other) const requires(m == 1) { return (other.Transposed() * *this)[0]; }
+            inline T SqrMagnitude() const requires(m == 1) { return *this * *this; }
             inline T Length() const requires(m == 1) { return std::sqrt(SqrMagnitude()); }
             inline T &operator[](uint8_t i) requires(m == 1) { return data[i]; }
             inline T const &operator[](uint8_t i) const requires(m == 1) { return data[i]; }
@@ -76,6 +84,15 @@ namespace Engine::Math
 
             // "Properties" for easier access
         private:
+            class Column {
+                    MatrixT<n, m, T> &parent;
+                    uint8_t column;
+                public:
+                    Column(MatrixT<n, m, T> &mat, uint8_t col) : parent(mat), column(col) { }
+                    inline VectorT<m, T> operator= (VectorT<m, T> const & values) { for (uint8_t j = 0; j < m; j++) { parent.data[column * m + j] = values[j]; } }
+                    inline T & operator[](uint8_t j) { return parent.data[column * m + j]; }
+            };
+
             class Entry {
                     MatrixT<n, 1, T> &parent;
                     uint8_t index;
@@ -127,16 +144,18 @@ namespace Engine::Math
             };
 
         public:
-            Entry X() { return Entry(*this, 0); }
-            Entry Y() requires(n >= 2) { return Entry(*this, 1); }
-            Entry Z() requires(n >= 3) { return Entry(*this, 2); }
-            Entry W() requires(n >= 4) { return Entry(*this, 3); }
+            inline Column operator[](uint8_t i) { return Column(*this, i); };
+            
+            Entry X() requires(m == 1) { return Entry(*this, 0); }
+            Entry Y() requires(m == 1 && n >= 2) { return Entry(*this, 1); }
+            Entry Z() requires(m == 1 && n >= 3) { return Entry(*this, 2); }
+            Entry W() requires(m == 1 && n >= 4) { return Entry(*this, 3); }
 
-            EntryPair XY() requires(n >= 2) { return EntryPair(*this, 0, 1); }
-            EntryPair XZ() requires(n >= 3) { return EntryPair(*this, 0, 2); }
-            EntryPair YZ() requires(n >= 3) { return EntryPair(*this, 1, 2); }
+            EntryPair XY() requires(m == 1 && n >= 2) { return EntryPair(*this, 0, 1); }
+            EntryPair XZ() requires(m == 1 && n >= 3) { return EntryPair(*this, 0, 2); }
+            EntryPair YZ() requires(m == 1 && n >= 3) { return EntryPair(*this, 1, 2); }
 
-            EntryTriplet XYZ() requires(n >= 3) { return EntryTriplet(*this, 0, 1, 2); }
+            EntryTriplet XYZ() requires(m == 1 && n >= 3) { return EntryTriplet(*this, 0, 1, 2); }
 
         private:
             // Adds factor * row1 to row2
@@ -212,28 +231,84 @@ namespace Engine::Math
     }
 
     template <uint8_t n, uint8_t m, typename T>
-    MatrixT<4, 4, T> MatrixT<n, m, T>::LookAt(VectorT<3, T> const & eye, VectorT<3, T> const & target, VectorT<3, T> const & up) requires(m == 3 && n == 3)
+    inline MatrixT<n, m, T> MatrixT<n, m, T>::Zero()
+    {
+        return {};
+    }
+
+    template <uint8_t n, uint8_t m, typename T>
+    MatrixT<4, 4, T> MatrixT<n, m, T>::LookAt(VectorT<3, T> const & eye, VectorT<3, T> const & target, VectorT<3, T> const & up) requires(m == 4 && n == 4)
     {
         const VectorT<3, T> f = (target - eye).Normalized();
-        const VectorT<3, T> r = forward.Cross(up).Normalized();
-        const VectorT<3, T> u = right.Cross(forward).Normalized();
+        const VectorT<3, T> r = f.Cross(up).Normalized();
+        const VectorT<3, T> u = r.Cross(f).Normalized();
 
-        return MatrixT<3, 3, T>(
-            f[0], f[1], f[2], 0,
-            u[0], f[1], f[2], 0,
-            r[0], r[1], r[2], 0,
-            eye[0], eye[1], eye[2]
-        );
+        return MatrixT<4, 4, T>{
+                  r[0],       u[0],   -f[0], 0,
+                  r[1],       u[1],   -f[1], 0,
+                  r[2],       u[2],   -f[2], 0,
+            -(r * eye), -(u * eye), f * eye, 1
+        };
+    }
+
+    template <uint8_t n, uint8_t m, typename T>
+    inline MatrixT<3, 3, T> MatrixT<n, m, T>::RodriguesRotation(VectorT<3, T> const &axis, T theta) requires(m == 3 && n == 3)
+    {
+        T sinTheta = sin(theta);
+        T cosTheta = cos(theta);
+        auto a = axis.Normalized();
+        return MatrixT<3, 3, T>{
+            cosTheta + a[0] * a[0] * (1 - cosTheta), -a[2] * sinTheta + a[1] * a[0] * (1 - cosTheta), a[1] * sinTheta + a[2] * a[0] * (1 - cosTheta),
+            a[2] * sinTheta + a[0] * a[1] * (1 - cosTheta), cosTheta + a[1] * a[1] * (1 - cosTheta), -a[0] * sinTheta + a[2] * a[1] * (1 - cosTheta), 
+            -a[2] * sinTheta + a[0] * a[2] * (1 - cosTheta), a[0] * sinTheta + a[1] * a[2] * (1 - cosTheta), cosTheta + a[2] * a[2] * (1 - cosTheta)
+        };
+    }
+
+    template <uint8_t n, uint8_t m, typename T>
+    inline MatrixT<4, 4, T> MatrixT<n, m, T>::Rotate(VectorT<3, T> const &axis, T theta) requires(m == 4 && n == 4)
+    {
+        auto R = MatrixT<3, 3, T>::RodriguesRotation(axis, theta);
+        return MatrixT<4, 4, T>{
+            R[0][0], R[0][1], R[0][2], 0,
+            R[1][0], R[1][1], R[1][2], 0,
+            R[2][0], R[2][1], R[2][2], 0,
+            0      , 0      , 0      , 1
+        };
+    }
+
+    template <uint8_t n, uint8_t m, typename T>
+    inline MatrixT<4, 4, T> MatrixT<n, m, T>::Rotate(VectorT<3, T> const &axis, VectorT<3, T> const &center, T theta) requires(m == 4 && n == 4)
+    {
+        auto R = MatrixT<3, 3, T>::RodriguesRotation(axis, theta);
+        auto Rp = center - R * center;
+        return MatrixT<4, 4, T>{
+            R[0][0], R[0][1], R[0][2], 0,
+            R[1][0], R[1][1], R[1][2], 0,
+            R[2][0], R[2][1], R[2][2], 0,
+            Rp[0]  , Rp[1]  , Rp[2]  , 1
+        };
+    }
+
+    template <uint8_t n, uint8_t m, typename T>
+    inline MatrixT<4, 4, T> MatrixT<n, m, T>::Perspective(T near, T far, T fov, T aspectRatio) requires(m == 4 && n == 4)
+    {
+        T s = T(1) / tan(PI * fov / T(360));
+        return MatrixT<4, 4, T>{
+            s / aspectRatio, 0, 0, 0,
+            0, -s, 0, 0,
+            0, 0, - (far + near) / (far - near), -1,
+            0, 0, - 2 * far * near / (far - near), 0
+        };
     }
 
     template <uint8_t n, uint8_t m, typename T>
     inline VectorT<3, T> MatrixT<n, m, T>::Cross(VectorT<3, T> const &other) const requires(m == 1 && n == 3)
     {
-        return VectorT<3, T>(
+        return VectorT<3, T>{
             data[1] * other[2] - data[2] * other[1],
             data[2] * other[0] - data[0] * other[2],
             data[0] * other[1] - data[1] * other[0]
-        );
+        };
     }
 
     template <uint8_t n, uint8_t m, typename T>
