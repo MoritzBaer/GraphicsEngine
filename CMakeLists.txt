@@ -15,6 +15,8 @@ add_executable(MAIN "src/main.cpp" ${HeaderFiles} ${SourceFiles})
 
 target_compile_options(MAIN PRIVATE "/MD$<$<CONFIG:Debug>:d>")
 
+target_include_directories(MAIN PRIVATE ${CMAKE_SOURCE_DIR}/dependencies/GLM)
+
 target_link_libraries(MAIN "${CMAKE_SOURCE_DIR}/dependencies/glfw-3.3.9.bin.WIN64/lib-vc2022/glfw3_mt.lib")
 target_link_libraries(MAIN Vulkan::Vulkan)
 target_link_libraries(MAIN Vulkan::shaderc_combined)

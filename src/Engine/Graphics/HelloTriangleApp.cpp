@@ -7,16 +7,23 @@
 #include <algorithm>
 #include <fstream>
 #include <array>
+#include <chrono>
 #include "../Maths/Matrix.h"
 
 #define TRY_VULKAN_CALL(CALL, ERROR_TEXT) if(CALL != VK_SUCCESS) { throw std::runtime_error(ERROR_TEXT); }
 
 using namespace Engine;
 
+struct UBO {
+    Maths::Matrix4 model;
+    Maths::Matrix4 view;
+    Maths::Matrix4 projection;
+};
+
 struct VertexData
 {
-    Math::Vector2 position;
-    Math::Vector3 colour;
+    Maths::Vector2 position;
+    Maths::Vector3 colour;
 
     static VkVertexInputBindingDescription BindingDescription();
     static std::array<VkVertexInputAttributeDescription, 2> AttributeDescription();
@@ -192,6 +199,38 @@ void HelloTriangleApp::CreateIndexBuffer()
     vkFreeMemory(graphicsHandler, stagingBufferMemory, nullptr);
 }
 
+void HelloTriangleApp::CreateUniformBuffers()
+{
+    VkDeviceSize bufferSize = sizeof(UBO);
+    uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+    uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+
+    for(size_t i = 0; i < uniformBuffers.size(); i++) { 
+        CreateBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]); 
+        vkMapMemory(graphicsHandler, uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
+    }
+
+
+}
+
+void HelloTriangleApp::CreateDescriptorPool()
+{
+    VkDescriptorPoolSize poolSize {
+        .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)
+    };
+
+    VkDescriptorPoolCreateInfo poolInfo {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
+        .poolSizeCount = 1,
+        .pPoolSizes = &poolSize,
+    };
+
+    TRY_VULKAN_CALL(vkCreateDescriptorPool(graphicsHandler, &poolInfo, nullptr, &descriptorPool), "Failed to create descriptor pool")
+}
+
 void HelloTriangleApp::CreateCommandPool()
 {
     QueueFamilyIndices queueFamilyIndices = FindQueueFamilies(physicalGPU);
@@ -251,17 +290,33 @@ void HelloTriangleApp::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-    
 
     VkRect2D scissor{};
     scissor.offset = {0, 0};
     scissor.extent = swapchainExtent;
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
+
     vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);                   // Finally!!!
     vkCmdEndRenderPass(commandBuffer);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) { throw std::runtime_error("failed to record command buffer!"); }
+}
+
+void HelloTriangleApp::UpdateUniformBuffers(uint32_t imageIndex)
+{
+    static auto startTime = std::chrono::high_resolution_clock::now();
+
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+    UBO ubo{};
+    ubo.model = Maths::Matrix4::Rotate(Maths::Vector3{ 0, 0, 1 }, deltaTime * 0.05 * PI);
+    ubo.view = Maths::Matrix4::LookAt(Maths::Vector3{ 2, 2, 2 }, Maths::Vector3{ 0, 0, 0 }, Maths::Vector3{ 0, 0, 1 });
+    ubo.projection = Maths::Matrix4::Perspective(0.1f, 10.0f, 45.0f, swapchainExtent.width / float(swapchainExtent.height));
+
+    memcpy(uniformBuffersMapped[currentFrame], &ubo, sizeof(ubo));
 }
 
 void HelloTriangleApp::Draw()
@@ -281,6 +336,9 @@ void HelloTriangleApp::Draw()
     VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
     VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
     VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
+
+    UpdateUniformBuffers(imageIndex);
+
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.waitSemaphoreCount = 1;
@@ -557,6 +615,61 @@ void HelloTriangleApp::CreateImageViews()
     }
 }
 
+void HelloTriangleApp::CreateDescriptorSetLayout()
+{
+    VkDescriptorSetLayoutBinding uboLayoutBinding{
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+        .pImmutableSamplers = nullptr
+    };
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .bindingCount = 1,
+        .pBindings = &uboLayoutBinding
+    };
+
+    TRY_VULKAN_CALL(vkCreateDescriptorSetLayout(graphicsHandler, &layoutInfo, nullptr, &descriptorSetLayout), "Descriptor set layout creation failed")
+}
+
+void HelloTriangleApp::CreateDescriptorSets()
+{
+    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
+    VkDescriptorSetAllocateInfo allocInfo{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = descriptorPool,
+        .descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
+        .pSetLayouts = layouts.data()
+    };
+
+    descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    TRY_VULKAN_CALL(vkAllocateDescriptorSets(graphicsHandler, &allocInfo, descriptorSets.data()), "Failed to allocate descriptor sets")
+
+    for(size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkDescriptorBufferInfo bufferInfo {
+            .buffer = uniformBuffers[i],
+            .offset = 0,
+            .range = sizeof(UBO)
+        };
+
+        VkWriteDescriptorSet descriptorWriteInfo {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = descriptorSets[i],
+            .dstBinding = 0,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .pImageInfo = nullptr,
+            .pBufferInfo = &bufferInfo,
+            .pTexelBufferView = nullptr
+        };
+
+        vkUpdateDescriptorSets(graphicsHandler, 1, &descriptorWriteInfo, 0, nullptr);
+    }
+}
+
 void HelloTriangleApp::CreateGraphicsPipeline()
 {
     auto vertexByteCode = CompileToBytecode("vulkan-tutorial/triangle.vert", shaderc_shader_kind::shaderc_vertex_shader);
@@ -617,7 +730,7 @@ void HelloTriangleApp::CreateGraphicsPipeline()
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth = 1.0f;
-    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+    rasterizer.cullMode = VK_CULL_MODE_NONE;//TODO: Re-enable VK_CULL_MODE_BACK_BIT;
     rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
     rasterizer.depthBiasConstantFactor = 0.0f; // Optional
@@ -656,8 +769,8 @@ void HelloTriangleApp::CreateGraphicsPipeline()
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 0; // Optional
-    pipelineLayoutInfo.pSetLayouts = nullptr; // Optional
+    pipelineLayoutInfo.setLayoutCount = 1; // Optional
+    pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout; // Optional
     pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
     pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
 
@@ -738,11 +851,15 @@ void HelloTriangleApp::InitVulkan()
     CreateSwapchain();
     CreateImageViews();
     CreateRenderPass();
+    CreateDescriptorSetLayout();
     CreateGraphicsPipeline();
     CreateFramebuffers();
     CreateCommandPool();
     CreateVertexBuffer();
     CreateIndexBuffer();
+    CreateUniformBuffers();
+    CreateDescriptorPool();
+    CreateDescriptorSets();
     CreateCommandBuffers();
     CreateSyncObjects();
 }
@@ -776,6 +893,10 @@ void HelloTriangleApp::Cleanup()
     for(auto fence : inFlightFences) { vkDestroyFence(graphicsHandler, fence, nullptr); }
     vkDestroyPipeline(graphicsHandler, graphicsPipeline, nullptr);
     vkDestroyPipelineLayout(graphicsHandler, pipelineLayout, nullptr);
+    for(auto ub : uniformBuffers) { vkDestroyBuffer(graphicsHandler, ub, nullptr); }
+    for(auto ubm : uniformBuffersMemory) { vkFreeMemory(graphicsHandler, ubm, nullptr); }
+    vkDestroyDescriptorPool(graphicsHandler, descriptorPool, nullptr);
+    vkDestroyDescriptorSetLayout(graphicsHandler, descriptorSetLayout, nullptr);
     vkDestroyRenderPass(graphicsHandler, renderPass, nullptr);
     vkDestroyDevice(graphicsHandler, nullptr);
     vkDestroySurfaceKHR(vulkanInstance, surface, nullptr);

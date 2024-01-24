@@ -52,6 +52,8 @@ private:
     VkSurfaceFormatKHR ChooseSwapchainFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats) const;
     void CreateSwapchain();
     void CreateImageViews();
+    void CreateDescriptorSetLayout();
+    void CreateDescriptorSets();
     void CreateGraphicsPipeline();
     VkShaderModule CreateShaderModule(std::vector<char> const & code) const;
     VkShaderModule CreateShaderModule(std::vector<uint32_t> const & code) const;
@@ -60,9 +62,12 @@ private:
     void CreateFramebuffers();
     void CreateVertexBuffer();
     void CreateIndexBuffer();
+    void CreateUniformBuffers();
+    void CreateDescriptorPool();
     void CreateCommandPool();
     void CreateCommandBuffers();
     void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+    void UpdateUniformBuffers(uint32_t imageIndex);
     void Draw();
     void CreateSyncObjects();
     void CleanupSwapchain();
@@ -103,6 +108,7 @@ private:
     std::vector<VkImageView> swapchainImageViews;
     std::vector<VkFramebuffer> swapchainFramebuffers;
     VkRenderPass renderPass;
+    VkDescriptorSetLayout descriptorSetLayout;
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
     VkCommandPool commandPool;
@@ -114,6 +120,11 @@ private:
     VkDeviceMemory vertexBufferMemory;
     VkBuffer indexBuffer;
     VkDeviceMemory indexBufferMemory;
+    std::vector<VkBuffer> uniformBuffers;
+    std::vector<VkDeviceMemory> uniformBuffersMemory;
+    std::vector<void*> uniformBuffersMapped;
+    VkDescriptorPool descriptorPool;
+    std::vector<VkDescriptorSet> descriptorSets;
 
     uint32_t currentFrame = 0;
     bool framebufferResized = false;
