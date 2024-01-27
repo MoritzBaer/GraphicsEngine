@@ -51,6 +51,7 @@ private:
     VkPresentModeKHR ChooseSwapchainPresentMode(const std::vector<VkPresentModeKHR> & availableModes) const;
     VkSurfaceFormatKHR ChooseSwapchainFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats) const;
     void CreateSwapchain();
+    VkImageView CreateImageView(VkImage image, VkFormat format);
     void CreateImageViews();
     void CreateDescriptorSetLayout();
     void CreateDescriptorSets();
@@ -89,6 +90,8 @@ private:
     void CopyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size) const;
     void TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
     void CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+    void CreateTextureImageView();
+    void CreateTextureSampler();
     
     GLFWwindow *window;
 
@@ -141,6 +144,8 @@ private:
     std::vector<VkDescriptorSet> descriptorSets;
     VkImage textureImage;
     VkDeviceMemory textureImageMemory;
+    VkImageView textureImageView;
+    VkSampler textureSampler;
 
     uint32_t currentFrame = 0;
     bool framebufferResized = false;

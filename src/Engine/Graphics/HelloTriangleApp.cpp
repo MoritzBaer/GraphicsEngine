@@ -292,7 +292,7 @@ void HelloTriangleApp::CreateImage(
 void HelloTriangleApp::CreateTextureImage()
 {
     int texWidth, texHeight, texChannels;
-    stbi_uc* pixels = stbi_load("textures/wider_benebro.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    stbi_uc* pixels = stbi_load("../../textures/wider_benebro.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     VkDeviceSize imageSize = texWidth * texHeight * 4;
 
     if (!pixels) {
@@ -661,6 +661,37 @@ void HelloTriangleApp::CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_
     EndSingleTimeCommand(commandBuffer);
 }
 
+void HelloTriangleApp::CreateTextureImageView()
+{
+    CreateImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB);
+}
+
+void HelloTriangleApp::CreateTextureSampler()
+{
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(physicalGPU, &properties);
+    VkSamplerCreateInfo samplerInfo {
+        .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+        .magFilter = VK_FILTER_LINEAR,
+        .minFilter = VK_FILTER_LINEAR,
+        .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+        .addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .mipLodBias = 0.0f,
+        .anisotropyEnable = VK_TRUE,
+        .maxAnisotropy = properties.limits.maxSamplerAnisotropy,
+        .compareEnable = VK_TRUE,
+        .compareOp = VK_COMPARE_OP_ALWAYS,
+        .minLod = 0.0f,
+        .maxLod = 0.0f,
+        .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
+        .unnormalizedCoordinates = VK_FALSE
+    };
+
+    TRY_VULKAN_CALL(vkCreateSampler(graphicsHandler, &samplerInfo, nullptr, &textureSampler), "Failed to create texture sampler")
+}
+
 VKAPI_ATTR VkBool32 VKAPI_CALL HelloTriangleApp::debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData)
 {
     std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
@@ -768,28 +799,38 @@ void HelloTriangleApp::CreateSwapchain()
     swapchainExtent = extent;
 }
 
+VkImageView HelloTriangleApp::CreateImageView(VkImage image, VkFormat format)
+{
+    VkImageViewCreateInfo viewInfo{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image = image,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = format,
+        .components {
+            .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+            .a = VK_COMPONENT_SWIZZLE_IDENTITY,
+        },
+        .subresourceRange {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };
+
+    VkImageView imageView;
+    TRY_VULKAN_CALL(vkCreateImageView(graphicsHandler, &viewInfo, nullptr, &imageView), "Failed to create image view!");
+    return imageView;
+}
+
 void HelloTriangleApp::CreateImageViews()
 {
     swapchainImageViews.resize(swapchainImages.size());
 
-    for(int i = 0; i < swapchainImages.size(); i++) {
-        VkImageViewCreateInfo imageViewInfo{};
-        imageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        imageViewInfo.image = swapchainImages[i];
-        imageViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        imageViewInfo.format = swapchainImageFormat;
-        imageViewInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-        imageViewInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-        imageViewInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-        imageViewInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-        imageViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        imageViewInfo.subresourceRange.baseMipLevel = 0;
-        imageViewInfo.subresourceRange.levelCount = 1;
-        imageViewInfo.subresourceRange.baseArrayLayer = 0;
-        imageViewInfo.subresourceRange.layerCount = 1;
-
-        if(vkCreateImageView(graphicsHandler, &imageViewInfo, nullptr, &swapchainImageViews[i]) != VK_SUCCESS) { throw std::runtime_error("Failed to create image view for image " + i); }
-    }
+    for(int i = 0; i < swapchainImages.size(); i++) { swapchainImageViews[i] = CreateImageView(swapchainImages[i], swapchainImageFormat); }
 }
 
 void HelloTriangleApp::CreateDescriptorSetLayout()
@@ -1033,6 +1074,9 @@ void HelloTriangleApp::InitVulkan()
     CreateFramebuffers();
     CreateCommandPool();
     CreateImageViews();
+    CreateTextureImage();
+    CreateTextureImageView();
+    CreateTextureSampler();
     CreateVertexBuffer();
     CreateIndexBuffer();
     CreateUniformBuffers();
@@ -1062,6 +1106,8 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
 void HelloTriangleApp::Cleanup()
 {
     CleanupSwapchain();
+    vkDestroySampler(graphicsHandler, textureSampler, nullptr);
+    vkDestroyImageView(graphicsHandler, textureImageView, nullptr);
     vkDestroyImage(graphicsHandler, textureImage, nullptr);
     vkFreeMemory(graphicsHandler, textureImageMemory, nullptr);
     vkDestroyBuffer(graphicsHandler, vertexBuffer, nullptr);
@@ -1140,7 +1186,8 @@ uint32_t HelloTriangleApp::PhysicalDeviceScore(VkPhysicalDevice const &device) c
         && queueFamilies.presentFamily.has_value()
         && CheckDeviceExtensionSupport(device)
         && !swapchainDetails.surfaceFormats.empty()
-        && !swapchainDetails.presentModes.empty();
+        && !swapchainDetails.presentModes.empty()
+        && deviceFeatures.samplerAnisotropy;
 
     uint32_t score = ( 1000 * (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) + 1 )
         * deviceHasNecessaryCapabilities;
@@ -1187,7 +1234,9 @@ void HelloTriangleApp::CreateLogicalDevice()
         queueCreateInfos.push_back(queueCreateInfo);
     }
 
-    VkPhysicalDeviceFeatures features{};
+    VkPhysicalDeviceFeatures features{
+        .samplerAnisotropy = VK_TRUE
+    };
 
     VkDeviceCreateInfo deviceCreateInfo{};
     deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
