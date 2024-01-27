@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD 23)
 find_package(Vulkan REQUIRED COMPONENTS shaderc_combined)
 
 include_directories("dependencies/glfw-3.3.9.bin.WIN64/include/GLFW")
+include_directories("dependencies/stb")
 include_directories(${Vulkan_INCLUDE_DIR})
 
 file(GLOB_RECURSE SourceFiles CONFIGURE_DEPENDS "src/Engine/*.h" "src/Engine/*.cpp" )

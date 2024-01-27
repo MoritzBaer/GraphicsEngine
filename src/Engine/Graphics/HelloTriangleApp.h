@@ -65,6 +65,18 @@ private:
     void CreateUniformBuffers();
     void CreateDescriptorPool();
     void CreateCommandPool();
+    void CreateImage(
+        uint32_t width, 
+        uint32_t height, 
+        VkFormat format, 
+        VkImageTiling tiling, 
+        VkImageUsageFlags usage,
+        VkMemoryPropertyFlags properties, 
+        VkImage& image, 
+        VkDeviceMemory& imageMemory);
+    void CreateTextureImage();
+    VkCommandBuffer BeginSingleTimeCommand() const;
+    void EndSingleTimeCommand(VkCommandBuffer commandBuffer) const;
     void CreateCommandBuffers();
     void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
     void UpdateUniformBuffers(uint32_t imageIndex);
@@ -75,7 +87,9 @@ private:
     uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
     void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperties, VkBuffer & buffer, VkDeviceMemory & memory) const;
     void CopyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size) const;
-
+    void TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+    void CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+    
     GLFWwindow *window;
 
     const uint16_t WINDOW_WIDTH = 1600;
@@ -125,6 +139,8 @@ private:
     std::vector<void*> uniformBuffersMapped;
     VkDescriptorPool descriptorPool;
     std::vector<VkDescriptorSet> descriptorSets;
+    VkImage textureImage;
+    VkDeviceMemory textureImageMemory;
 
     uint32_t currentFrame = 0;
     bool framebufferResized = false;
