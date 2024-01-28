@@ -51,7 +51,7 @@ private:
     VkPresentModeKHR ChooseSwapchainPresentMode(const std::vector<VkPresentModeKHR> & availableModes) const;
     VkSurfaceFormatKHR ChooseSwapchainFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats) const;
     void CreateSwapchain();
-    VkImageView CreateImageView(VkImage image, VkFormat format);
+    VkImageView CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspect);
     void CreateImageViews();
     void CreateDescriptorSetLayout();
     void CreateDescriptorSets();
@@ -65,6 +65,7 @@ private:
     void CreateIndexBuffer();
     void CreateUniformBuffers();
     void CreateDescriptorPool();
+    void CreateDepthResources();
     void CreateCommandPool();
     void CreateImage(
         uint32_t width, 
@@ -92,6 +93,9 @@ private:
     void CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
     void CreateTextureImageView();
     void CreateTextureSampler();
+    VkFormat FindSupportedFormat(std::vector<VkFormat> const & candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+    VkFormat FindDepthFormat();
+    bool HasStencilComponent(VkFormat format);
     
     GLFWwindow *window;
 
@@ -146,6 +150,9 @@ private:
     VkDeviceMemory textureImageMemory;
     VkImageView textureImageView;
     VkSampler textureSampler;
+    VkImage depthImage;
+    VkDeviceMemory depthImageMemory;
+    VkImageView depthImageView;
 
     uint32_t currentFrame = 0;
     bool framebufferResized = false;
