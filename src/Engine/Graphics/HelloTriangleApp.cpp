@@ -25,16 +25,17 @@ struct VertexData
 {
     Maths::Vector2 position;
     Maths::Vector3 colour;
+    Maths::Vector2 uv;
 
     static VkVertexInputBindingDescription BindingDescription();
-    static std::array<VkVertexInputAttributeDescription, 2> AttributeDescription();
+    static std::array<VkVertexInputAttributeDescription, 3> AttributeDescription();
 };
 
 const std::vector<VertexData> vertices = {
-    {{ 0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-    {{ 0.5f,  0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{-0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}},
-    {{-0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}},
+    {{ 2.0f, -0.4f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+    {{ 2.0f,  0.4f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f}},
+    {{-2.0f, -0.4f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
+    {{-2.0f,  0.4f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
 };
 
 const std::vector<uint16_t> indices = { 0, 1, 2, 3, 2, 1 };
@@ -217,16 +218,23 @@ void HelloTriangleApp::CreateUniformBuffers()
 
 void HelloTriangleApp::CreateDescriptorPool()
 {
-    VkDescriptorPoolSize poolSize {
+    VkDescriptorPoolSize uboPoolSize {
         .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         .descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)
     };
 
+    VkDescriptorPoolSize samplerPoolSize {
+        .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)
+    };
+
+    std::array<VkDescriptorPoolSize, 2> poolSizes = { uboPoolSize, samplerPoolSize };
+
     VkDescriptorPoolCreateInfo poolInfo {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
-        .poolSizeCount = 1,
-        .pPoolSizes = &poolSize,
+        .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
+        .pPoolSizes = poolSizes.data()
     };
 
     TRY_VULKAN_CALL(vkCreateDescriptorPool(graphicsHandler, &poolInfo, nullptr, &descriptorPool), "Failed to create descriptor pool")
@@ -663,7 +671,7 @@ void HelloTriangleApp::CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_
 
 void HelloTriangleApp::CreateTextureImageView()
 {
-    CreateImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB);
+    textureImageView = CreateImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB);
 }
 
 void HelloTriangleApp::CreateTextureSampler()
@@ -843,10 +851,22 @@ void HelloTriangleApp::CreateDescriptorSetLayout()
         .pImmutableSamplers = nullptr
     };
 
+    VkDescriptorSetLayoutBinding samplerLayoutBinding {
+        .binding = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .pImmutableSamplers = nullptr
+    };
+
+    std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
+
+
+
     VkDescriptorSetLayoutCreateInfo layoutInfo {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .bindingCount = 1,
-        .pBindings = &uboLayoutBinding
+        .bindingCount = static_cast<uint32_t>(bindings.size()),
+        .pBindings = bindings.data()
     };
 
     TRY_VULKAN_CALL(vkCreateDescriptorSetLayout(graphicsHandler, &layoutInfo, nullptr, &descriptorSetLayout), "Descriptor set layout creation failed")
@@ -872,7 +892,13 @@ void HelloTriangleApp::CreateDescriptorSets()
             .range = sizeof(UBO)
         };
 
-        VkWriteDescriptorSet descriptorWriteInfo {
+        VkDescriptorImageInfo imageInfo {
+            .sampler = textureSampler,
+            .imageView = textureImageView,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        };
+
+        VkWriteDescriptorSet bufferWrite {
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
             .dstSet = descriptorSets[i],
             .dstBinding = 0,
@@ -883,8 +909,22 @@ void HelloTriangleApp::CreateDescriptorSets()
             .pBufferInfo = &bufferInfo,
             .pTexelBufferView = nullptr
         };
+            
+        VkWriteDescriptorSet samplerWrite {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = descriptorSets[i],
+            .dstBinding = 1,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .pImageInfo = &imageInfo,
+            .pBufferInfo = nullptr,
+            .pTexelBufferView = nullptr
+        };
 
-        vkUpdateDescriptorSets(graphicsHandler, 1, &descriptorWriteInfo, 0, nullptr);
+        std::array<VkWriteDescriptorSet, 2> descriptorWrites = { bufferWrite, samplerWrite };
+
+        vkUpdateDescriptorSets(graphicsHandler, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
     }
 }
 
@@ -1362,9 +1402,9 @@ VkVertexInputBindingDescription VertexData::BindingDescription()
     return description;
 }
 
-std::array<VkVertexInputAttributeDescription, 2> VertexData::AttributeDescription()
+std::array<VkVertexInputAttributeDescription, 3> VertexData::AttributeDescription()
 {
-    std::array<VkVertexInputAttributeDescription, 2> descriptions{};
+    std::array<VkVertexInputAttributeDescription, 3> descriptions{};
     descriptions[0].binding = 0;
     descriptions[0].location = 0;
     descriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
@@ -1373,6 +1413,10 @@ std::array<VkVertexInputAttributeDescription, 2> VertexData::AttributeDescriptio
     descriptions[1].location = 1;
     descriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
     descriptions[1].offset = offsetof(VertexData, colour);
+    descriptions[2].binding = 0;
+    descriptions[2].location = 2;
+    descriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+    descriptions[2].offset = offsetof(VertexData, uv);
 
     return descriptions;
 }
