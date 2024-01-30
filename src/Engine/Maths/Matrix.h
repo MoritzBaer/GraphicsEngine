@@ -258,9 +258,17 @@ namespace Engine::Maths
         T cosTheta = cos(theta);
         auto a = axis.Normalized();
         return MatrixT<3, 3, T>{
-            cosTheta + a[0] * a[0] * (1 - cosTheta), -a[2] * sinTheta + a[1] * a[0] * (1 - cosTheta), a[1] * sinTheta + a[2] * a[0] * (1 - cosTheta),
-            a[2] * sinTheta + a[0] * a[1] * (1 - cosTheta), cosTheta + a[1] * a[1] * (1 - cosTheta), -a[0] * sinTheta + a[2] * a[1] * (1 - cosTheta), 
-            -a[2] * sinTheta + a[0] * a[2] * (1 - cosTheta), a[0] * sinTheta + a[1] * a[2] * (1 - cosTheta), cosTheta + a[2] * a[2] * (1 - cosTheta)
+            cosTheta + a[0] * a[0] * (T(1) - cosTheta), 
+            a[2] * sinTheta + a[0] * a[1] * (T(1) - cosTheta), 
+            a[1] * sinTheta + a[0] * a[2] * (T(1) - cosTheta), 
+
+            -a[2] * sinTheta + a[1] * a[0] * (T(1) - cosTheta), 
+            cosTheta + a[1] * a[1] * (T(1) - cosTheta), 
+            a[0] * sinTheta + a[1] * a[2] * (T(1) - cosTheta), 
+
+            a[1] * sinTheta + a[2] * a[0] * (T(1) - cosTheta),
+            -a[0] * sinTheta + a[2] * a[1] * (T(1) - cosTheta),
+            cosTheta + a[2] * a[2] * (T(1) - cosTheta)
         };
     }
 
