@@ -3,7 +3,9 @@
 #include <stdint.h>
 #include <initializer_list>
 #include <cmath>
+
 #define PI 3.14159265359
+#define EPS 0.0000001
 
 namespace Engine::Maths
 {
@@ -37,6 +39,9 @@ namespace Engine::Maths
             MatrixT<n, m, T>(T const values[n][m]);
             MatrixT<n, m, T>(T const values[n * m]) { for(int i = 0; i < n; i++) { for(int j = 0; j < m; j++) { data[i * m + j] = values[i * m + j]; } } };
             MatrixT<n, m, T>(std::initializer_list<T> values);
+
+            inline bool operator==(MatrixT<n, m, T> const & other) const;
+            inline bool operator!=(MatrixT<n, m, T> const & other) const {return !(*this == other); };
 
             inline MatrixT<n, m, T> operator+(MatrixT<n, m, T> const &other) const;
             inline MatrixT<n, m, T> operator-(MatrixT<n, m, T> const &other) const;
@@ -382,6 +387,17 @@ namespace Engine::Maths
             }
         }
         return MatrixT<n, l, T>(newVals);
+    }
+
+    template <uint8_t n, uint8_t m, typename T>
+    inline bool MatrixT<n, m, T>::operator==(MatrixT<n, m, T> const &other) const
+    {
+        for(int i = 0; i < n; i++) {
+            for(int j = 0; j < m; j++) {
+                if (abs(data[i * m + j] - other.data[i * m + j]) < EPS) return false;
+            }
+        }
+        return true;
     }
 
     template <uint8_t n, uint8_t m, typename T>
