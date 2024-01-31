@@ -150,6 +150,7 @@ namespace Engine::Maths
 
         public:
             inline Column operator[](uint8_t i) { return Column(*this, i); };
+            inline MatrixT<m, 1, T> operator[](uint8_t i) const;
             
             Entry X() requires(m == 1) { return Entry(*this, 0); }
             Entry Y() requires(m == 1 && n >= 2) { return Entry(*this, 1); }
@@ -507,4 +508,33 @@ namespace Engine::Maths
         return MatrixT<m, n, T>(newVals);
     }
 
+    template<uint8_t n, uint8_t m, typename T>
+    inline MatrixT<m, 1, T> MatrixT<n, m, T>::operator[](uint8_t i) const {
+        T _data[n] = {0};
+        for(int j = 0; j < m; j++) {
+            _data[j] = data[i * m + j];
+        }
+        return MatrixT<m, 1, T>(data);
+    }
+    
+
 } // namespace Engine::Math
+
+#include <functional>
+namespace std {
+    template <uint8_t n, uint8_t m, typename T>
+    struct hash<Engine::Maths::MatrixT<n, m, T>> {
+        inline size_t operator()(Engine::Maths::MatrixT<n, m, T> const& mat) const {
+            size_t h = 0;
+            for(uint8_t i = 0; i < n; i++) {
+                for(uint8_t j = 0; j < m; j++) {
+                    size_t a = hash<uint8_t>{}(i);
+                    h <<= hash<uint8_t>{}(i) % 4;
+                    h ^= hash<T>{}(mat[i][j]);
+                    h >>= hash<uint8_t>{}(j) % 4;
+                }
+            }
+            return h;
+        }
+    };
+}   // namespace std
