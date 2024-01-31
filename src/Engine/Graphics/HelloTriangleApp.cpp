@@ -8,7 +8,9 @@
 #include <fstream>
 #include <array>
 #include <chrono>
+#include <unordered_map>
 #include "stb_image.h"
+#include "tiny_obj_loader.h"
 #include "../Maths/Matrix.h"
 
 #define TRY_VULKAN_CALL(CALL, ERROR_TEXT) if(CALL != VK_SUCCESS) { throw std::runtime_error(ERROR_TEXT); }
@@ -20,32 +22,6 @@ struct UBO {
     Maths::Matrix4 view;
     Maths::Matrix4 projection;
 };
-
-struct VertexData
-{
-    Maths::Vector3 position;
-    Maths::Vector3 colour;
-    Maths::Vector2 uv;
-
-    static VkVertexInputBindingDescription BindingDescription();
-    static std::array<VkVertexInputAttributeDescription, 3> AttributeDescription();
-};
-
-const std::vector<VertexData> vertices = {
-    // Quad 1
-    {{ 2.0f, -0.4f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-    {{ 2.0f,  0.4f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f}},
-    {{-2.0f, -0.4f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
-    {{-2.0f,  0.4f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-
-    // Quad 2
-    {{ 2.0f, -0.4f, 0.3f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-    {{ 2.0f,  0.4f, 0.3f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f}},
-    {{-2.0f, -0.4f, 0.3f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
-    {{-2.0f,  0.4f, 0.3f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-};
-
-const std::vector<uint16_t> indices = { 4, 5, 6, 7, 6, 5, 0, 1, 2, 3, 2, 1 };
 
 static std::vector<char> ReadFile(const std::string& filename) {
     std::cout << "Trying to open " << filename << "\n";
@@ -332,7 +308,7 @@ void HelloTriangleApp::CreateImage(
 void HelloTriangleApp::CreateTextureImage()
 {
     int texWidth, texHeight, texChannels;
-    stbi_uc* pixels = stbi_load("../../textures/wider_benebro.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    stbi_uc* pixels = stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     VkDeviceSize imageSize = texWidth * texHeight * 4;
 
     if (!pixels) {
@@ -446,7 +422,7 @@ void HelloTriangleApp::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32
     VkBuffer vertexBuffers[] = { vertexBuffer };
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
     VkViewport viewport{};
     viewport.x = 0.0f;
@@ -760,6 +736,40 @@ VkFormat HelloTriangleApp::FindDepthFormat()
 bool HelloTriangleApp::HasStencilComponent(VkFormat format)
 {
     return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+}
+
+void HelloTriangleApp::LoadModel()
+{
+    tinyobj::attrib_t attrib;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+    std::string warn, err;
+
+    std::cout << "Loading model...\n";
+
+    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH.c_str())) {
+        throw std::runtime_error(warn + err);
+    }
+
+    std::unordered_map<VertexData, uint32_t> uniqueVertices{};
+
+    for (auto shape : shapes) {
+        for (auto index : shape.mesh.indices) {
+            VertexData vertex {
+                .position = { attrib.vertices[3 * index.vertex_index + 0], attrib.vertices[3 * index.vertex_index + 1], attrib.vertices[3 * index.vertex_index + 2] },
+                .colour = { 1.0f, 1.0f, 1.0f },
+                .uv = { attrib.texcoords[2 * index.texcoord_index + 0], 1.0f - attrib.texcoords[2 * index.texcoord_index + 1] }
+            };
+            
+            if (uniqueVertices.count(vertex) == 0) {
+                uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
+                vertices.push_back(vertex);
+            }
+
+            //indices.push_back(static_cast<uint32_t>(indices.size()));
+            indices.push_back(uniqueVertices[vertex]);
+        }
+    }
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL HelloTriangleApp::debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData)
@@ -1192,6 +1202,7 @@ void HelloTriangleApp::InitVulkan()
     CreateTextureImage();
     CreateTextureImageView();
     CreateTextureSampler();
+    LoadModel();
     CreateVertexBuffer();
     CreateIndexBuffer();
     CreateUniformBuffers();
@@ -1470,7 +1481,7 @@ void HelloTriangleApp::Run()
     Cleanup();
 }
 
-VkVertexInputBindingDescription VertexData::BindingDescription()
+VkVertexInputBindingDescription HelloTriangleApp::VertexData::BindingDescription()
 {
     VkVertexInputBindingDescription description{};
     description.binding = 0;
@@ -1480,7 +1491,7 @@ VkVertexInputBindingDescription VertexData::BindingDescription()
     return description;
 }
 
-std::array<VkVertexInputAttributeDescription, 3> VertexData::AttributeDescription()
+std::array<VkVertexInputAttributeDescription, 3> HelloTriangleApp::VertexData::AttributeDescription()
 {
     std::array<VkVertexInputAttributeDescription, 3> descriptions{};
     descriptions[0].binding = 0;

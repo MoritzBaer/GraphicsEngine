@@ -4,8 +4,11 @@
 #include "glfw3.h"
 #include "vulkan/vulkan.h"
 #include "shaderc/shaderc.hpp"
+#include "../Maths/Matrix.h"
 #include <vector>
 #include <optional>
+
+using namespace Engine;
 
 class HelloTriangleApp
 {
@@ -96,11 +99,15 @@ private:
     VkFormat FindSupportedFormat(std::vector<VkFormat> const & candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
     VkFormat FindDepthFormat();
     bool HasStencilComponent(VkFormat format);
+    void LoadModel();
     
     GLFWwindow *window;
 
     const uint16_t WINDOW_WIDTH = 1600;
     const uint16_t WINDOW_HEIGHT = 900;
+
+    const std::string MODEL_PATH = "../../models/viking_room.obj";
+    const std::string TEXTURE_PATH = "../../textures/viking_room.png";
 
     class ShaderFileIncluder : public shaderc::CompileOptions::IncluderInterface {
         // Handles shaderc_include_resolver_fn callbacks.
@@ -114,6 +121,10 @@ private:
     } shaderIncludeResolver;
     shaderc::CompileOptions shaderCompileOptions;
     shaderc::Compiler shaderCompiler;
+
+    struct VertexData;
+    std::vector<VertexData> vertices;
+    std::vector<uint32_t> indices;
 
     VkInstance vulkanInstance;
     VkDebugUtilsMessengerEXT debugMessenger;
@@ -175,4 +186,26 @@ private:
 
 public:
     void Run();
+
+    struct VertexData
+    {
+        Maths::Vector3 position;
+        Maths::Vector3 colour;
+        Maths::Vector2 uv;
+
+        static VkVertexInputBindingDescription BindingDescription();
+        static std::array<VkVertexInputAttributeDescription, 3> AttributeDescription();
+        inline bool operator==(const VertexData& other) const { return position == other.position && colour == other.colour && uv == other.uv; }
+    };
 };
+
+namespace std {
+    template<>
+    struct hash<HelloTriangleApp::VertexData> {
+        size_t operator()(HelloTriangleApp::VertexData const & vertexData) const {
+            return ((hash<Engine::Maths::Vector3>()(vertexData.position) ^
+                   (hash<Engine::Maths::Vector3>()(vertexData.colour) << 1)) >> 1) ^
+                   (hash<Engine::Maths::Vector2>()(vertexData.uv) << 1);
+        }
+    };
+}   // namespace std
