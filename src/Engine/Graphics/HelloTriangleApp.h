@@ -54,7 +54,7 @@ private:
     VkPresentModeKHR ChooseSwapchainPresentMode(const std::vector<VkPresentModeKHR> & availableModes) const;
     VkSurfaceFormatKHR ChooseSwapchainFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats) const;
     void CreateSwapchain();
-    VkImageView CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspect);
+    VkImageView CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspect, uint32_t mipLevels);
     void CreateImageViews();
     void CreateDescriptorSetLayout();
     void CreateDescriptorSets();
@@ -68,14 +68,17 @@ private:
     void CreateIndexBuffer();
     void CreateUniformBuffers();
     void CreateDescriptorPool();
+    void CreateColourResources();
     void CreateDepthResources();
     void CreateCommandPool();
     void CreateImage(
         uint32_t width, 
         uint32_t height, 
+        uint32_t mipLevels,
         VkFormat format, 
         VkImageTiling tiling, 
         VkImageUsageFlags usage,
+        VkSampleCountFlagBits sampleCount,
         VkMemoryPropertyFlags properties, 
         VkImage& image, 
         VkDeviceMemory& imageMemory);
@@ -92,7 +95,7 @@ private:
     uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
     void CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperties, VkBuffer & buffer, VkDeviceMemory & memory) const;
     void CopyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size) const;
-    void TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+    void TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
     void CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
     void CreateTextureImageView();
     void CreateTextureSampler();
@@ -100,6 +103,8 @@ private:
     VkFormat FindDepthFormat();
     bool HasStencilComponent(VkFormat format);
     void LoadModel();
+    void GenerateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
+    VkSampleCountFlagBits FindMaxSampleCount();
     
     GLFWwindow *window;
 
@@ -157,6 +162,7 @@ private:
     std::vector<void*> uniformBuffersMapped;
     VkDescriptorPool descriptorPool;
     std::vector<VkDescriptorSet> descriptorSets;
+    uint32_t mipLevels;
     VkImage textureImage;
     VkDeviceMemory textureImageMemory;
     VkImageView textureImageView;
@@ -164,6 +170,10 @@ private:
     VkImage depthImage;
     VkDeviceMemory depthImageMemory;
     VkImageView depthImageView;
+    VkSampleCountFlagBits maxSamplesPerPixel;
+    VkImage colourImage;
+    VkDeviceMemory colourImageMemory;
+    VkImageView colourImageView;
 
     uint32_t currentFrame = 0;
     bool framebufferResized = false;
