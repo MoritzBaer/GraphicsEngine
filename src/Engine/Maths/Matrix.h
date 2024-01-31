@@ -395,7 +395,7 @@ namespace Engine::Maths
     {
         for(int i = 0; i < n; i++) {
             for(int j = 0; j < m; j++) {
-                if (abs(data[i * m + j] - other.data[i * m + j]) < EPS) return false;
+                if (abs(data[i * m + j] - other.data[i * m + j]) > EPS) return false;
             }
         }
         return true;
@@ -522,6 +522,19 @@ namespace Engine::Maths
 
 #include <functional>
 namespace std {
+    template <uint8_t n, typename T>
+    struct hash<Engine::Maths::VectorT<n, T>> {
+        inline size_t operator()(Engine::Maths::VectorT<n, T> const& v) const {
+            size_t h = 0;
+            for(uint8_t i = 0; i < n; i++) {
+                size_t a = hash<uint8_t>{}(i);
+                h <<= hash<uint8_t>{}(i) % 4;
+                h ^= hash<T>{}(v[i]);
+            }
+            return h;
+        }
+    };
+
     template <uint8_t n, uint8_t m, typename T>
     struct hash<Engine::Maths::MatrixT<n, m, T>> {
         inline size_t operator()(Engine::Maths::MatrixT<n, m, T> const& mat) const {
