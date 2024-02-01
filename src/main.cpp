@@ -1,14 +1,12 @@
-#include "Engine/Maths/Matrix.h"
-
+#include "Engine/Engine.h"
 
 int main() {
 
-    Engine::Maths::Vector3 vector{ 0.0f, 1.0f, 2.0f };
+    Engine::Init();
 
-    Engine::Maths::Vector2 xz = vector.XZ();
-    auto xyn = xz.Normalized();
-    vector.XY() = xz.Normalized();
-    vector.XY() *= 2.0f;
+    Engine::RunMainLoop();
 
+    Engine::Cleanup();
+    
     return 0;
 }
