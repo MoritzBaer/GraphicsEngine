@@ -2,6 +2,7 @@
 
 #include "glfw3.h"
 #include "Debug/Logging.h"
+#include "Macros.h"
 
 namespace Engine
 {
@@ -44,7 +45,7 @@ namespace Engine
     Window *WindowManager::CreateWindow(uint32_t width, uint32_t height, const char *title)
     {
         if(windowManagerInstance == nullptr) { 
-            Debug::Logging::PrintError("Tried to create a window before initializing window manager!", "Engine"); 
+            ENGINE_ERROR("Tried to create a window before initializing window manager!")
             return nullptr;
         } 
     
@@ -53,7 +54,7 @@ namespace Engine
     
     void WindowManager::DestroyWindow(Window *window)
     {
-        if(windowManagerInstance == nullptr) { Debug::Logging::PrintError("Tried to destroy a window before initializing window manager!", "Engine"); } 
+        if(windowManagerInstance == nullptr) { ENGINE_ERROR("Tried to destroy a window before initializing window manager!") } 
 
         windowManagerInstance->_DestroyWindow(window);
     }

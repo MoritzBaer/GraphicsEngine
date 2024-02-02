@@ -1,6 +1,7 @@
 #include "EventManager.h"
 
 #include "Debug/Logging.h"
+#include "Macros.h"
 
 Engine::EventManager::EventManager() {}
 
@@ -15,7 +16,7 @@ void Engine::EventManager::Init()
     eventManagerInstance = new EventManager();
 }
 
-void Engine::EventManager::Close()
+void Engine::EventManager::Cleanup()
 {
     delete eventManagerInstance;
 }
@@ -23,7 +24,7 @@ void Engine::EventManager::Close()
 void Engine::EventManager::HandleWindowEvents(Window const *window)
 {
     if(eventManagerInstance == nullptr) { 
-        Debug::Logging::PrintError("Tried to handle window events before initializing EventManager!", "Engine");
+        ENGINE_ERROR("Tried to handle window events before initializing EventManager!")
     }
     eventManagerInstance->_HandleWindowEvents(window);
 }

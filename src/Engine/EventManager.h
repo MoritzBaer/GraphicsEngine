@@ -15,7 +15,7 @@ namespace Engine
         void operator=(const EventManager &) = delete;
 
         static void Init();
-        static void Close();
+        static void Cleanup();
         static void HandleWindowEvents(Window const * window);
     };
     

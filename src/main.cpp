@@ -2,11 +2,11 @@
 
 int main() {
 
-    Engine::Init();
+    Engine::Init("Test project");
 
     Engine::RunMainLoop();
 
     Engine::Cleanup();
-    
+
     return 0;
 }

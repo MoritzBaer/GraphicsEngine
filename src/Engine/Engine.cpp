@@ -3,11 +3,12 @@
 Engine::Window * mainWindow;
 bool quit = false;
 
-void Engine::Init()
+void Engine::Init(const char * applicationName)
 {
     WindowManager::Init();
     EventManager::Init();
-    mainWindow = WindowManager::CreateWindow(1600, 900, "Main window");
+    Graphics::InstanceManager::Init(applicationName);
+    mainWindow = WindowManager::CreateWindow(1600, 900, applicationName);
 }
 
 void Engine::RunMainLoop()
@@ -20,6 +21,8 @@ void Engine::RunMainLoop()
 
 void Engine::Cleanup()
 {
+    Graphics::InstanceManager::Cleanup();
+    EventManager::Cleanup();
     WindowManager::Cleanup();
 }
 
