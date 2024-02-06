@@ -133,10 +133,34 @@ InstanceManager::InstanceManager(const char * applicationName)
 #ifndef NDEBUG
     SetupDebugMessenger();
 #endif
+    PickPhysicalDevice();
+}
+
+struct QueueFamilyIndices {
+    std::optional<uint32_t> graphicsFamily;
+};
+
+QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device) {
+    uint32_t queueFamilyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+
+    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+
+    QueueFamilyIndices indices;
+
+    int i = 0;
+    for (const auto& queueFamily : queueFamilies) {
+        if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) { indices.graphicsFamily = i; }
+        i++;
+    }
+
+    return indices;
 }
 
 InstanceManager::~InstanceManager()
 {
+    vkDestroyDevice(graphicsHandler, nullptr);
     if(enableValidationLayers) { DestroyDebugUtilsMessengerEXT(vulkanInstance, debugMessenger, nullptr); }
     vkDestroyInstance(vulkanInstance, nullptr);
 }
@@ -172,6 +196,9 @@ void InstanceManager::CreateInstance(const char *applicationName)
     } else { createInfo.enabledLayerCount = 0; }
 
     VULKAN_ASSERT(vkCreateInstance(&createInfo, nullptr, &vulkanInstance), "Failed to create vulkan Instance!")
+
+    auto queueFamilies = FindQueueFamilies(gpu);
+    vkGetDeviceQueue(graphicsHandler, queueFamilies.graphicsFamily.value(), 0, &graphicsQueue);
 }
 
 #ifndef NDEBUG
@@ -190,6 +217,73 @@ void InstanceManager::SetupDebugMessenger()
     VULKAN_ASSERT(CreateDebugUtilsMessengerEXT(vulkanInstance, &createInfo, nullptr, &debugMessenger), "Failed to create debug messenger!")
 }
 #endif
+
+uint32_t PhysicalDeviceScore(VkPhysicalDevice device) {
+    VkPhysicalDeviceProperties deviceProperties;
+    vkGetPhysicalDeviceProperties(device, &deviceProperties);
+    VkPhysicalDeviceFeatures deviceFeatures;
+    vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+    auto queueFamilies = FindQueueFamilies(device);
+
+    bool isDedicatedGPU = deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
+    bool hasGraphicsFamily = queueFamilies.graphicsFamily.has_value();
+
+    return  deviceFeatures.geometryShader 
+        *   hasGraphicsFamily 
+        *   (
+                deviceProperties.limits.maxImageDimension2D 
+            +   1000 * isDedicatedGPU
+        );
+}
+
+void InstanceManager::CreateLogicalDevice()
+{
+    auto queueFamilies = FindQueueFamilies(gpu);
+
+    float queuePriority = 1.0f;
+
+    VkDeviceQueueCreateInfo graphicsQueueInfo {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+        .queueFamilyIndex = queueFamilies.graphicsFamily.value(),
+        .queueCount = 1,
+        .pQueuePriorities = &queuePriority,
+    };
+
+    VkPhysicalDeviceFeatures deviceFeatures {};
+
+    VkDeviceCreateInfo deviceInfo {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .queueCreateInfoCount = 1,
+        .pQueueCreateInfos = &graphicsQueueInfo,
+        .enabledExtensionCount = 0,
+        .pEnabledFeatures = &deviceFeatures,
+    };
+
+    if (enableValidationLayers) {
+        deviceInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+        deviceInfo.ppEnabledLayerNames = validationLayers.data();
+    } else {
+        deviceInfo.enabledLayerCount = 0;
+    }
+
+    VULKAN_ASSERT(vkCreateDevice(gpu, &deviceInfo, nullptr, &graphicsHandler), "Failed to create logical device!")
+}
+
+void InstanceManager::PickPhysicalDevice()
+{
+    uint32_t deviceCount = 0;
+    vkEnumeratePhysicalDevices(vulkanInstance, &deviceCount, nullptr);
+    if(deviceCount == 0) { ENGINE_ERROR("Failed to find gpu with Vulkan support!") }
+    std::vector<VkPhysicalDevice> devices(deviceCount);
+    vkEnumeratePhysicalDevices(vulkanInstance, &deviceCount, devices.data());
+
+    auto bestDevice = std::max_element(devices.begin(), devices.end(), [](VkPhysicalDevice a, VkPhysicalDevice b) { return PhysicalDeviceScore(a) < PhysicalDeviceScore(b); });
+
+    if (PhysicalDeviceScore(*bestDevice) == 0) { ENGINE_ERROR("Device has no GPU with every necessary feature"); }
+
+    gpu = *bestDevice;
+}
 
 void InstanceManager::Init(const char * applicationName)
 {

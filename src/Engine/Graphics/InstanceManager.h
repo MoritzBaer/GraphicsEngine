@@ -1,6 +1,7 @@
 #pragma once
 
 #include "vulkan/vulkan.h"
+#include <optional>
 
 namespace Engine::Graphics
 {
@@ -9,6 +10,9 @@ namespace Engine::Graphics
 
         VkInstance vulkanInstance;
         VkDebugUtilsMessengerEXT debugMessenger;
+        VkPhysicalDevice gpu;
+        VkDevice graphicsHandler;
+        VkQueue graphicsQueue;
 
         InstanceManager(const char * applicationName);
         ~InstanceManager();
@@ -18,6 +22,8 @@ namespace Engine::Graphics
         void EnableValidationLayers();
         void SetupDebugMessenger();
 #endif
+        void PickPhysicalDevice();
+        void CreateLogicalDevice();
     public:
         InstanceManager(InstanceManager &other) = delete;
         void operator=(const InstanceManager &) = delete;
