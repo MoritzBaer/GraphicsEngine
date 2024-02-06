@@ -9,3 +9,15 @@
 #define VULKAN_ASSERT(call, format, ...) if (call != VK_SUCCESS) { ENGINE_ERROR(format, __VA_ARGS__) }
 
 #define ENGINE_VERSION VK_MAKE_VERSION(0, 0, 1)
+
+#define _SINGLETON(name, ...)                   \
+    private:                                    \
+        static inline name* instance = nullptr; \
+        name(__VA_ARGS__);                      \
+        ~name();                                \
+    public:                                     \
+        static void Init(__VA_ARGS__);          \
+        static void Cleanup();                  \
+        name(name &other) = delete;             \
+        void operator= (name const &) = delete; \
+    private:

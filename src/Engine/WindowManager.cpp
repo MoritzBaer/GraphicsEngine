@@ -27,35 +27,36 @@ namespace Engine
     }
 
     WindowManager::WindowManager() : openWindows() {}
+    WindowManager::~WindowManager() { delete &openWindows; }
 
     void WindowManager::Init()
     {
         glfwInit();
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        windowManagerInstance = new WindowManager();
+        instance = new WindowManager();
     }
 
     void WindowManager::Cleanup()
     {
-        windowManagerInstance->_DeleteAllWindows();
-        delete windowManagerInstance;
+        instance->_DeleteAllWindows();
+        delete instance;
         glfwTerminate();
     }
 
     Window *WindowManager::CreateWindow(uint32_t width, uint32_t height, const char *title)
     {
-        if(windowManagerInstance == nullptr) { 
+        if(instance == nullptr) { 
             ENGINE_ERROR("Tried to create a window before initializing window manager!")
             return nullptr;
         } 
     
-        return windowManagerInstance->_CreateWindow(width, height, title);
+        return instance->_CreateWindow(width, height, title);
     }
     
     void WindowManager::DestroyWindow(Window *window)
     {
-        if(windowManagerInstance == nullptr) { ENGINE_ERROR("Tried to destroy a window before initializing window manager!") } 
+        if(instance == nullptr) { ENGINE_ERROR("Tried to destroy a window before initializing window manager!") } 
 
-        windowManagerInstance->_DestroyWindow(window);
+        instance->_DestroyWindow(window);
     }
 } // namespace Engine::Graphics

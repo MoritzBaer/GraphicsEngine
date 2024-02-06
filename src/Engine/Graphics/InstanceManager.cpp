@@ -196,9 +196,6 @@ void InstanceManager::CreateInstance(const char *applicationName)
     } else { createInfo.enabledLayerCount = 0; }
 
     VULKAN_ASSERT(vkCreateInstance(&createInfo, nullptr, &vulkanInstance), "Failed to create vulkan Instance!")
-
-    auto queueFamilies = FindQueueFamilies(gpu);
-    vkGetDeviceQueue(graphicsHandler, queueFamilies.graphicsFamily.value(), 0, &graphicsQueue);
 }
 
 #ifndef NDEBUG
@@ -268,6 +265,8 @@ void InstanceManager::CreateLogicalDevice()
     }
 
     VULKAN_ASSERT(vkCreateDevice(gpu, &deviceInfo, nullptr, &graphicsHandler), "Failed to create logical device!")
+
+    vkGetDeviceQueue(graphicsHandler, queueFamilies.graphicsFamily.value(), 0, &graphicsQueue);
 }
 
 void InstanceManager::PickPhysicalDevice()
@@ -287,12 +286,12 @@ void InstanceManager::PickPhysicalDevice()
 
 void InstanceManager::Init(const char * applicationName)
 {
-    instanceManagerInstance = new InstanceManager(applicationName);
+    instance = new InstanceManager(applicationName);
 }
 
 void InstanceManager::Cleanup()
 {
-    delete instanceManagerInstance;
+    delete instance;
 }
     
 } // namespace Engine::Graphics

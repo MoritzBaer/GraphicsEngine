@@ -1,21 +1,15 @@
 #pragma once
 
 #include "Window.h"
+#include "Macros.h"
 
 namespace Engine
 {
     class EventManager
     {
-    private:
-        EventManager();
+        _SINGLETON(EventManager)
         void _HandleWindowEvents(Window const * window);
-        static inline EventManager * eventManagerInstance = nullptr;
     public:
-        EventManager(EventManager &other) = delete;
-        void operator=(const EventManager &) = delete;
-
-        static void Init();
-        static void Cleanup();
         static void HandleWindowEvents(Window const * window);
     };
     

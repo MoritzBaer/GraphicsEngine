@@ -4,6 +4,7 @@
 #include "Macros.h"
 
 Engine::EventManager::EventManager() {}
+Engine::EventManager::~EventManager() {}
 
 void Engine::EventManager::_HandleWindowEvents(Window const *window)
 {
@@ -13,18 +14,18 @@ void Engine::EventManager::_HandleWindowEvents(Window const *window)
 
 void Engine::EventManager::Init()
 {
-    eventManagerInstance = new EventManager();
+    instance = new EventManager();
 }
 
 void Engine::EventManager::Cleanup()
 {
-    delete eventManagerInstance;
+    delete instance;
 }
 
 void Engine::EventManager::HandleWindowEvents(Window const *window)
 {
-    if(eventManagerInstance == nullptr) { 
+    if(instance == nullptr) { 
         ENGINE_ERROR("Tried to handle window events before initializing EventManager!")
     }
-    eventManagerInstance->_HandleWindowEvents(window);
+    instance->_HandleWindowEvents(window);
 }
