@@ -3,7 +3,14 @@
 #include "vulkan/vulkan.h"
 #include "../Macros.h"
 
-class Renderer
+namespace Engine::Graphics
 {
-    _SINGLETON(Renderer)
-};
+
+    class Renderer
+    {
+        _SINGLETON(Renderer)
+    };
+    
+} // namespace Engine::Graphics
+
+

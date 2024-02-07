@@ -1,21 +1,19 @@
 #include "Engine.h"
 
-Engine::Window * mainWindow;
 bool quit = false;
 
 void Engine::Init(const char * applicationName)
 {
-    WindowManager::Init();
+    WindowManager::Init(1600, 900, applicationName);
     EventManager::Init();
     Graphics::InstanceManager::Init(applicationName);
-    mainWindow = WindowManager::CreateWindow(1600, 900, applicationName);
 }
 
 void Engine::RunMainLoop()
 {
     while(!quit) {
-        EventManager::HandleWindowEvents(mainWindow);
-        if(mainWindow->ShouldClose()) { Quit(); }
+        EventManager::HandleWindowEvents(WindowManager::GetMainWindow());
+        if(WindowManager::GetMainWindow()->ShouldClose()) { Quit(); }
     }
 }
 

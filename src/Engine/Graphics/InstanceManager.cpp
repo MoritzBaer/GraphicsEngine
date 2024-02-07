@@ -4,7 +4,9 @@
 #include "glfw3.h"
 #include "../Macros.h"
 #include "../Debug/Logging.h"
+#include "../WindowManager.h"
 #include <algorithm>
+#include <set>
 
 namespace Engine::Graphics
 {
@@ -122,25 +124,16 @@ void FillDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo
     createInfo.pfnUserCallback = DebugCallback;
 }
 
-InstanceManager::InstanceManager(const char * applicationName)
+InstanceManager::InstanceManager()
 {
-    // Only set up vulkan validation if in debug mode
-#ifndef NDEBUG
-    if(CheckValidationLayerSupport()) { EnableValidationLayers(); }
-    else { ENGINE_WARNING("Some requested validation layers could not be provided.") }
-#endif
-    CreateInstance(applicationName);    // Instance must be created after validation layer availability has been checked
-#ifndef NDEBUG
-    SetupDebugMessenger();
-#endif
-    PickPhysicalDevice();
 }
 
 struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsFamily;
+    std::optional<uint32_t> presentFamily;
 };
 
-QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device) {
+QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR const & presentationSurface) {
     uint32_t queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
 
@@ -152,6 +145,10 @@ QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device) {
     int i = 0;
     for (const auto& queueFamily : queueFamilies) {
         if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) { indices.graphicsFamily = i; }
+        VkBool32 canPresent;
+        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, presentationSurface, &canPresent);
+        if (canPresent) { indices.presentFamily = i; }
+        if (indices.graphicsFamily.has_value() && indices.presentFamily.has_value()) { break; }
         i++;
     }
 
@@ -161,6 +158,7 @@ QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device) {
 InstanceManager::~InstanceManager()
 {
     vkDestroyDevice(graphicsHandler, nullptr);
+    vkDestroySurfaceKHR(vulkanInstance, surface, nullptr);
     if(enableValidationLayers) { DestroyDebugUtilsMessengerEXT(vulkanInstance, debugMessenger, nullptr); }
     vkDestroyInstance(vulkanInstance, nullptr);
 }
@@ -173,7 +171,7 @@ void InstanceManager::CreateInstance(const char *applicationName)
         .applicationVersion = VK_MAKE_VERSION(1, 0, 0), // TODO: Make accessible to user
         .pEngineName = "TBNgine",
         .engineVersion = ENGINE_VERSION,                // TODO: Figure out what engine version and api version mean
-        .apiVersion = VK_API_VERSION_1_0
+        .apiVersion = VK_API_VERSION_1_3
     };
 
     auto requiredExtensions = GetRequiredExtensions();
@@ -215,13 +213,13 @@ void InstanceManager::SetupDebugMessenger()
 }
 #endif
 
-uint32_t PhysicalDeviceScore(VkPhysicalDevice device) {
+uint32_t PhysicalDeviceScore(VkPhysicalDevice device, VkSurfaceKHR const & presentationSurface) {
     VkPhysicalDeviceProperties deviceProperties;
     vkGetPhysicalDeviceProperties(device, &deviceProperties);
     VkPhysicalDeviceFeatures deviceFeatures;
     vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
-    auto queueFamilies = FindQueueFamilies(device);
+    auto queueFamilies = FindQueueFamilies(device, presentationSurface);
 
     bool isDedicatedGPU = deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
     bool hasGraphicsFamily = queueFamilies.graphicsFamily.has_value();
@@ -236,23 +234,29 @@ uint32_t PhysicalDeviceScore(VkPhysicalDevice device) {
 
 void InstanceManager::CreateLogicalDevice()
 {
-    auto queueFamilies = FindQueueFamilies(gpu);
+    auto queueFamilies = FindQueueFamilies(gpu, surface);
 
-    float queuePriority = 1.0f;
+    float queuePriority = 1.0f; // WARN: Magic number
 
-    VkDeviceQueueCreateInfo graphicsQueueInfo {
-        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-        .queueFamilyIndex = queueFamilies.graphicsFamily.value(),
-        .queueCount = 1,
-        .pQueuePriorities = &queuePriority,
-    };
+    std::set<uint32_t> uniqueIndices = { queueFamilies.graphicsFamily.value(), queueFamilies.presentFamily.value() };
+    std::vector<VkDeviceQueueCreateInfo> queueInfos {};
+
+    for(auto family : uniqueIndices) {
+        VkDeviceQueueCreateInfo queueInfo {
+            .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            .queueFamilyIndex = queueFamilies.graphicsFamily.value(),
+            .queueCount = 1,
+            .pQueuePriorities = &queuePriority,
+        };
+        queueInfos.push_back(queueInfo);
+    }
 
     VkPhysicalDeviceFeatures deviceFeatures {};
 
     VkDeviceCreateInfo deviceInfo {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .queueCreateInfoCount = 1,
-        .pQueueCreateInfos = &graphicsQueueInfo,
+        .queueCreateInfoCount = static_cast<uint32_t>(queueInfos.size()),
+        .pQueueCreateInfos = queueInfos.data(),
         .enabledExtensionCount = 0,
         .pEnabledFeatures = &deviceFeatures,
     };
@@ -267,6 +271,7 @@ void InstanceManager::CreateLogicalDevice()
     VULKAN_ASSERT(vkCreateDevice(gpu, &deviceInfo, nullptr, &graphicsHandler), "Failed to create logical device!")
 
     vkGetDeviceQueue(graphicsHandler, queueFamilies.graphicsFamily.value(), 0, &graphicsQueue);
+    vkGetDeviceQueue(graphicsHandler, queueFamilies.presentFamily.value(), 0, &presentQueue);
 }
 
 void InstanceManager::PickPhysicalDevice()
@@ -277,20 +282,34 @@ void InstanceManager::PickPhysicalDevice()
     std::vector<VkPhysicalDevice> devices(deviceCount);
     vkEnumeratePhysicalDevices(vulkanInstance, &deviceCount, devices.data());
 
-    auto bestDevice = std::max_element(devices.begin(), devices.end(), [](VkPhysicalDevice a, VkPhysicalDevice b) { return PhysicalDeviceScore(a) < PhysicalDeviceScore(b); });
+    VkSurfaceKHR& surfaceRef = surface;
+    auto bestDevice = std::max_element(devices.begin(), devices.end(), [surfaceRef](VkPhysicalDevice a, VkPhysicalDevice b) { return PhysicalDeviceScore(a, surfaceRef) < PhysicalDeviceScore(b, surfaceRef); });
 
-    if (PhysicalDeviceScore(*bestDevice) == 0) { ENGINE_ERROR("Device has no GPU with every necessary feature"); }
+    if (PhysicalDeviceScore(*bestDevice, surface) == 0) { ENGINE_ERROR("Device has no GPU with every necessary feature"); }
 
     gpu = *bestDevice;
 }
 
 void InstanceManager::Init(const char * applicationName)
 {
-    instance = new InstanceManager(applicationName);
+    instance = new InstanceManager();
+    // Only set up vulkan validation if in debug mode
+#ifndef NDEBUG
+    if(CheckValidationLayerSupport()) { instance->EnableValidationLayers(); }
+    else { ENGINE_WARNING("Some requested validation layers could not be provided.") }
+#endif
+    instance->CreateInstance(applicationName);      // Instance must be created after validation layer availability has been checked
+#ifndef NDEBUG
+    instance->SetupDebugMessenger();
+#endif
+    VULKAN_ASSERT(glfwCreateWindowSurface(instance->vulkanInstance, WindowManager::GetMainWindow()->GetGLFWwindow(), nullptr, &instance->surface), "Failed to create surface!")
+    instance->PickPhysicalDevice();
+    instance->CreateLogicalDevice();
 }
 
 void InstanceManager::Cleanup()
 {
+
     delete instance;
 }
     

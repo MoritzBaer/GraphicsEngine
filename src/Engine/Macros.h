@@ -13,7 +13,7 @@
 #define _SINGLETON(name, ...)                   \
     private:                                    \
         static inline name* instance = nullptr; \
-        name(__VA_ARGS__);                      \
+        name();                                 \
         ~name();                                \
     public:                                     \
         static void Init(__VA_ARGS__);          \

@@ -4,6 +4,7 @@
 #include "Debug/Logging.h"
 #include "EventManager.h"
 #include "Graphics/InstanceManager.h"
+#include "Graphics/Renderer.h"
 
 namespace Engine
 {

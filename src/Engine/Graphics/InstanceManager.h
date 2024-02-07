@@ -3,6 +3,7 @@
 #include "vulkan/vulkan.h"
 #include <optional>
 #include "../Macros.h"
+#include "../Window.h"
 
 namespace Engine::Graphics
 {
@@ -11,9 +12,11 @@ namespace Engine::Graphics
 
         VkInstance vulkanInstance;
         VkDebugUtilsMessengerEXT debugMessenger;
+        VkSurfaceKHR surface;
         VkPhysicalDevice gpu;
         VkDevice graphicsHandler;
         VkQueue graphicsQueue;
+        VkQueue presentQueue;
 
         void CreateInstance(const char * applicationName);
 #ifndef NDEBUG
@@ -22,6 +25,8 @@ namespace Engine::Graphics
 #endif
         void PickPhysicalDevice();
         void CreateLogicalDevice();
+
+    public:
     };
 
 } // namespace Engine::Graphics
