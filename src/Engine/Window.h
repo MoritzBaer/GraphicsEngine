@@ -2,6 +2,8 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include "glfw3.h"
+#include "vulkan/vulkan.h"
+#include "Maths/Dimension.h"
 
 namespace Engine
 {
@@ -17,8 +19,7 @@ namespace Engine
         Window(uint32_t width, uint32_t height, const char* title);
         ~Window();
         inline bool ShouldClose() const { return glfwWindowShouldClose(window); }
-        inline GLFWwindow * GetGLFWwindow() const { return window; }
-
+        void CreateSurfaceOnWindow(VkInstance instance, VkSurfaceKHR * surface) const;
+        Maths::Dimension2 GetCanvasSize() const;
     };
-    
 } // namespace Engine::Graphics

@@ -63,6 +63,92 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
 const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
 };
+const std::vector<const char *> requiredExtensions = {
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME
+};
+
+//vulkan 1.3 features
+VkPhysicalDeviceVulkan13Features requiredFeatures13{
+    .synchronization2 = true,
+    .dynamicRendering = true,
+};
+
+
+//vulkan 1.2 features
+VkPhysicalDeviceVulkan12Features requiredFeatures12{
+    .descriptorIndexing = true,
+    .bufferDeviceAddress = true,
+};
+
+#define IMPL(name) (!required.name || supported.name)
+
+bool SupportsRequiredFeatures12(VkPhysicalDeviceVulkan12Features supported, VkPhysicalDeviceVulkan12Features required) {
+    return IMPL(samplerMirrorClampToEdge)
+        && IMPL(drawIndirectCount)
+        && IMPL(storageBuffer8BitAccess)
+        && IMPL(uniformAndStorageBuffer8BitAccess)
+        && IMPL(storagePushConstant8)
+        && IMPL(shaderBufferInt64Atomics)
+        && IMPL(shaderSharedInt64Atomics)
+        && IMPL(shaderFloat16)
+        && IMPL(shaderInt8)
+        && IMPL(descriptorIndexing)
+        && IMPL(shaderInputAttachmentArrayDynamicIndexing)
+        && IMPL(shaderUniformTexelBufferArrayDynamicIndexing)
+        && IMPL(shaderStorageTexelBufferArrayDynamicIndexing)
+        && IMPL(shaderUniformBufferArrayNonUniformIndexing)
+        && IMPL(shaderSampledImageArrayNonUniformIndexing)
+        && IMPL(shaderStorageBufferArrayNonUniformIndexing)
+        && IMPL(shaderStorageImageArrayNonUniformIndexing)
+        && IMPL(shaderInputAttachmentArrayNonUniformIndexing)
+        && IMPL(shaderUniformTexelBufferArrayNonUniformIndexing)
+        && IMPL(shaderStorageTexelBufferArrayNonUniformIndexing)
+        && IMPL(descriptorBindingUniformBufferUpdateAfterBind)
+        && IMPL(descriptorBindingSampledImageUpdateAfterBind)
+        && IMPL(descriptorBindingStorageImageUpdateAfterBind)
+        && IMPL(descriptorBindingStorageBufferUpdateAfterBind)
+        && IMPL(descriptorBindingUniformTexelBufferUpdateAfterBind)
+        && IMPL(descriptorBindingStorageTexelBufferUpdateAfterBind)
+        && IMPL(descriptorBindingUpdateUnusedWhilePending)
+        && IMPL(descriptorBindingPartiallyBound)
+        && IMPL(descriptorBindingVariableDescriptorCount)
+        && IMPL(runtimeDescriptorArray)
+        && IMPL(samplerFilterMinmax)
+        && IMPL(scalarBlockLayout)
+        && IMPL(imagelessFramebuffer)
+        && IMPL(uniformBufferStandardLayout)
+        && IMPL(shaderSubgroupExtendedTypes)
+        && IMPL(separateDepthStencilLayouts)
+        && IMPL(hostQueryReset)
+        && IMPL(timelineSemaphore)
+        && IMPL(bufferDeviceAddress)
+        && IMPL(bufferDeviceAddressCaptureReplay)
+        && IMPL(bufferDeviceAddressMultiDevice)
+        && IMPL(vulkanMemoryModel)
+        && IMPL(vulkanMemoryModelDeviceScope)
+        && IMPL(vulkanMemoryModelAvailabilityVisibilityChains)
+        && IMPL(shaderOutputViewportIndex)
+        && IMPL(shaderOutputLayer)
+        && IMPL(subgroupBroadcastDynamicId);
+}
+
+bool SupportsRequiredFeatures13(VkPhysicalDeviceVulkan13Features supported, VkPhysicalDeviceVulkan13Features required) {
+    return IMPL(robustImageAccess)
+        && IMPL(inlineUniformBlock)
+        && IMPL(descriptorBindingInlineUniformBlockUpdateAfterBind)
+        && IMPL(pipelineCreationCacheControl)
+        && IMPL(privateData)
+        && IMPL(shaderDemoteToHelperInvocation)
+        && IMPL(shaderTerminateInvocation)
+        && IMPL(subgroupSizeControl)
+        && IMPL(computeFullSubgroups)
+        && IMPL(synchronization2)
+        && IMPL(textureCompressionASTC_HDR)
+        && IMPL(shaderZeroInitializeWorkgroupMemory)
+        && IMPL(dynamicRendering)
+        && IMPL(shaderIntegerDotProduct)
+        && IMPL(maintenance4);
+}
 
 // Only true if in debug mode and layers are available
 bool enableValidationLayers = false;
@@ -213,19 +299,63 @@ void InstanceManager::SetupDebugMessenger()
 }
 #endif
 
+bool DeviceHasRequiredExtensions(VkPhysicalDevice device) {
+    uint32_t extensionCount;
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+
+    std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
+
+    std::set<std::string> required(requiredExtensions.begin(), requiredExtensions.end());
+
+    for (const auto& extension : availableExtensions) {
+        required.erase(extension.extensionName);
+    }
+
+    return required.empty();
+}
+
 uint32_t PhysicalDeviceScore(VkPhysicalDevice device, VkSurfaceKHR const & presentationSurface) {
     VkPhysicalDeviceProperties deviceProperties;
     vkGetPhysicalDeviceProperties(device, &deviceProperties);
-    VkPhysicalDeviceFeatures deviceFeatures;
-    vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+    VkPhysicalDeviceVulkan13Features vulkan13Features { .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES };
+    VkPhysicalDeviceVulkan12Features vulkan12Features { 
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+        .pNext = &vulkan13Features
+    };
+    VkPhysicalDeviceVulkan11Features vulkan11Features {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
+        .pNext = &vulkan12Features
+    };
+    VkPhysicalDeviceFeatures2 deviceFeatures { 
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+        .pNext = &vulkan11Features 
+    };
+    vkGetPhysicalDeviceFeatures2(device, &deviceFeatures);
 
     auto queueFamilies = FindQueueFamilies(device, presentationSurface);
 
     bool isDedicatedGPU = deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
     bool hasGraphicsFamily = queueFamilies.graphicsFamily.has_value();
+    bool hasPresentFamily = queueFamilies.presentFamily.has_value();
 
-    return  deviceFeatures.geometryShader 
-        *   hasGraphicsFamily 
+    bool extensionsSupported = DeviceHasRequiredExtensions(device);
+
+    bool swapchainAdequate = false;
+    if (extensionsSupported) {
+        SwapchainSupportDetails swapchainSupport = QuerySwapchainSupport(device, presentationSurface);
+        swapchainAdequate = !swapchainSupport.formats.empty() && !swapchainSupport.presentModes.empty();
+    }
+
+    bool hasNecessaryFeatures = deviceFeatures.features.geometryShader
+                            &&  SupportsRequiredFeatures12(vulkan12Features, requiredFeatures12)
+                            &&  SupportsRequiredFeatures13(vulkan13Features, requiredFeatures13);
+    
+    return  hasGraphicsFamily 
+        *   hasPresentFamily
+        *   extensionsSupported
+        *   swapchainAdequate
+        *   hasNecessaryFeatures
         *   (
                 deviceProperties.limits.maxImageDimension2D 
             +   1000 * isDedicatedGPU
@@ -257,7 +387,8 @@ void InstanceManager::CreateLogicalDevice()
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .queueCreateInfoCount = static_cast<uint32_t>(queueInfos.size()),
         .pQueueCreateInfos = queueInfos.data(),
-        .enabledExtensionCount = 0,
+        .enabledExtensionCount = static_cast<uint32_t>(requiredExtensions.size()),
+        .ppEnabledExtensionNames = requiredExtensions.data(),
         .pEnabledFeatures = &deviceFeatures,
     };
 
@@ -272,6 +403,55 @@ void InstanceManager::CreateLogicalDevice()
 
     vkGetDeviceQueue(graphicsHandler, queueFamilies.graphicsFamily.value(), 0, &graphicsQueue);
     vkGetDeviceQueue(graphicsHandler, queueFamilies.presentFamily.value(), 0, &presentQueue);
+}
+
+void InstanceManager::CreateSwapchain(
+    VkSurfaceFormatKHR surfaceFormat, 
+    VkPresentModeKHR presentMode, 
+    VkExtent2D extent, 
+    uint32_t imageCount, 
+    VkSwapchainKHR oldSwapchain, 
+    VkSwapchainKHR * swapchain)
+{
+    auto details = QuerySwapchainSupport(instance->gpu, instance->surface);
+    VkSwapchainCreateInfoKHR swapchainInfo {
+        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+        .surface = instance->surface,
+        .minImageCount = imageCount,
+        .imageFormat = surfaceFormat.format,
+        .imageColorSpace = surfaceFormat.colorSpace,
+        .imageExtent = extent, 
+        .imageArrayLayers = 1,
+        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        .preTransform = details.capabilities.currentTransform,
+        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        .presentMode = presentMode,
+        .clipped = VK_TRUE,
+        .oldSwapchain = oldSwapchain
+    };
+
+    QueueFamilyIndices indices = FindQueueFamilies(instance->gpu, instance->surface);
+    uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
+
+    if (indices.graphicsFamily != indices.presentFamily) {
+        swapchainInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+        swapchainInfo.queueFamilyIndexCount = 2;
+        swapchainInfo.pQueueFamilyIndices = queueFamilyIndices;
+    } else {
+        swapchainInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        swapchainInfo.queueFamilyIndexCount = 0; // Optional
+        swapchainInfo.pQueueFamilyIndices = nullptr; // Optional
+    }
+
+    VULKAN_ASSERT(vkCreateSwapchainKHR(instance->graphicsHandler, &swapchainInfo, nullptr, swapchain), "Failed to create swapchain!")
+}
+
+void InstanceManager::GetSwapchainImages(VkSwapchainKHR &swapchain, std::vector<VkImage> &images)
+{
+    uint32_t imageCount;
+    vkGetSwapchainImagesKHR(instance->graphicsHandler, swapchain, &imageCount, nullptr);
+    images.resize(imageCount);
+    vkGetSwapchainImagesKHR(instance->graphicsHandler, swapchain, &imageCount, images.data());
 }
 
 void InstanceManager::PickPhysicalDevice()
@@ -302,7 +482,7 @@ void InstanceManager::Init(const char * applicationName)
 #ifndef NDEBUG
     instance->SetupDebugMessenger();
 #endif
-    VULKAN_ASSERT(glfwCreateWindowSurface(instance->vulkanInstance, WindowManager::GetMainWindow()->GetGLFWwindow(), nullptr, &instance->surface), "Failed to create surface!")
+    WindowManager::GetMainWindow()->CreateSurfaceOnWindow(instance->vulkanInstance, &instance->surface);
     instance->PickPhysicalDevice();
     instance->CreateLogicalDevice();
 }
@@ -312,5 +492,27 @@ void InstanceManager::Cleanup()
 
     delete instance;
 }
+
+SwapchainSupportDetails QuerySwapchainSupport(VkPhysicalDevice device, VkSurfaceKHR presentationSurface)
+{
+    SwapchainSupportDetails details {};
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, presentationSurface, &details.capabilities);
     
+    uint32_t formatCount;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(device, presentationSurface, &formatCount, nullptr);
+    if (formatCount != 0) {
+        details.formats.resize(formatCount);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, presentationSurface, &formatCount, details.formats.data());
+    }
+
+    uint32_t presentModeCount;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device, presentationSurface, &presentModeCount, nullptr);
+    if (presentModeCount != 0) {
+        details.presentModes.resize(presentModeCount);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, presentationSurface, &presentModeCount, details.presentModes.data());
+    }
+
+    return details;
+}
+
 } // namespace Engine::Graphics

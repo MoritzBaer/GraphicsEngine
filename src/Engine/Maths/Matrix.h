@@ -7,6 +7,11 @@
 #define PI 3.14159265359
 #define EPS 0.0000001
 
+#define X 0
+#define Y 1
+#define Z 2
+#define W 3
+
 namespace Engine::Maths
 {
     template<uint8_t n, uint8_t m, typename T> 
@@ -78,7 +83,7 @@ namespace Engine::Maths
             // +--------------------------------+
             // |    Vector-specific operations  |
             // +--------------------------------+
-            inline T operator*(VectorT<n, T> const& other) const requires(m == 1) { return (other.Transposed() * *this)[0]; }
+            inline T operator*(VectorT<n, T> const& other) const requires(m == 1) { return (other.Transposed() * *this)[X]; }
             inline T SqrMagnitude() const requires(m == 1) { return *this * *this; }
             inline T Length() const requires(m == 1) { return std::sqrt(SqrMagnitude()); }
             inline T &operator[](uint8_t i) requires(m == 1) { return data[i]; }
@@ -121,10 +126,10 @@ namespace Engine::Maths
                     uint8_t index2;
                 public:
                     EntryPair(MatrixT<n, 1, T> &v, uint8_t i1, uint8_t i2) : parent(v), index1(i1), index2(i2) { }
-                    inline void operator=(MatrixT<2, 1, T> const & values) { parent.data[index1] = values[0]; parent.data[index2] = values[1]; }
-                    inline void operator+=(MatrixT<2, 1, T> const & values) { parent.data[index1] += values[0]; parent.data[index2] += values[1]; }
+                    inline void operator=(MatrixT<2, 1, T> const & values) { parent.data[index1] = values[X]; parent.data[index2] = values[Y]; }
+                    inline void operator+=(MatrixT<2, 1, T> const & values) { parent.data[index1] += values[X]; parent.data[index2] += values[Y]; }
                     inline void operator+=(T value) { parent.data[index1] += value; parent.data[index2] += value; }
-                    inline void operator-=(MatrixT<2, 1, T> const & values) { parent.data[index1] -= values[0]; parent.data[index2] -= values[1]; }
+                    inline void operator-=(MatrixT<2, 1, T> const & values) { parent.data[index1] -= values[X]; parent.data[index2] -= values[Y]; }
                     inline void operator-=(T value) { parent.data[index1] += value; parent.data[index2] -= value; }
                     inline void operator*=(T value) { parent.data[index1] *= value; parent.data[index2] *= value; }
                     inline void operator/=(T value) { parent.data[index1] /= value; parent.data[index2] /= value; }
@@ -138,10 +143,10 @@ namespace Engine::Maths
                     uint8_t index3;
                 public:
                     EntryTriplet(MatrixT<n, 1, T> &v, uint8_t i1, uint8_t i2, uint8_t i3) : parent(v), index1(i1), index2(i2), index3(i3) { }
-                    inline void operator=(MatrixT<3, 1, T> const & values) { parent.data[index1] = values[0]; parent.data[index2] = values[1]; parent.data[index3] = values[2]; }
-                    inline void operator+=(MatrixT<3, 1, T> const & values) { parent.data[index1] += values[0]; parent.data[index2] += values[1]; parent.data[index3] += values[2]; }
+                    inline void operator=(MatrixT<3, 1, T> const & values) { parent.data[index1] = values[X]; parent.data[index2] = values[Y]; parent.data[index3] = values[Z]; }
+                    inline void operator+=(MatrixT<3, 1, T> const & values) { parent.data[index1] += values[X]; parent.data[index2] += values[Y]; parent.data[index3] += values[Z]; }
                     inline void operator+=(T value) { parent.data[index1] += value; parent.data[index2] += value; parent.data[index3] += value; }
-                    inline void operator-=(MatrixT<3, 1, T> const & values) { parent.data[index1] -= values[0]; parent.data[index2] -= values[1]; parent.data[index3] -= values[2]; }
+                    inline void operator-=(MatrixT<3, 1, T> const & values) { parent.data[index1] -= values[X]; parent.data[index2] -= values[Y]; parent.data[index3] -= values[Z]; }
                     inline void operator-=(T value) { parent.data[index1] += value; parent.data[index2] -= value; parent.data[index3] -= value; }
                     inline void operator*=(T value) { parent.data[index1] *= value; parent.data[index2] *= value; parent.data[index3] *= value; }
                     inline void operator/=(T value) { parent.data[index1] /= value; parent.data[index2] /= value; parent.data[index3] /= value; }
@@ -152,16 +157,16 @@ namespace Engine::Maths
             inline Column operator[](uint8_t i) { return Column(*this, i); };
             inline MatrixT<m, 1, T> operator[](uint8_t i) const;
             
-            Entry X() requires(m == 1) { return Entry(*this, 0); }
-            Entry Y() requires(m == 1 && n >= 2) { return Entry(*this, 1); }
-            Entry Z() requires(m == 1 && n >= 3) { return Entry(*this, 2); }
-            Entry W() requires(m == 1 && n >= 4) { return Entry(*this, 3); }
+            Entry x() requires(m == 1) { return Entry(*this, X); }
+            Entry y() requires(m == 1 && n >= 2) { return Entry(*this, Y); }
+            Entry z() requires(m == 1 && n >= 3) { return Entry(*this, Z); }
+            Entry w() requires(m == 1 && n >= 4) { return Entry(*this, W); }
 
-            EntryPair XY() requires(m == 1 && n >= 2) { return EntryPair(*this, 0, 1); }
-            EntryPair XZ() requires(m == 1 && n >= 3) { return EntryPair(*this, 0, 2); }
-            EntryPair YZ() requires(m == 1 && n >= 3) { return EntryPair(*this, 1, 2); }
+            EntryPair xy() requires(m == 1 && n >= 2) { return EntryPair(*this, X, Y); }
+            EntryPair xz() requires(m == 1 && n >= 3) { return EntryPair(*this, X, Z); }
+            EntryPair yz() requires(m == 1 && n >= 3) { return EntryPair(*this, Y, Z); }
 
-            EntryTriplet XYZ() requires(m == 1 && n >= 3) { return EntryTriplet(*this, 0, 1, 2); }
+            EntryTriplet xyz() requires(m == 1 && n >= 3) { return EntryTriplet(*this, X, Y, Z); }
 
         private:
             // Adds factor * row1 to row2
@@ -250,9 +255,9 @@ namespace Engine::Maths
         const VectorT<3, T> u = r.Cross(f).Normalized();
 
         return MatrixT<4, 4, T>{
-                  r[0],       u[0],   -f[0], 0,
-                  r[1],       u[1],   -f[1], 0,
-                  r[2],       u[2],   -f[2], 0,
+                  r[X],       u[X],   -f[X], 0,
+                  r[Y],       u[Y],   -f[Y], 0,
+                  r[Z],       u[Z],   -f[Z], 0,
             -(r * eye), -(u * eye), f * eye, 1
         };
     }
@@ -264,17 +269,17 @@ namespace Engine::Maths
         T cosTheta = cos(theta);
         auto a = axis.Normalized();
         return MatrixT<3, 3, T>{
-            cosTheta + a[0] * a[0] * (T(1) - cosTheta), 
-            a[2] * sinTheta + a[0] * a[1] * (T(1) - cosTheta), 
-            a[1] * sinTheta + a[0] * a[2] * (T(1) - cosTheta), 
+            cosTheta + a[X] * a[X] * (T(1) - cosTheta), 
+            a[Z] * sinTheta + a[X] * a[Y] * (T(1) - cosTheta), 
+            a[Y] * sinTheta + a[X] * a[Z] * (T(1) - cosTheta), 
 
-            -a[2] * sinTheta + a[1] * a[0] * (T(1) - cosTheta), 
-            cosTheta + a[1] * a[1] * (T(1) - cosTheta), 
-            a[0] * sinTheta + a[1] * a[2] * (T(1) - cosTheta), 
+            -a[Z] * sinTheta + a[Y] * a[X] * (T(1) - cosTheta), 
+            cosTheta + a[Y] * a[Y] * (T(1) - cosTheta), 
+            a[X] * sinTheta + a[Y] * a[Z] * (T(1) - cosTheta), 
 
-            a[1] * sinTheta + a[2] * a[0] * (T(1) - cosTheta),
-            -a[0] * sinTheta + a[2] * a[1] * (T(1) - cosTheta),
-            cosTheta + a[2] * a[2] * (T(1) - cosTheta)
+            a[Y] * sinTheta + a[Z] * a[X] * (T(1) - cosTheta),
+            -a[X] * sinTheta + a[Z] * a[Y] * (T(1) - cosTheta),
+            cosTheta + a[Z] * a[Z] * (T(1) - cosTheta)
         };
     }
 
@@ -319,9 +324,9 @@ namespace Engine::Maths
     inline VectorT<3, T> MatrixT<n, m, T>::Cross(VectorT<3, T> const &other) const requires(m == 1 && n == 3)
     {
         return VectorT<3, T>{
-            data[1] * other[2] - data[2] * other[1],
-            data[2] * other[0] - data[0] * other[2],
-            data[0] * other[1] - data[1] * other[0]
+            data[Y] * other[Z] - data[Z] * other[Y],
+            data[Z] * other[X] - data[X] * other[Z],
+            data[X] * other[Y] - data[Y] * other[X]
         };
     }
 
