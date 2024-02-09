@@ -15,6 +15,7 @@ namespace Engine::Graphics
         VkFormat swapchainFormat;
         VkExtent2D swapchainExtent;
         std::vector<VkImage> swapchainImages;
+        std::vector<VkImageView> swapchainImageViews;
 
         void CreateSwapchain();
     };

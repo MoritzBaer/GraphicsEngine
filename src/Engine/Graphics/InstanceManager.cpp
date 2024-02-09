@@ -454,6 +454,12 @@ void InstanceManager::GetSwapchainImages(VkSwapchainKHR &swapchain, std::vector<
     vkGetSwapchainImagesKHR(instance->graphicsHandler, swapchain, &imageCount, images.data());
 }
 
+void InstanceManager::CreateImageView(VkImageViewCreateInfo const *createInfo, VkImageView *view)
+{ 
+    VULKAN_ASSERT(vkCreateImageView(instance->graphicsHandler, createInfo, nullptr, view), "Failed to create image view!") 
+}
+
+
 void InstanceManager::PickPhysicalDevice()
 {
     uint32_t deviceCount = 0;

@@ -14,7 +14,10 @@ namespace Engine::Graphics
     void Renderer::Cleanup() { delete instance; }
 
     Renderer::Renderer() {}
-    Renderer::~Renderer() { InstanceManager::DestroySwapchain(swapchain); }
+    Renderer::~Renderer() { 
+        for(auto view: swapchainImageViews) { InstanceManager::DestroyImageView(view); }
+        InstanceManager::DestroySwapchain(swapchain); 
+    }
 
     VkSurfaceFormatKHR ChooseSwapchainSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
         for (const auto& availableFormat : availableFormats) {
@@ -74,6 +77,32 @@ namespace Engine::Graphics
         swapchainFormat = surfaceFormat.format;
 
         InstanceManager::GetSwapchainImages(swapchain, swapchainImages);
+
+        // Create image views
+        swapchainImageViews.resize(swapchainImages.size());
+        for(int i = 0; i < swapchainImageViews.size(); i++) {
+            VkImageViewCreateInfo imageViewInfo {
+                .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+                .image = swapchainImages[i],
+                .viewType = VK_IMAGE_VIEW_TYPE_2D,
+                .format = swapchainFormat,
+                .components {
+                    .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+                    .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+                    .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+                    .a = VK_COMPONENT_SWIZZLE_IDENTITY,
+                },
+                .subresourceRange {
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .baseMipLevel = 0,
+                    .levelCount = 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1
+                }
+            };
+
+            InstanceManager::CreateImageView(&imageViewInfo, swapchainImageViews.data() + i);
+        }
     }
 
 } // namespace Engine::Graphics

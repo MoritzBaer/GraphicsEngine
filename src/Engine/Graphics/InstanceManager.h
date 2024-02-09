@@ -43,10 +43,12 @@ namespace Engine::Graphics
             VkExtent2D extent, 
             uint32_t imageCount, 
             VkSwapchainKHR oldSwapchain, 
-            VkSwapchainKHR * swapchain);
+            VkSwapchainKHR * swapchain);    //
         static void GetSwapchainImages(VkSwapchainKHR &swapchain, std::vector<VkImage> & images);
+        static void CreateImageView(VkImageViewCreateInfo const * createInfo, VkImageView * view);
 
         static inline void DestroySwapchain(VkSwapchainKHR swapchain) { vkDestroySwapchainKHR(instance->graphicsHandler, swapchain, nullptr); }
+        static inline void DestroyImageView(VkImageView view) { vkDestroyImageView(instance->graphicsHandler, view, nullptr); }
     };
 
 } // namespace Engine::Graphics

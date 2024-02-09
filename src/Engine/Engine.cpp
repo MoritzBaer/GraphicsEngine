@@ -7,6 +7,7 @@ void Engine::Init(const char * applicationName)
     WindowManager::Init(1600, 900, applicationName);
     EventManager::Init();
     Graphics::InstanceManager::Init(applicationName);
+    Graphics::Renderer::Init();
 }
 
 void Engine::RunMainLoop()
@@ -19,6 +20,7 @@ void Engine::RunMainLoop()
 
 void Engine::Cleanup()
 {
+    Graphics::Renderer::Cleanup();
     Graphics::InstanceManager::Cleanup();
     EventManager::Cleanup();
     WindowManager::Cleanup();
