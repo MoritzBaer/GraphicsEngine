@@ -406,11 +406,11 @@ void InstanceManager::CreateLogicalDevice()
 }
 
 void InstanceManager::CreateSwapchain(
-    VkSurfaceFormatKHR surfaceFormat, 
-    VkPresentModeKHR presentMode, 
-    VkExtent2D extent, 
-    uint32_t imageCount, 
-    VkSwapchainKHR oldSwapchain, 
+    VkSurfaceFormatKHR const & surfaceFormat, 
+    VkPresentModeKHR const & presentMode, 
+    VkExtent2D const & extent, 
+    uint32_t const & imageCount, 
+    VkSwapchainKHR const & oldSwapchain, 
     VkSwapchainKHR * swapchain)
 {
     auto details = QuerySwapchainSupport(instance->gpu, instance->surface);
@@ -446,7 +446,7 @@ void InstanceManager::CreateSwapchain(
     VULKAN_ASSERT(vkCreateSwapchainKHR(instance->graphicsHandler, &swapchainInfo, nullptr, swapchain), "Failed to create swapchain!")
 }
 
-void InstanceManager::GetSwapchainImages(VkSwapchainKHR &swapchain, std::vector<VkImage> &images)
+void InstanceManager::GetSwapchainImages(VkSwapchainKHR const & swapchain, std::vector<VkImage> &images)
 {
     uint32_t imageCount;
     vkGetSwapchainImagesKHR(instance->graphicsHandler, swapchain, &imageCount, nullptr);
@@ -454,11 +454,23 @@ void InstanceManager::GetSwapchainImages(VkSwapchainKHR &swapchain, std::vector<
     vkGetSwapchainImagesKHR(instance->graphicsHandler, swapchain, &imageCount, images.data());
 }
 
-void InstanceManager::CreateImageView(VkImageViewCreateInfo const *createInfo, VkImageView *view)
-{ 
-    VULKAN_ASSERT(vkCreateImageView(instance->graphicsHandler, createInfo, nullptr, view), "Failed to create image view!") 
+void InstanceManager::CreateImageView(VkImageViewCreateInfo const *createInfo, VkImageView *view){
+    VULKAN_ASSERT(vkCreateImageView(instance->graphicsHandler, createInfo, nullptr, view), "Failed to create image view!")}
+
+void InstanceManager::CreateCommandPool(VkCommandPoolCreateInfo const *createInfo, VkCommandPool *commandPool)
+{
+    VULKAN_ASSERT(vkCreateCommandPool(instance->graphicsHandler, createInfo, nullptr, commandPool), "Failed to create command pool!")
 }
 
+void InstanceManager::AllocateCommandBuffers(VkCommandBufferAllocateInfo const *allocInfo, VkCommandBuffer *commandBuffers)
+{
+    VULKAN_ASSERT(vkAllocateCommandBuffers(instance->graphicsHandler, allocInfo, commandBuffers), "Failed to allocate command buffers!")
+}
+
+uint32_t InstanceManager::GetGraphicsFamily()
+{
+    return FindQueueFamilies(instance->gpu, instance->surface).graphicsFamily.value();
+}
 
 void InstanceManager::PickPhysicalDevice()
 {

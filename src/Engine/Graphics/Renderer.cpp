@@ -9,6 +9,7 @@ namespace Engine::Graphics
     void Renderer::Init() { 
         instance = new Renderer(); 
         instance->CreateSwapchain();
+        instance->CreateFrameResources();
     }
 
     void Renderer::Cleanup() { delete instance; }
@@ -17,6 +18,10 @@ namespace Engine::Graphics
     Renderer::~Renderer() { 
         for(auto view: swapchainImageViews) { InstanceManager::DestroyImageView(view); }
         InstanceManager::DestroySwapchain(swapchain); 
+        for(auto resources : frameResources) {
+            InstanceManager::FreeCommandBuffers(resources.commandPool, &resources.mainCommandBuffer);
+            InstanceManager::DestroyCommandPool(resources.commandPool);
+        }
     }
 
     VkSurfaceFormatKHR ChooseSwapchainSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
@@ -102,6 +107,28 @@ namespace Engine::Graphics
             };
 
             InstanceManager::CreateImageView(&imageViewInfo, swapchainImageViews.data() + i);
+        }
+    }
+
+    void Renderer::CreateFrameResources()
+    {
+        VkCommandPoolCreateInfo commandPoolInfo {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+            .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+            .queueFamilyIndex = InstanceManager::GetGraphicsFamily(),
+        };
+
+        for(int i = 0; i < MAX_FRAME_OVERLAP; i++) {
+            InstanceManager::CreateCommandPool(&commandPoolInfo, &frameResources[i].commandPool);
+
+            VkCommandBufferAllocateInfo commandBufferInfo {
+                .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+                .commandPool = frameResources[i].commandPool,
+                .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+                .commandBufferCount = 1,
+            };
+
+            InstanceManager::AllocateCommandBuffers(&commandBufferInfo, &frameResources[i].mainCommandBuffer);
         }
     }
 
