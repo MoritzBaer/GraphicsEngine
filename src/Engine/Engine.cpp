@@ -15,6 +15,7 @@ void Engine::RunMainLoop()
     while(!quit) {
         EventManager::HandleWindowEvents(WindowManager::GetMainWindow());
         if(WindowManager::GetMainWindow()->ShouldClose()) { Quit(); }
+        Graphics::Renderer::DrawFrame();
     }
 }
 

@@ -19,6 +19,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
     const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
     void* pUserData) {
 
+    if (pCallbackData->pMessageIdName == nullptr) { return VK_FALSE; }  // Only necessary because RenderDoc doesn't satisfy the Vulkan specification (so says Max)
+
     switch (messageSeverity)
     {
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
@@ -67,18 +69,18 @@ const std::vector<const char *> requiredExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
-//vulkan 1.3 features
 VkPhysicalDeviceVulkan13Features requiredFeatures13{
     .synchronization2 = true,
     .dynamicRendering = true,
 };
 
-
-//vulkan 1.2 features
 VkPhysicalDeviceVulkan12Features requiredFeatures12{
     .descriptorIndexing = true,
+#ifndef COMPILE_FOR_RENDERDOC
     .bufferDeviceAddress = true,
+#endif
 };
+
 
 #define IMPL(name) (!required.name || supported.name)
 
@@ -382,9 +384,14 @@ void InstanceManager::CreateLogicalDevice()
     }
 
     VkPhysicalDeviceFeatures deviceFeatures {};
+    VkPhysicalDeviceSynchronization2Features features2 {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES,
+        .synchronization2 = requiredFeatures13.synchronization2
+    };
 
     VkDeviceCreateInfo deviceInfo {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .pNext = &features2,
         .queueCreateInfoCount = static_cast<uint32_t>(queueInfos.size()),
         .pQueueCreateInfos = queueInfos.data(),
         .enabledExtensionCount = static_cast<uint32_t>(requiredExtensions.size()),
@@ -400,9 +407,6 @@ void InstanceManager::CreateLogicalDevice()
     }
 
     VULKAN_ASSERT(vkCreateDevice(gpu, &deviceInfo, nullptr, &graphicsHandler), "Failed to create logical device!")
-
-    vkGetDeviceQueue(graphicsHandler, queueFamilies.graphicsFamily.value(), 0, &graphicsQueue);
-    vkGetDeviceQueue(graphicsHandler, queueFamilies.presentFamily.value(), 0, &presentQueue);
 }
 
 void InstanceManager::CreateSwapchain(
@@ -422,7 +426,7 @@ void InstanceManager::CreateSwapchain(
         .imageColorSpace = surfaceFormat.colorSpace,
         .imageExtent = extent, 
         .imageArrayLayers = 1,
-        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         .preTransform = details.capabilities.currentTransform,
         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
         .presentMode = presentMode,
@@ -454,12 +458,24 @@ void InstanceManager::GetSwapchainImages(VkSwapchainKHR const & swapchain, std::
     vkGetSwapchainImagesKHR(instance->graphicsHandler, swapchain, &imageCount, images.data());
 }
 
-void InstanceManager::CreateImageView(VkImageViewCreateInfo const *createInfo, VkImageView *view){
-    VULKAN_ASSERT(vkCreateImageView(instance->graphicsHandler, createInfo, nullptr, view), "Failed to create image view!")}
+void InstanceManager::CreateImageView(VkImageViewCreateInfo const *createInfo, VkImageView *view)
+{
+    VULKAN_ASSERT(vkCreateImageView(instance->graphicsHandler, createInfo, nullptr, view), "Failed to create image view!")
+}
 
 void InstanceManager::CreateCommandPool(VkCommandPoolCreateInfo const *createInfo, VkCommandPool *commandPool)
 {
     VULKAN_ASSERT(vkCreateCommandPool(instance->graphicsHandler, createInfo, nullptr, commandPool), "Failed to create command pool!")
+}
+
+void InstanceManager::CreateSemaphore(VkSemaphoreCreateInfo const *createInfo, VkSemaphore *semaphore)
+{
+    VULKAN_ASSERT(vkCreateSemaphore(instance->graphicsHandler, createInfo, nullptr, semaphore), "Failed to create semaphore!")
+}
+
+void InstanceManager::CreateFence(VkFenceCreateInfo const *createInfo, VkFence *fence)
+{
+    VULKAN_ASSERT(vkCreateFence(instance->graphicsHandler, createInfo, nullptr, fence), "Failed to create fence!")
 }
 
 void InstanceManager::AllocateCommandBuffers(VkCommandBufferAllocateInfo const *allocInfo, VkCommandBuffer *commandBuffers)
@@ -467,9 +483,29 @@ void InstanceManager::AllocateCommandBuffers(VkCommandBufferAllocateInfo const *
     VULKAN_ASSERT(vkAllocateCommandBuffers(instance->graphicsHandler, allocInfo, commandBuffers), "Failed to allocate command buffers!")
 }
 
+void InstanceManager::WaitForFences(VkFence const *fences, uint32_t fenceCount, bool waitForAll, uint32_t timeout)
+{
+    VULKAN_ASSERT(vkWaitForFences(instance->graphicsHandler, fenceCount, fences, waitForAll, timeout), "I have no idea how, but we just failed to wait on a fence.")
+}
+
+void InstanceManager::ResetFences(VkFence const *fences, uint32_t fenceCount){
+    VULKAN_ASSERT(vkResetFences(instance->graphicsHandler, fenceCount, fences), "Failed to reset fences!")}
+
+uint32_t InstanceManager::GetNextSwapchainImageIndex(VkSwapchainKHR const &swapchain, VkSemaphore const &semaphore, VkFence const &fence, uint32_t timeout)
+{
+    uint32_t index;
+    VULKAN_ASSERT(vkAcquireNextImageKHR(instance->graphicsHandler, swapchain, timeout, semaphore, fence, &index), "Failed to acquire swapchain image!");
+    return index;
+}
+
 uint32_t InstanceManager::GetGraphicsFamily()
 {
     return FindQueueFamilies(instance->gpu, instance->surface).graphicsFamily.value();
+}
+
+uint32_t InstanceManager::GetPresentFamily()
+{    
+    return FindQueueFamilies(instance->gpu, instance->surface).presentFamily.value();
 }
 
 void InstanceManager::PickPhysicalDevice()

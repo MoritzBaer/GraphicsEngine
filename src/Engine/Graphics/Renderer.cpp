@@ -3,25 +3,39 @@
 #include "InstanceManager.h"
 #include "../WindowManager.h"
 #include <algorithm>
+#include "../Debug/Logging.h"
+#include "VulkanUtil.h"
 
 namespace Engine::Graphics
-{
+{   
+    namespace vkinit
+    {
+    } // namespace vkinit
+    
+    namespace vkutil
+    {
+        PipelineBarrierCommand TransitionImageCommand(VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout) {
+            return PipelineBarrierCommand({ vkinit::ImageMemoryBarrier(image, currentLayout, targetLayout) });
+        }
+    } // namespace vkutil
+    
     void Renderer::Init() { 
         instance = new Renderer(); 
+        InstanceManager::GetGraphicsQueue(&instance->graphicsQueue);
+        InstanceManager::GetPresentQueue(&instance->presentQueue);
         instance->CreateSwapchain();
-        instance->CreateFrameResources();
+        for(int i = 0; i < MAX_FRAME_OVERLAP; i++) { instance->frameResources[i].Create(); }
     }
 
     void Renderer::Cleanup() { delete instance; }
 
     Renderer::Renderer() {}
     Renderer::~Renderer() { 
+        vkQueueWaitIdle(graphicsQueue);
+        vkQueueWaitIdle(presentQueue);
         for(auto view: swapchainImageViews) { InstanceManager::DestroyImageView(view); }
         InstanceManager::DestroySwapchain(swapchain); 
-        for(auto resources : frameResources) {
-            InstanceManager::FreeCommandBuffers(resources.commandPool, &resources.mainCommandBuffer);
-            InstanceManager::DestroyCommandPool(resources.commandPool);
-        }
+        for(auto resources : frameResources) { resources.Destroy(); }
     }
 
     VkSurfaceFormatKHR ChooseSwapchainSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
@@ -110,26 +124,80 @@ namespace Engine::Graphics
         }
     }
 
-    void Renderer::CreateFrameResources()
+    void Renderer::Draw() const
     {
-        VkCommandPoolCreateInfo commandPoolInfo {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-            .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-            .queueFamilyIndex = InstanceManager::GetGraphicsFamily(),
+        Debug::Logging::PrintMessage("Engine", "Rendering frame: {}", currentFrame);
+        uint32_t resourceIndex = currentFrame % MAX_FRAME_OVERLAP;
+        InstanceManager::WaitForFences(&frameResources[resourceIndex].renderFence);
+        InstanceManager::ResetFences(&frameResources[resourceIndex].renderFence);
+    	
+        uint32_t swapchainImageIndex = InstanceManager::GetNextSwapchainImageIndex(swapchain, frameResources[resourceIndex].swapchainSemaphore);
+
+        auto transitionToWriteable = vkutil::TransitionImageCommand(swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+        auto clearColour = ClearColourCommand(
+                swapchainImages[resourceIndex], 
+                VK_IMAGE_LAYOUT_GENERAL,
+                { { 0.0f, 0.0f, abs(sin(currentFrame / 120.0f)), 1.0f } },
+                { vkinit::ImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT) }
+            );
+        auto transitionToPresentable = vkutil::TransitionImageCommand(swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+        auto commandBufferSubmitInfo = frameResources[resourceIndex].queue.EnqueueCommandSequence({
+            &transitionToWriteable,
+            &clearColour,
+            &transitionToPresentable
+        });
+
+        auto semaphoreWaitInfo = vkinit::SemaphoreSubmitInfo(frameResources[resourceIndex].swapchainSemaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR);
+        auto semaphoreSignalInfo = vkinit::SemaphoreSubmitInfo(frameResources[resourceIndex].renderSemaphore, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
+
+        VkSubmitInfo2 submitInfo {
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+            .waitSemaphoreInfoCount = 1,
+            .pWaitSemaphoreInfos = &semaphoreWaitInfo,
+            .commandBufferInfoCount = 1,
+            .pCommandBufferInfos = &commandBufferSubmitInfo,
+            .signalSemaphoreInfoCount = 1,
+            .pSignalSemaphoreInfos = &semaphoreSignalInfo,
         };
 
-        for(int i = 0; i < MAX_FRAME_OVERLAP; i++) {
-            InstanceManager::CreateCommandPool(&commandPoolInfo, &frameResources[i].commandPool);
+        VULKAN_ASSERT(vkQueueSubmit2(graphicsQueue, 1, &submitInfo, frameResources[resourceIndex].renderFence), "Failed to submit queue")
 
-            VkCommandBufferAllocateInfo commandBufferInfo {
-                .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-                .commandPool = frameResources[i].commandPool,
-                .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-                .commandBufferCount = 1,
-            };
+        VkPresentInfoKHR presentInfo {
+            .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+            .waitSemaphoreCount = 1,
+            .pWaitSemaphores = &frameResources[resourceIndex].renderSemaphore,
+            .swapchainCount = 1,
+            .pSwapchains = &swapchain,
+            .pImageIndices = &swapchainImageIndex
+        };
 
-            InstanceManager::AllocateCommandBuffers(&commandBufferInfo, &frameResources[i].mainCommandBuffer);
-        }
+        VULKAN_ASSERT(vkQueuePresentKHR(presentQueue, &presentInfo), "Failed to present image!")
+    }
+
+    void Renderer::FrameResources::Create()
+    {
+        VkFenceCreateInfo fenceInfo { 
+            .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+            .flags = VK_FENCE_CREATE_SIGNALED_BIT 
+        };
+
+        VkSemaphoreCreateInfo semaphoreInfo { .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+
+        InstanceManager::CreateFence(&fenceInfo, &renderFence);
+
+        InstanceManager::CreateSemaphore(&semaphoreInfo, &renderSemaphore);
+        InstanceManager::CreateSemaphore(&semaphoreInfo, &swapchainSemaphore);
+
+        queue.Create();
+    }
+
+    void Renderer::FrameResources::Destroy()
+    {
+        queue.Destroy();
+        InstanceManager::DestroySemaphore(swapchainSemaphore);
+        InstanceManager::DestroySemaphore(renderSemaphore);
+        InstanceManager::DestroyFence(renderFence);
     }
 
 } // namespace Engine::Graphics
