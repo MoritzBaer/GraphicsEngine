@@ -70,6 +70,7 @@ namespace Engine::Graphics
         // Vulkan synchronization
         static void WaitForFences(VkFence const * fences, uint32_t fenceCount = 1, bool waitForAll = true, uint32_t timeout = 1000000000);
         static void ResetFences(VkFence const * fences, uint32_t fenceCount = 1);
+        static inline void WaitUntilDeviceIdle() { vkDeviceWaitIdle(instance->graphicsHandler); }
 
         // Swapchain handling
         static uint32_t GetNextSwapchainImageIndex(VkSwapchainKHR const & swapchain, VkSemaphore const & semaphore = VK_NULL_HANDLE, VkFence const & fence = VK_NULL_HANDLE, uint32_t timeout = 1000000000);

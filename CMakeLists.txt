@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD 23)
 find_package(Vulkan REQUIRED)
 
 include_directories("dependencies/glfw-3.3.9.bin.WIN64/include/GLFW")
+include_directories("dependencies/VMA")
 include_directories(${Vulkan_INCLUDE_DIR})
 include_directories("src/Graphics")
 

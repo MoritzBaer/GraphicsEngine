@@ -77,3 +77,19 @@ void Engine::Graphics::ClearColourCommand::QueueExecution(VkCommandBuffer const 
 {
     vkCmdClearColorImage(queue, image, currentLayout, &clearColour, static_cast<uint32_t>(subresourceRanges.size()), subresourceRanges.data());
 }
+
+void Engine::Graphics::BlitImageCommand::QueueExecution(VkCommandBuffer const &queue) const
+{
+    VkBlitImageInfo2 blitInfo = {
+        .sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2,
+        .srcImage = source,
+        .srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        .dstImage = destination,
+        .dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .regionCount = static_cast<uint32_t>(blitRegions.size()),
+        .pRegions = blitRegions.data(),
+        .filter = VK_FILTER_LINEAR,
+    };
+
+    vkCmdBlitImage2(queue, &blitInfo);
+}

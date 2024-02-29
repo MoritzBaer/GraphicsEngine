@@ -29,8 +29,8 @@ namespace Engine
         }
     }
 
-    WindowManager::WindowManager() : openWindows() {}
-    WindowManager::~WindowManager() { delete &openWindows; }
+    WindowManager::WindowManager() : openWindows() { }
+    WindowManager::~WindowManager() { }
 
     void WindowManager::Init(uint32_t width, uint32_t height, const char *title)
     {

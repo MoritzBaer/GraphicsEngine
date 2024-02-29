@@ -39,4 +39,13 @@ namespace Engine::Graphics
         ClearColourCommand(VkImage image, VkImageLayout currentLayout, VkClearColorValue const & clearValue, std::vector<VkImageSubresourceRange> const & subresourceRanges);
         void QueueExecution(VkCommandBuffer const & queue) const;
     };
+
+    class BlitImageCommand : public Command {
+        std::vector<VkImageBlit2> blitRegions;
+        VkImage source, destination;
+    public:
+        BlitImageCommand(VkImage const & source, VkImage const & destination, std::vector<VkImageBlit2> const & blitRegions) : 
+            blitRegions(blitRegions), source(source), destination(destination) { }
+        void QueueExecution(VkCommandBuffer const & queue) const;
+    };
 } // namespace Engine::Graphics

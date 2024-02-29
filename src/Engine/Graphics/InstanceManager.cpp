@@ -3,10 +3,13 @@
 #include <vector>
 #include "glfw3.h"
 #include "../Macros.h"
-#include "../Debug/Logging.h"
-#include "../WindowManager.h"
 #include <algorithm>
 #include <set>
+
+#include "../Debug/Logging.h"
+#include "../WindowManager.h"
+#include "MemoryAllocator.h"
+#include "../DeletionQueue.h"
 
 namespace Engine::Graphics
 {
@@ -383,20 +386,33 @@ void InstanceManager::CreateLogicalDevice()
         queueInfos.push_back(queueInfo);
     }
 
-    VkPhysicalDeviceFeatures deviceFeatures {};
-    VkPhysicalDeviceSynchronization2Features features2 {
+    VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddress {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
+        .bufferDeviceAddress = requiredFeatures12.bufferDeviceAddress,
+        .bufferDeviceAddressCaptureReplay = requiredFeatures12.bufferDeviceAddressCaptureReplay,
+        .bufferDeviceAddressMultiDevice = requiredFeatures12.bufferDeviceAddressMultiDevice
+    };
+
+    VkPhysicalDeviceSynchronization2Features synchronization {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES,
+        .pNext = &bufferDeviceAddress,
         .synchronization2 = requiredFeatures13.synchronization2
+    };
+
+    VkPhysicalDeviceFeatures2 deviceFeatures2 {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+        .pNext = &synchronization,
+        .features = { }
     };
 
     VkDeviceCreateInfo deviceInfo {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .pNext = &features2,
+        .pNext = &deviceFeatures2,
         .queueCreateInfoCount = static_cast<uint32_t>(queueInfos.size()),
         .pQueueCreateInfos = queueInfos.data(),
         .enabledExtensionCount = static_cast<uint32_t>(requiredExtensions.size()),
         .ppEnabledExtensionNames = requiredExtensions.data(),
-        .pEnabledFeatures = &deviceFeatures,
+        .pEnabledFeatures = nullptr
     };
 
     if (enableValidationLayers) {
@@ -539,6 +555,9 @@ void InstanceManager::Init(const char * applicationName)
     WindowManager::GetMainWindow()->CreateSurfaceOnWindow(instance->vulkanInstance, &instance->surface);
     instance->PickPhysicalDevice();
     instance->CreateLogicalDevice();
+    
+    mainAllocator.Create(instance->gpu, instance->graphicsHandler, instance->vulkanInstance);
+    mainDeletionQueue.Push(&mainAllocator);
 }
 
 void InstanceManager::Cleanup()

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include "../Debug/Logging.h"
 #include "VulkanUtil.h"
+#include "Image.h"
 
 namespace Engine::Graphics
 {   
@@ -14,28 +15,62 @@ namespace Engine::Graphics
     
     namespace vkutil
     {
-        PipelineBarrierCommand TransitionImageCommand(VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout) {
+        inline PipelineBarrierCommand TransitionImageCommand(VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout) {
             return PipelineBarrierCommand({ vkinit::ImageMemoryBarrier(image, currentLayout, targetLayout) });
+        }
+
+        inline BlitImageCommand CopyFullImage(VkImage source, VkImage destination, VkExtent3D srcExtent, VkExtent3D dstExtent) {
+            VkImageBlit2 blitRegion {
+                .sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2,
+                .srcSubresource = {
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .mipLevel = 0,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1
+                },
+                .srcOffsets = {
+                    { 0, 0, 0 },
+                    { 
+                        static_cast<int32_t>(srcExtent.width), 
+                        static_cast<int32_t>(srcExtent.height), 
+                        static_cast<int32_t>(srcExtent.depth) 
+                    },
+                },
+                .dstSubresource = {
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .mipLevel = 0,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1
+                },
+                .dstOffsets = {
+                    { 0, 0, 0 },
+                    { 
+                        static_cast<int32_t>(dstExtent.width), 
+                        static_cast<int32_t>(dstExtent.height), 
+                        static_cast<int32_t>(dstExtent.depth) 
+                    },
+                }
+            };
+
+            return BlitImageCommand(source, destination, { blitRegion });
         }
     } // namespace vkutil
     
-    void Renderer::Init() { 
+    void Renderer::Init(Maths::Dimension2 windowSize) { 
         instance = new Renderer(); 
         InstanceManager::GetGraphicsQueue(&instance->graphicsQueue);
         InstanceManager::GetPresentQueue(&instance->presentQueue);
+        instance->windowDimension = windowSize;
         instance->CreateSwapchain();
-        for(int i = 0; i < MAX_FRAME_OVERLAP; i++) { instance->frameResources[i].Create(); }
+        for(int i = 0; i < MAX_FRAME_OVERLAP; i++) { mainDeletionQueue.Push(&instance->frameResources[i]); }
     }
 
     void Renderer::Cleanup() { delete instance; }
 
     Renderer::Renderer() {}
-    Renderer::~Renderer() { 
-        vkQueueWaitIdle(graphicsQueue);
-        vkQueueWaitIdle(presentQueue);
+    Renderer::~Renderer() {
         for(auto view: swapchainImageViews) { InstanceManager::DestroyImageView(view); }
-        InstanceManager::DestroySwapchain(swapchain); 
-        for(auto resources : frameResources) { resources.Destroy(); }
+        InstanceManager::DestroySwapchain(swapchain);
     }
 
     VkSurfaceFormatKHR ChooseSwapchainSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
@@ -75,6 +110,8 @@ namespace Engine::Graphics
 
     void Renderer::CreateSwapchain()
     {
+        renderBufferInitialized = false;
+
         SwapchainSupportDetails details = InstanceManager::GetSwapchainSupport();
 
         VkSurfaceFormatKHR surfaceFormat = ChooseSwapchainSurfaceFormat(details.formats);
@@ -122,30 +159,38 @@ namespace Engine::Graphics
 
             InstanceManager::CreateImageView(&imageViewInfo, swapchainImageViews.data() + i);
         }
+
+        RecreateRenderBuffer();
+        mainDeletionQueue.Push(&renderBuffer);
     }
 
     void Renderer::Draw() const
     {
-        Debug::Logging::PrintMessage("Engine", "Rendering frame: {}", currentFrame);
         uint32_t resourceIndex = currentFrame % MAX_FRAME_OVERLAP;
         InstanceManager::WaitForFences(&frameResources[resourceIndex].renderFence);
         InstanceManager::ResetFences(&frameResources[resourceIndex].renderFence);
     	
         uint32_t swapchainImageIndex = InstanceManager::GetNextSwapchainImageIndex(swapchain, frameResources[resourceIndex].swapchainSemaphore);
 
-        auto transitionToWriteable = vkutil::TransitionImageCommand(swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-        auto clearColour = ClearColourCommand(
-                swapchainImages[resourceIndex], 
+        auto transitionBufferToWriteable = vkutil::TransitionImageCommand(renderBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+        auto clearBufferColour = ClearColourCommand(
+                renderBuffer.image, 
                 VK_IMAGE_LAYOUT_GENERAL,
                 { { 0.0f, 0.0f, abs(sin(currentFrame / 120.0f)), 1.0f } },
                 { vkinit::ImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT) }
             );
-        auto transitionToPresentable = vkutil::TransitionImageCommand(swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        auto transitionBufferToTransferSrc = vkutil::TransitionImageCommand(renderBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+        auto transitionPresenterToTransferDst = vkutil::TransitionImageCommand(swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        auto copyBufferToPresenter = vkutil::CopyFullImage(renderBuffer.image, swapchainImages[resourceIndex], renderBuffer.imageExtent, { swapchainExtent.width, swapchainExtent.height, 1} );
+        auto transitionPresenterToPresent = vkutil::TransitionImageCommand(swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
-        auto commandBufferSubmitInfo = frameResources[resourceIndex].queue.EnqueueCommandSequence({
-            &transitionToWriteable,
-            &clearColour,
-            &transitionToPresentable
+        auto commandBufferSubmitInfo = frameResources[resourceIndex].commandQueue.EnqueueCommandSequence({
+            &transitionBufferToWriteable,
+            &clearBufferColour,
+            &transitionPresenterToTransferDst,
+            &transitionBufferToTransferSrc,
+            &copyBufferToPresenter,
+            &transitionPresenterToPresent
         });
 
         auto semaphoreWaitInfo = vkinit::SemaphoreSubmitInfo(frameResources[resourceIndex].swapchainSemaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR);
@@ -175,6 +220,19 @@ namespace Engine::Graphics
         VULKAN_ASSERT(vkQueuePresentKHR(presentQueue, &presentInfo), "Failed to present image!")
     }
 
+    void Renderer::RecreateRenderBuffer()
+    {
+        VkExtent3D renderBufferExtent = { windowDimension.x(), windowDimension.y(), 1 };
+
+        if (renderBufferInitialized) { renderBuffer.Destroy(); }
+        renderBuffer.Create(
+            VK_FORMAT_R16G16B16A16_SFLOAT,
+            renderBufferExtent,
+            VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+            VK_IMAGE_ASPECT_COLOR_BIT
+        );
+    }
+
     void Renderer::FrameResources::Create()
     {
         VkFenceCreateInfo fenceInfo { 
@@ -189,12 +247,14 @@ namespace Engine::Graphics
         InstanceManager::CreateSemaphore(&semaphoreInfo, &renderSemaphore);
         InstanceManager::CreateSemaphore(&semaphoreInfo, &swapchainSemaphore);
 
-        queue.Create();
+        commandQueue.Create();
+        deletionQueue.Create();
     }
 
     void Renderer::FrameResources::Destroy()
     {
-        queue.Destroy();
+        deletionQueue.Destroy();
+        commandQueue.Destroy();
         InstanceManager::DestroySemaphore(swapchainSemaphore);
         InstanceManager::DestroySemaphore(renderSemaphore);
         InstanceManager::DestroyFence(renderFence);
