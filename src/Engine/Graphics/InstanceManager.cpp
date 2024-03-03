@@ -2,14 +2,14 @@
 
 #include <vector>
 #include "glfw3.h"
-#include "../Macros.h"
+#include "../Util/Macros.h"
 #include <algorithm>
 #include <set>
 
 #include "../Debug/Logging.h"
 #include "../WindowManager.h"
 #include "MemoryAllocator.h"
-#include "../DeletionQueue.h"
+#include "../Util/DeletionQueue.h"
 
 namespace Engine::Graphics
 {
@@ -492,6 +492,11 @@ void InstanceManager::CreateSemaphore(VkSemaphoreCreateInfo const *createInfo, V
 void InstanceManager::CreateFence(VkFenceCreateInfo const *createInfo, VkFence *fence)
 {
     VULKAN_ASSERT(vkCreateFence(instance->graphicsHandler, createInfo, nullptr, fence), "Failed to create fence!")
+}
+
+void InstanceManager::CreateShaderModule(VkShaderModuleCreateInfo const *createInfo, VkShaderModule *shaderModule)
+{
+    VULKAN_ASSERT(vkCreateShaderModule(instance->graphicsHandler, createInfo, nullptr, shaderModule), "Failed to create shader module")
 }
 
 void InstanceManager::AllocateCommandBuffers(VkCommandBufferAllocateInfo const *allocInfo, VkCommandBuffer *commandBuffers)

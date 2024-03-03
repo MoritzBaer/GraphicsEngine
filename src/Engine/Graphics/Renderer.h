@@ -1,11 +1,11 @@
 #pragma once
 
 #include "vulkan/vulkan.h"
-#include "../Macros.h"
+#include "../Util/Macros.h"
 #include <vector>
 #include <array>
 #include "CommandQueue.h"
-#include "../DeletionQueue.h"
+#include "../Util/DeletionQueue.h"
 #include "../Maths/Dimension.h"
 #include "Image.h"
 

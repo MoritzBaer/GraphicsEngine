@@ -1,6 +1,6 @@
 #include "MemoryAllocator.h"
 
-#include "../Macros.h"
+#include "../Util/Macros.h"
 #include "../Debug/Logging.h"
 
 void Engine::MemoryAllocator::CreateImage(VkImageCreateInfo const *imageCreateInfo, VkImage *image, VmaAllocation *allocation) const {

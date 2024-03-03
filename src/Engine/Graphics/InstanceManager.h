@@ -2,7 +2,7 @@
 
 #include "vulkan/vulkan.h"
 #include <optional>
-#include "../Macros.h"
+#include "../Util/Macros.h"
 #include "../Window.h"
 #include <vector>
 
@@ -53,6 +53,7 @@ namespace Engine::Graphics
         static void CreateCommandPool(VkCommandPoolCreateInfo const * createInfo, VkCommandPool * commandPool);
         static void CreateSemaphore(VkSemaphoreCreateInfo const * createInfo, VkSemaphore * semaphore);
         static void CreateFence(VkFenceCreateInfo const * createInfo, VkFence * fence);
+        static void CreateShaderModule(VkShaderModuleCreateInfo const * createInfo, VkShaderModule * shaderModule);
 
         // Destroy vulkan objects
         static inline void DestroySwapchain(VkSwapchainKHR & swapchain) { vkDestroySwapchainKHR(instance->graphicsHandler, swapchain, nullptr); }
@@ -60,6 +61,7 @@ namespace Engine::Graphics
         static inline void DestroyCommandPool(VkCommandPool & pool) { vkDestroyCommandPool(instance->graphicsHandler, pool, nullptr); }
         static inline void DestroySemaphore(VkSemaphore & semaphore) { vkDestroySemaphore(instance->graphicsHandler, semaphore, nullptr); }
         static inline void DestroyFence(VkFence & fence) { vkDestroyFence(instance->graphicsHandler, fence, nullptr); }
+        static inline void DestroyShaderModule(VkShaderModule & shaderModule) { vkDestroyShaderModule(instance->graphicsHandler, shaderModule, nullptr); }
 
         // Allocate vulkan memory
         static void AllocateCommandBuffers(VkCommandBufferAllocateInfo const * allocInfo, VkCommandBuffer * commandBuffers);

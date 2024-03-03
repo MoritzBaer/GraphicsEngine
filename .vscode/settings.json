@@ -72,6 +72,12 @@
         "xlocmon": "cpp",
         "xloctime": "cpp",
         "xtree": "cpp",
-        "span": "cpp"
+        "span": "cpp",
+        "cinttypes": "cpp",
+        "condition_variable": "cpp",
+        "shared_mutex": "cpp"
+    },
+    "cmake.configureSettings": {
+        "CMAKE_BUILD_TYPE": "${buildType}"
     }
 }
