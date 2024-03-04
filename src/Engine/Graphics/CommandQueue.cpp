@@ -93,3 +93,10 @@ void Engine::Graphics::BlitImageCommand::QueueExecution(VkCommandBuffer const &q
 
     vkCmdBlitImage2(queue, &blitInfo);
 }
+
+void Engine::Graphics::ExecuteComputePipelineCommand::QueueExecution(VkCommandBuffer const & queue) const
+{
+    bindPipeline.QueueExecution(queue);
+    bindDescriptors.QueueExecution(queue);
+    dispatch.QueueExecution(queue);
+}

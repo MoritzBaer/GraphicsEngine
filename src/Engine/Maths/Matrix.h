@@ -114,11 +114,11 @@ namespace Engine::Maths
                     inline T & operator-=(T value) { return parent.data[index] -= value; }
                     inline T & operator*=(T value) { return parent.data[index] *= value; }
                     inline T & operator/=(T value) { return parent.data[index] /= value; }
-                    inline  operator T () { return parent.data[index]; }
-                    inline T operator+(T value) { return parent.data[index] + value; }
-                    inline T operator-(T value) { return parent.data[index] - value; }
-                    inline T operator*(T value) { return parent.data[index] * value; }
-                    inline T operator/(T value) { return parent.data[index] / value; }
+                    inline operator T () const { return parent.data[index]; }
+                    inline T operator+(T value) const { return parent.data[index] + value; }
+                    inline T operator-(T value) const { return parent.data[index] - value; }
+                    inline T operator*(T value) const { return parent.data[index] * value; }
+                    inline T operator/(T value) const { return parent.data[index] / value; }
             };
 
             class EntryPair {
@@ -134,7 +134,7 @@ namespace Engine::Maths
                     inline void operator-=(T value) { parent.data[index1] += value; parent.data[index2] -= value; }
                     inline void operator*=(T value) { parent.data[index1] *= value; parent.data[index2] *= value; }
                     inline void operator/=(T value) { parent.data[index1] /= value; parent.data[index2] /= value; }
-                    inline  operator MatrixT<2, 1, T> () { return MatrixT<2, 1, T>({ parent.data[index1], parent.data[index2] }); }
+                    inline operator MatrixT<2, 1, T> () const { return MatrixT<2, 1, T>({ parent.data[index1], parent.data[index2] }); }
             };
 
             class EntryTriplet {
@@ -151,7 +151,7 @@ namespace Engine::Maths
                     inline void operator-=(T value) { parent.data[index1] += value; parent.data[index2] -= value; parent.data[index3] -= value; }
                     inline void operator*=(T value) { parent.data[index1] *= value; parent.data[index2] *= value; parent.data[index3] *= value; }
                     inline void operator/=(T value) { parent.data[index1] /= value; parent.data[index2] /= value; parent.data[index3] /= value; }
-                    inline  operator MatrixT<3, 1, T> () { return MatrixT<3, 1, T>(parent.data[index1], parent.data[index2], parent.data[index3]); }
+                    inline operator MatrixT<3, 1, T> () const { return MatrixT<3, 1, T>(parent.data[index1], parent.data[index2], parent.data[index3]); }
             };
 
         public:
@@ -162,6 +162,11 @@ namespace Engine::Maths
             Entry y() requires(m == 1 && n >= 2) { return Entry(*this, Y); }
             Entry z() requires(m == 1 && n >= 3) { return Entry(*this, Z); }
             Entry w() requires(m == 1 && n >= 4) { return Entry(*this, W); }
+            
+            const Entry x() const requires(m == 1) { return Entry(*this, X); }
+            const Entry y() const requires(m == 1 && n >= 2) { return Entry(*this, Y); }
+            const Entry z() const requires(m == 1 && n >= 3) { return Entry(*this, Z); }
+            const Entry w() const requires(m == 1 && n >= 4) { return Entry(*this, W); }
 
             EntryPair xy() requires(m == 1 && n >= 2) { return EntryPair(*this, X, Y); }
             EntryPair xz() requires(m == 1 && n >= 3) { return EntryPair(*this, X, Z); }

@@ -496,12 +496,44 @@ void InstanceManager::CreateFence(VkFenceCreateInfo const *createInfo, VkFence *
 
 void InstanceManager::CreateShaderModule(VkShaderModuleCreateInfo const *createInfo, VkShaderModule *shaderModule)
 {
-    VULKAN_ASSERT(vkCreateShaderModule(instance->graphicsHandler, createInfo, nullptr, shaderModule), "Failed to create shader module")
+    VULKAN_ASSERT(vkCreateShaderModule(instance->graphicsHandler, createInfo, nullptr, shaderModule), "Failed to create shader module!")
+}
+
+void InstanceManager::CreateDescriptorSetLayout(VkDescriptorSetLayoutCreateInfo const *createInfo, VkDescriptorSetLayout *layout)
+{
+    VULKAN_ASSERT(vkCreateDescriptorSetLayout(instance->graphicsHandler, createInfo, nullptr, layout), "Failed to create descriptor set layout!")
+}
+
+void InstanceManager::CreateDescriptorPool(VkDescriptorPoolCreateInfo const *createInfo, VkDescriptorPool *descriptorPool)
+{
+    VULKAN_ASSERT(vkCreateDescriptorPool(instance->graphicsHandler, createInfo, nullptr, descriptorPool), "Failed to create descriptor pool!")
+}
+
+void InstanceManager::CreatePipelineLayout(VkPipelineLayoutCreateInfo const *createInfo, VkPipelineLayout *layout)
+{
+    VULKAN_ASSERT(vkCreatePipelineLayout(instance->graphicsHandler, createInfo, nullptr, layout), "Failed to create pipeline layout!")
+}
+
+void InstanceManager::CreateComputePipelines(std::vector<VkComputePipelineCreateInfo> const &createInfos, VkPipeline *pipelines)
+{
+    VULKAN_ASSERT(vkCreateComputePipelines(instance->graphicsHandler, VK_NULL_HANDLE, static_cast<uint32_t>(createInfos.size()), createInfos.data(), nullptr, pipelines), "Failed to allocate pipelines!")
 }
 
 void InstanceManager::AllocateCommandBuffers(VkCommandBufferAllocateInfo const *allocInfo, VkCommandBuffer *commandBuffers)
 {
     VULKAN_ASSERT(vkAllocateCommandBuffers(instance->graphicsHandler, allocInfo, commandBuffers), "Failed to allocate command buffers!")
+}
+
+void InstanceManager::AllocateDescriptorSets(std::vector<VkDescriptorSetLayout> const & layouts, VkDescriptorPool const &descriptorPool, VkDescriptorSet * descriptorSets)
+{
+    VkDescriptorSetAllocateInfo allocationInfo {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = descriptorPool,
+        .descriptorSetCount = static_cast<uint32_t>(layouts.size()),
+        .pSetLayouts = layouts.data()
+    };
+
+    VULKAN_ASSERT(vkAllocateDescriptorSets(instance->graphicsHandler, &allocationInfo, descriptorSets), "Failed to allocate descriptor sets!")
 }
 
 void InstanceManager::WaitForFences(VkFence const *fences, uint32_t fenceCount, bool waitForAll, uint32_t timeout)

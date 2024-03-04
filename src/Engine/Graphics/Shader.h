@@ -3,25 +3,30 @@
 #include "shaderc/shaderc.hpp"
 #include "../Util/Macros.h"
 #include "../Util/DeletionQueue.h"
+#include <span>
 
 namespace Engine::Graphics
 {
     class ShaderCompiler;
-
-    class Shader : public Destroyable
-    {
-    private:
-        friend class ShaderCompiler;
-        VkShaderModule shaderModule;
-    public:
-        void Destroy();
-    };
 
     enum class ShaderType {
         VERTEX = shaderc_vertex_shader,
         GEOMETRY = shaderc_geometry_shader,
         FRAGMENT = shaderc_fragment_shader,
         COMPUTE = shaderc_compute_shader
+    };
+
+    class Shader : public Destroyable
+    {
+    private:
+        friend class ShaderCompiler;
+
+        ShaderType type;
+        // TODO: store entry point
+        VkShaderModule shaderModule;
+    public:
+        void Destroy();
+        VkPipelineShaderStageCreateInfo GetStageInfo();
     };
 
     class ShaderCompiler {
@@ -46,6 +51,23 @@ namespace Engine::Graphics
     public: 
         void AddBinding(uint32_t binding, VkDescriptorType type);
         void Clear();
-        VkDescriptorSetLayout Build(VkDevice device, VkShaderStageFlags shaderStages);
+        VkDescriptorSetLayout Build(VkShaderStageFlags shaderStages);
+    };
+
+    class DescriptorAllocator {
+        VkDescriptorPool descriptorPool;
+
+    public:
+        struct PoolSizeRatio
+        {
+            VkDescriptorType type;
+            float ratio;
+        };
+
+        void InitPool(uint32_t maxSets, std::span<PoolSizeRatio> poolRatios);
+        void ClearDescriptors();
+        void DestroyPool();
+
+        VkDescriptorSet Allocate(VkDescriptorSetLayout layout);
     };
 } // namespace Engine::Graphics

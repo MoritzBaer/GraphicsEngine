@@ -8,6 +8,7 @@
 #include "../Util/DeletionQueue.h"
 #include "../Maths/Dimension.h"
 #include "Image.h"
+#include "Shader.h"
 
 namespace Engine::Graphics
 {
@@ -43,10 +44,19 @@ namespace Engine::Graphics
         Maths::Dimension2 windowDimension;
         bool renderBufferInitialized;
         Image<2> renderBuffer;
+        DescriptorAllocator descriptorAllocator;
+        VkDescriptorSet renderBufferDescriptors;
+        VkDescriptorSetLayout renderBufferDescriptorLayout;
+
+        VkPipeline gradientPipeline;
+        VkPipelineLayout gradientPipelineLayout;
 
         void CreateSwapchain();
-        void Draw() const;
+        void InitDescriptors();
+        void InitPipelines();
+        void InitBackgroundPipeline();
 
+        void Draw() const;
         void RecreateRenderBuffer();
 
         inline FrameResources const & CurrentResources() const { return frameResources[currentFrame % MAX_FRAME_OVERLAP]; }

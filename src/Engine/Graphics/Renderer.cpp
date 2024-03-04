@@ -6,6 +6,7 @@
 #include "../Debug/Logging.h"
 #include "VulkanUtil.h"
 #include "Image.h"
+#include "../AssetManager.h"
 
 namespace Engine::Graphics
 {   
@@ -63,12 +64,19 @@ namespace Engine::Graphics
         instance->windowDimension = windowSize;
         instance->CreateSwapchain();
         for(int i = 0; i < MAX_FRAME_OVERLAP; i++) { mainDeletionQueue.Push(&instance->frameResources[i]); }
+        instance->InitDescriptors();
+        instance->InitPipelines();
     }
 
     void Renderer::Cleanup() { delete instance; }
 
     Renderer::Renderer() {}
     Renderer::~Renderer() {
+        InstanceManager::DestroyPipeline(gradientPipeline);
+        InstanceManager::DestroyPipelineLayout(gradientPipelineLayout);
+        descriptorAllocator.ClearDescriptors();
+        descriptorAllocator.DestroyPool();
+        InstanceManager::DestroyDescriptorSetLayout(renderBufferDescriptorLayout);
         for(auto view: swapchainImageViews) { InstanceManager::DestroyImageView(view); }
         InstanceManager::DestroySwapchain(swapchain);
     }
@@ -173,11 +181,15 @@ namespace Engine::Graphics
         uint32_t swapchainImageIndex = InstanceManager::GetNextSwapchainImageIndex(swapchain, frameResources[resourceIndex].swapchainSemaphore);
 
         auto transitionBufferToWriteable = vkutil::TransitionImageCommand(renderBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-        auto clearBufferColour = ClearColourCommand(
-                renderBuffer.image, 
-                VK_IMAGE_LAYOUT_GENERAL,
-                { { 0.0f, 0.0f, abs(sin(currentFrame / 120.0f)), 1.0f } },
-                { vkinit::ImageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT) }
+
+        auto computeRun = ExecuteComputePipelineCommand(
+                gradientPipeline, 
+                VK_PIPELINE_BIND_POINT_COMPUTE, 
+                gradientPipelineLayout, 
+                renderBufferDescriptors, 
+                std::ceil<uint32_t>(windowDimension[X] / 16u),
+                std::ceil<uint32_t>(windowDimension[Y] / 16u),
+                1
             );
         auto transitionBufferToTransferSrc = vkutil::TransitionImageCommand(renderBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
         auto transitionPresenterToTransferDst = vkutil::TransitionImageCommand(swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -186,7 +198,7 @@ namespace Engine::Graphics
 
         auto commandBufferSubmitInfo = frameResources[resourceIndex].commandQueue.EnqueueCommandSequence({
             &transitionBufferToWriteable,
-            &clearBufferColour,
+            &computeRun,
             &transitionPresenterToTransferDst,
             &transitionBufferToTransferSrc,
             &copyBufferToPresenter,
@@ -231,6 +243,62 @@ namespace Engine::Graphics
             VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
             VK_IMAGE_ASPECT_COLOR_BIT
         );
+    }
+
+    void Renderer::InitDescriptors()
+    {
+        std::vector<DescriptorAllocator::PoolSizeRatio> ratios { { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 } };
+
+        descriptorAllocator.InitPool(10, ratios);
+
+        DescriptorLayoutBuilder builder {};
+        builder.AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        renderBufferDescriptorLayout = builder.Build(VK_SHADER_STAGE_COMPUTE_BIT);
+        renderBufferDescriptors = descriptorAllocator.Allocate(renderBufferDescriptorLayout);
+
+        VkDescriptorImageInfo imageInfo {
+            .imageView = renderBuffer.imageView,
+            .imageLayout = VK_IMAGE_LAYOUT_GENERAL
+        };
+
+        VkWriteDescriptorSet write {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = renderBufferDescriptors,
+            .dstBinding = 0,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            .pImageInfo = &imageInfo
+        };
+
+        InstanceManager::UpdateDescriptorSets(write);
+    }
+
+    void Renderer::InitPipelines()
+    {
+        InitBackgroundPipeline();
+    }
+
+    void Renderer::InitBackgroundPipeline()
+    {
+        VkPipelineLayoutCreateInfo computeLayout {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+            .setLayoutCount = 1,
+            .pSetLayouts = &renderBufferDescriptorLayout
+        };
+
+        InstanceManager::CreatePipelineLayout(&computeLayout, &gradientPipelineLayout);
+
+        Shader gradientShader = AssetManager::LoadShader("gradient.comp", ShaderType::COMPUTE);
+
+        VkComputePipelineCreateInfo pipelineInfo {
+            .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+            .stage = gradientShader.GetStageInfo(),
+            .layout = gradientPipelineLayout
+        };
+
+        InstanceManager::CreateComputePipeline(pipelineInfo, &gradientPipeline);
+
+        gradientShader.Destroy();
     }
 
     void Renderer::FrameResources::Create()
