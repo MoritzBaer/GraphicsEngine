@@ -2,15 +2,10 @@
 
 #include "Debug/Logging.h"
 #include "Util/Macros.h"
+#include "WindowManager.h"
 
 Engine::EventManager::EventManager() {}
 Engine::EventManager::~EventManager() {}
-
-void Engine::EventManager::_HandleWindowEvents(Window const *window)
-{
-    glfwPollEvents();
-    
-}
 
 void Engine::EventManager::Init()
 {
@@ -22,10 +17,8 @@ void Engine::EventManager::Cleanup()
     delete instance;
 }
 
-void Engine::EventManager::HandleWindowEvents(Window const *window)
+void Engine::EventManager::HandleWindowEvents()
 {
-    if(instance == nullptr) { 
-        ENGINE_ERROR("Tried to handle window events before initializing EventManager!")
-    }
-    instance->_HandleWindowEvents(window);
+    glfwPollEvents();
+    WindowManager::CallAllCallbacks();
 }

@@ -1,7 +1,7 @@
 #include "CommandQueue.h"
 #include "InstanceManager.h"
-#include "../Util/Macros.h"
-#include "../Debug/Logging.h"
+#include "Util/Macros.h"
+#include "Debug/Logging.h"
 #include "VulkanUtil.h"
 
 void Engine::Graphics::CommandQueue::Create()
@@ -92,11 +92,4 @@ void Engine::Graphics::BlitImageCommand::QueueExecution(VkCommandBuffer const &q
     };
 
     vkCmdBlitImage2(queue, &blitInfo);
-}
-
-void Engine::Graphics::ExecuteComputePipelineCommand::QueueExecution(VkCommandBuffer const & queue) const
-{
-    bindPipeline.QueueExecution(queue);
-    bindDescriptors.QueueExecution(queue);
-    dispatch.QueueExecution(queue);
 }

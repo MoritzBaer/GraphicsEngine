@@ -1,6 +1,6 @@
 #include "WindowManager.h"
 
-#include "glfw3.h"
+#include "GLFW/glfw3.h"
 #include "Debug/Logging.h"
 #include "Util/Macros.h"
 
@@ -9,13 +9,11 @@ namespace Engine
     inline Window *WindowManager::_CreateWindow(uint32_t width, uint32_t height, const char *title)
     {
         openWindows.push_back(new Window(width, height, title));
-        openWindows.back()->windowId = openWindows.size() - 1;
         return openWindows.back();
     }
 
     inline void WindowManager::_DestroyWindow(Window *window)
     {
-        ENGINE_ASSERT(window->windowId, "Tried to close main window or window never properly allocated!")
         openWindows.erase(std::find(openWindows.begin(), openWindows.end(), window));
         delete window;
     }
@@ -32,12 +30,11 @@ namespace Engine
     WindowManager::WindowManager() : openWindows() { }
     WindowManager::~WindowManager() { }
 
-    void WindowManager::Init(uint32_t width, uint32_t height, const char *title)
+    void WindowManager::Init()
     {
         glfwInit();
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         instance = new WindowManager();
-        instance->_CreateWindow(width, height, title);
     }
 
     void WindowManager::Cleanup()

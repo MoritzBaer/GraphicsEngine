@@ -2,6 +2,7 @@
 
 #include "vulkan/vulkan.h"
 #include <vector>
+#include "ComputeEffect.h"
 
 namespace Engine::Graphics
 {
@@ -76,36 +77,68 @@ namespace Engine::Graphics
         inline void QueueExecution(VkCommandBuffer const & queue) const { vkCmdDispatch(queue, gx, gy, gz); }
     };
 
+    template<typename T> 
+    class PushConstantsCommand : public Command {
+        T constants;
+        VkPipelineLayout pipelineLayout;
+    public:
+        PushConstantsCommand(T const & constants, VkPipelineLayout const & pipelineLayout) : constants(constants), pipelineLayout(pipelineLayout) { }
+        void QueueExecution(VkCommandBuffer const & queue) const { vkCmdPushConstants(queue, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(T), &constants); }
+    };
+
+    template<typename T>
     class ExecuteComputePipelineCommand : public Command {
         BindPipelineCommand bindPipeline;
         BindDescriptorSetsCommand bindDescriptors;
         DispatchCommand dispatch;
+        PushConstantsCommand<T> pushConstants;
     public: 
         ExecuteComputePipelineCommand(
                 VkPipeline const & pipeline, 
                 VkPipelineBindPoint const & bindPoint,
                 VkPipelineLayout const & layout, 
                 std::vector<VkDescriptorSet> const & descriptors,
+                T const & pushConstants,
                 uint32_t workerGroupsX, 
                 uint32_t workerGroupsY, 
                 uint32_t workerGroupsZ
             ) :
                 bindPipeline(pipeline, bindPoint),
                 bindDescriptors(bindPoint, layout, descriptors),
-                dispatch(workerGroupsX, workerGroupsY, workerGroupsZ) { }
+                dispatch(workerGroupsX, workerGroupsY, workerGroupsZ),
+                pushConstants(pushConstants, layout) { }
         ExecuteComputePipelineCommand(
                 VkPipeline const & pipeline, 
                 VkPipelineBindPoint const & bindPoint,
                 VkPipelineLayout const & layout, 
                 VkDescriptorSet const & descriptor,
+                T const & pushConstants,
                 uint32_t workerGroupsX, 
                 uint32_t workerGroupsY, 
                 uint32_t workerGroupsZ
             ) :
                 bindPipeline(pipeline, bindPoint),
                 bindDescriptors(bindPoint, layout, descriptor),
+                pushConstants(pushConstants, layout),
                 dispatch(workerGroupsX, workerGroupsY, workerGroupsZ) { }
-        void QueueExecution(VkCommandBuffer const & queue) const;
+        ExecuteComputePipelineCommand(
+                ComputeEffect<T> const & effect,
+                VkPipelineBindPoint const & bindPoint,
+                VkDescriptorSet const & descriptor,
+                uint32_t workerGroupsX, 
+                uint32_t workerGroupsY, 
+                uint32_t workerGroupsZ
+            ) :
+                bindPipeline(effect.pipeline, bindPoint),
+                bindDescriptors(bindPoint, effect.pipelineLayout, descriptor),
+                pushConstants(effect.constants, effect.pipelineLayout),
+                dispatch(workerGroupsX, workerGroupsY, workerGroupsZ) { }
+        inline void QueueExecution(VkCommandBuffer const & queue) const {
+            bindPipeline.QueueExecution(queue);
+            bindDescriptors.QueueExecution(queue);
+            pushConstants.QueueExecution(queue);
+            dispatch.QueueExecution(queue);
+        }
     };
 
 } // namespace Engine::Graphics

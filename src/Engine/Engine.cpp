@@ -6,8 +6,16 @@
 #include "Util/DeletionQueue.h"
 #include "Util/FileIO.h"
 #include "AssetManager.h"
+#include "Graphics/ImGUIManager.h"
+#include "imgui_internal.h"
 
-bool quit = false;
+namespace Engine
+{
+    bool quit = false;
+    bool render = true;
+
+    Window * mainWindow;
+} // namespace Engine
 
 void Engine::Init(const char * applicationName)
 {
@@ -15,18 +23,27 @@ void Engine::Init(const char * applicationName)
 
     Graphics::ShaderCompiler::Init();
     AssetManager::Init();
-    WindowManager::Init(1600, 900, applicationName);
+    WindowManager::Init();
+    mainWindow = WindowManager::CreateWindow(1600, 900, applicationName);
+    mainWindow->SetCloseCallback([](){ Quit(); });
+    mainWindow->SetMinimizeCallback([](){ render = false; });
+    mainWindow->SetRestoreCallback([](){ render = true; });
+
     EventManager::Init();
-    Graphics::InstanceManager::Init(applicationName);
-    Graphics::Renderer::Init(WindowManager::GetMainWindow()->GetCanvasSize());
+    Graphics::InstanceManager::Init(applicationName, mainWindow);
+    Graphics::Renderer::Init(mainWindow->GetCanvasSize());
+    Graphics::ImGUIManager::Init(mainWindow);
 }
 
 void Engine::RunMainLoop()
 {
     while(!quit) {
-        EventManager::HandleWindowEvents(WindowManager::GetMainWindow());
-        if(WindowManager::GetMainWindow()->ShouldClose()) { Quit(); }
-        Graphics::Renderer::DrawFrame();
+        EventManager::HandleWindowEvents();
+        if (render) { 
+            Graphics::ImGUIManager::BeginFrame();
+            Graphics::Renderer::DrawFrame(); 
+        }
+        else { std::this_thread::sleep_for(std::chrono::milliseconds(100)); }
     }
 }
 
@@ -34,6 +51,7 @@ void Engine::Cleanup()
 {
     Graphics::InstanceManager::WaitUntilDeviceIdle();
     mainDeletionQueue.Flush();
+    Graphics::ImGUIManager::Cleanup();
     Graphics::Renderer::Cleanup();
     Graphics::InstanceManager::Cleanup();
     EventManager::Cleanup();

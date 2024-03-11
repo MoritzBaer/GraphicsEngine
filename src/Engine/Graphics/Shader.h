@@ -1,8 +1,8 @@
 #pragma once
 
 #include "shaderc/shaderc.hpp"
-#include "../Util/Macros.h"
-#include "../Util/DeletionQueue.h"
+#include "Util/Macros.h"
+#include "Util/DeletionQueue.h"
 #include <span>
 
 namespace Engine::Graphics

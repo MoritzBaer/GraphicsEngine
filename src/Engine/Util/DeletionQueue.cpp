@@ -1,7 +1,7 @@
 #include "DeletionQueue.h"
 
 #include <cstdlib>
-#include "../Debug/Logging.h"
+#include "Debug/Logging.h"
 #include "Macros.h"
 
 const uint32_t INITIAL_QUEUE_CAPACITIES = 16;

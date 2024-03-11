@@ -1,5 +1,6 @@
 {
     "files.associations": {
+        "*.sc": "latex",
         "xutility": "cpp",
         "initializer_list": "cpp",
         "iosfwd": "cpp",
@@ -75,9 +76,16 @@
         "span": "cpp",
         "cinttypes": "cpp",
         "condition_variable": "cpp",
-        "shared_mutex": "cpp"
+        "shared_mutex": "cpp",
+        "*.rh": "cpp"
     },
     "cmake.configureSettings": {
         "CMAKE_BUILD_TYPE": "${buildType}"
+    },
+    "[c]": {
+        "editor.wordBasedSuggestions": "off",
+        "editor.suggest.insertMode": "replace",
+        "editor.semanticHighlighting.enabled": true,
+        "editor.defaultFormatter": "ms-vscode.cpptools"
     }
 }

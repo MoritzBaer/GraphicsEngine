@@ -2,7 +2,7 @@
 
 #include <fstream>
 #include "Macros.h"
-#include "../Debug/Logging.h"
+#include "Debug/Logging.h"
 
 namespace Engine::Util::FileIO
 {

@@ -1,15 +1,15 @@
 #include "InstanceManager.h"
 
 #include <vector>
-#include "glfw3.h"
-#include "../Util/Macros.h"
+#include "GLFW/glfw3.h"
+#include "Util/Macros.h"
 #include <algorithm>
 #include <set>
 
-#include "../Debug/Logging.h"
-#include "../WindowManager.h"
+#include "Debug/Logging.h"
+#include "WindowManager.h"
 #include "MemoryAllocator.h"
-#include "../Util/DeletionQueue.h"
+#include "Util/DeletionQueue.h"
 
 namespace Engine::Graphics
 {
@@ -68,6 +68,7 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
 const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
 };
+
 const std::vector<const char *> requiredExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
@@ -386,8 +387,14 @@ void InstanceManager::CreateLogicalDevice()
         queueInfos.push_back(queueInfo);
     }
 
+    VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeatures {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES,
+        .dynamicRendering = requiredFeatures13.dynamicRendering
+    };
+
     VkPhysicalDeviceBufferDeviceAddressFeatures bufferDeviceAddress {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
+        .pNext = &dynamicRenderingFeatures,
         .bufferDeviceAddress = requiredFeatures12.bufferDeviceAddress,
         .bufferDeviceAddressCaptureReplay = requiredFeatures12.bufferDeviceAddressCaptureReplay,
         .bufferDeviceAddressMultiDevice = requiredFeatures12.bufferDeviceAddressMultiDevice
@@ -425,13 +432,21 @@ void InstanceManager::CreateLogicalDevice()
     VULKAN_ASSERT(vkCreateDevice(gpu, &deviceInfo, nullptr, &graphicsHandler), "Failed to create logical device!")
 }
 
+void InstanceManager::FillImGUIInitInfo(ImGui_ImplVulkan_InitInfo &initInfo)
+{
+    initInfo.Instance = instance->vulkanInstance;
+    initInfo.PhysicalDevice = instance->gpu;
+    initInfo.Device = instance->graphicsHandler;
+    GetGraphicsQueue(&initInfo.Queue);
+}
+
 void InstanceManager::CreateSwapchain(
-    VkSurfaceFormatKHR const & surfaceFormat, 
-    VkPresentModeKHR const & presentMode, 
-    VkExtent2D const & extent, 
-    uint32_t const & imageCount, 
-    VkSwapchainKHR const & oldSwapchain, 
-    VkSwapchainKHR * swapchain)
+    VkSurfaceFormatKHR const &surfaceFormat,
+    VkPresentModeKHR const &presentMode,
+    VkExtent2D const &extent,
+    uint32_t const &imageCount,
+    VkSwapchainKHR const &oldSwapchain,
+    VkSwapchainKHR *swapchain)
 {
     auto details = QuerySwapchainSupport(instance->gpu, instance->surface);
     VkSwapchainCreateInfoKHR swapchainInfo {
@@ -577,7 +592,7 @@ void InstanceManager::PickPhysicalDevice()
     gpu = *bestDevice;
 }
 
-void InstanceManager::Init(const char * applicationName)
+void InstanceManager::Init(const char * applicationName, Window const * window)
 {
     instance = new InstanceManager();
     // Only set up vulkan validation if in debug mode
@@ -589,7 +604,7 @@ void InstanceManager::Init(const char * applicationName)
 #ifndef NDEBUG
     instance->SetupDebugMessenger();
 #endif
-    WindowManager::GetMainWindow()->CreateSurfaceOnWindow(instance->vulkanInstance, &instance->surface);
+    window->CreateSurfaceOnWindow(instance->vulkanInstance, &instance->surface);
     instance->PickPhysicalDevice();
     instance->CreateLogicalDevice();
     

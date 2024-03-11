@@ -1,17 +1,52 @@
 #include "Renderer.h"
-#include "glfw3.h"
+#include "GLFW/glfw3.h"
 #include "InstanceManager.h"
-#include "../WindowManager.h"
+#include "WindowManager.h"
 #include <algorithm>
-#include "../Debug/Logging.h"
+#include "Debug/Logging.h"
 #include "VulkanUtil.h"
 #include "Image.h"
-#include "../AssetManager.h"
+#include "AssetManager.h"
+#include "Graphics/ImGUIManager.h"
+#include "ComputeEffect.h"
+#include <vector>
 
 namespace Engine::Graphics
 {   
+    struct ComputePushConstants {
+        Maths::Vector4 data1, data2, data3, data4;
+    };
+
+    std::vector<ComputeEffect<ComputePushConstants>> backgroundEffects = {
+        ComputeEffect<ComputePushConstants> { .name = "gradient_colour", .constants { .data1 = { 1, 0, 0, 1 }, .data2 = { 0, 0, 1, 1 } } },
+        ComputeEffect<ComputePushConstants> { .name = "sky", .constants { .data1 = { 0.02f, 0, 0.05f, 0.99f } } },
+    };
+    uint8_t currentBackgroundEffect = 0;
+
     namespace vkinit
     {
+        inline VkFenceCreateInfo FenceCreateInfo(VkFenceCreateFlags flags = VK_FENCE_CREATE_SIGNALED_BIT) { 
+            return {
+                .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+                .flags = flags
+            };
+        }
+
+        inline VkSubmitInfo2 SubmitInfo(
+            std::vector<VkSemaphoreSubmitInfo> const & semaphoreWaitInfos,
+            std::vector<VkCommandBufferSubmitInfo> const & commandBufferInfos,
+            std::vector<VkSemaphoreSubmitInfo> const & semaphoreSignalInfos
+        ) {
+            return {
+                .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+                .waitSemaphoreInfoCount = static_cast<uint32_t>(semaphoreWaitInfos.size()),
+                .pWaitSemaphoreInfos = semaphoreWaitInfos.data(),
+                .commandBufferInfoCount = static_cast<uint32_t>(commandBufferInfos.size()),
+                .pCommandBufferInfos = commandBufferInfos.data(),
+                .signalSemaphoreInfoCount = static_cast<uint32_t>(semaphoreSignalInfos.size()),
+                .pSignalSemaphoreInfos = semaphoreSignalInfos.data()
+            };
+        }
     } // namespace vkinit
     
     namespace vkutil
@@ -64,6 +99,7 @@ namespace Engine::Graphics
         instance->windowDimension = windowSize;
         instance->CreateSwapchain();
         for(int i = 0; i < MAX_FRAME_OVERLAP; i++) { mainDeletionQueue.Push(&instance->frameResources[i]); }
+        mainDeletionQueue.Push(&instance->immediateResources);
         instance->InitDescriptors();
         instance->InitPipelines();
     }
@@ -72,8 +108,8 @@ namespace Engine::Graphics
 
     Renderer::Renderer() {}
     Renderer::~Renderer() {
-        InstanceManager::DestroyPipeline(gradientPipeline);
-        InstanceManager::DestroyPipelineLayout(gradientPipelineLayout);
+        for(auto effect : backgroundEffects) { InstanceManager::DestroyPipeline(effect.pipeline); }
+        InstanceManager::DestroyPipelineLayout(backgroundEffects[0].pipelineLayout);
         descriptorAllocator.ClearDescriptors();
         descriptorAllocator.DestroyPool();
         InstanceManager::DestroyDescriptorSetLayout(renderBufferDescriptorLayout);
@@ -101,12 +137,10 @@ namespace Engine::Graphics
         return VK_PRESENT_MODE_FIFO_KHR;
     }   
 
-    VkExtent2D ChooseSwapchainExtent(const VkSurfaceCapabilitiesKHR& capabilities) {
+    VkExtent2D ChooseSwapchainExtent(const VkSurfaceCapabilitiesKHR& capabilities, Maths::Dimension2 canvasSize) {
         if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
             return capabilities.currentExtent;
         } else {
-            Maths::Dimension2 canvasSize = WindowManager::GetMainWindow()->GetCanvasSize();
-
             VkExtent2D actualExtent = {
                 std::clamp(canvasSize[X], capabilities.minImageExtent.width, capabilities.maxImageExtent.width),
                 std::clamp(canvasSize[Y], capabilities.minImageExtent.height, capabilities.maxImageExtent.height)
@@ -124,7 +158,7 @@ namespace Engine::Graphics
 
         VkSurfaceFormatKHR surfaceFormat = ChooseSwapchainSurfaceFormat(details.formats);
         VkPresentModeKHR presentMode = ChooseSwapchainPresentMode(details.presentModes);
-        VkExtent2D extent = ChooseSwapchainExtent(details.capabilities);
+        VkExtent2D extent = ChooseSwapchainExtent(details.capabilities, windowDimension);
 
         uint32_t imageCount = std::min(details.capabilities.minImageCount + 1, details.capabilities.maxImageCount);
 
@@ -182,11 +216,10 @@ namespace Engine::Graphics
 
         auto transitionBufferToWriteable = vkutil::TransitionImageCommand(renderBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
-        auto computeRun = ExecuteComputePipelineCommand(
-                gradientPipeline, 
+        auto computeRun = ExecuteComputePipelineCommand<ComputePushConstants>(
+                backgroundEffects[currentBackgroundEffect],
                 VK_PIPELINE_BIND_POINT_COMPUTE, 
-                gradientPipelineLayout, 
-                renderBufferDescriptors, 
+                renderBufferDescriptors,
                 std::ceil<uint32_t>(windowDimension[X] / 16u),
                 std::ceil<uint32_t>(windowDimension[Y] / 16u),
                 1
@@ -194,7 +227,9 @@ namespace Engine::Graphics
         auto transitionBufferToTransferSrc = vkutil::TransitionImageCommand(renderBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
         auto transitionPresenterToTransferDst = vkutil::TransitionImageCommand(swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
         auto copyBufferToPresenter = vkutil::CopyFullImage(renderBuffer.image, swapchainImages[resourceIndex], renderBuffer.imageExtent, { swapchainExtent.width, swapchainExtent.height, 1} );
-        auto transitionPresenterToPresent = vkutil::TransitionImageCommand(swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        auto transitionPresenterToPresent = vkutil::TransitionImageCommand(swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        auto renderImGUI = ImGUIManager::DrawFrameCommand(swapchainImageViews[resourceIndex], swapchainExtent);
+        auto transitionPresenterToColourAttachment = vkutil::TransitionImageCommand(swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
         auto commandBufferSubmitInfo = frameResources[resourceIndex].commandQueue.EnqueueCommandSequence({
             &transitionBufferToWriteable,
@@ -202,21 +237,19 @@ namespace Engine::Graphics
             &transitionPresenterToTransferDst,
             &transitionBufferToTransferSrc,
             &copyBufferToPresenter,
+            &transitionPresenterToColourAttachment,
+            &renderImGUI,
             &transitionPresenterToPresent
         });
 
         auto semaphoreWaitInfo = vkinit::SemaphoreSubmitInfo(frameResources[resourceIndex].swapchainSemaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR);
         auto semaphoreSignalInfo = vkinit::SemaphoreSubmitInfo(frameResources[resourceIndex].renderSemaphore, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
 
-        VkSubmitInfo2 submitInfo {
-            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-            .waitSemaphoreInfoCount = 1,
-            .pWaitSemaphoreInfos = &semaphoreWaitInfo,
-            .commandBufferInfoCount = 1,
-            .pCommandBufferInfos = &commandBufferSubmitInfo,
-            .signalSemaphoreInfoCount = 1,
-            .pSignalSemaphoreInfos = &semaphoreSignalInfo,
-        };
+        std::vector<VkCommandBufferSubmitInfo> buffer { commandBufferSubmitInfo };
+        std::vector<VkSemaphoreSubmitInfo> waitSemaphores { semaphoreWaitInfo };
+        std::vector<VkSemaphoreSubmitInfo> signalSemaphores { semaphoreSignalInfo };
+
+        VkSubmitInfo2 submitInfo = vkinit::SubmitInfo(waitSemaphores, buffer, signalSemaphores);
 
         VULKAN_ASSERT(vkQueueSubmit2(graphicsQueue, 1, &submitInfo, frameResources[resourceIndex].renderFence), "Failed to submit queue")
 
@@ -280,33 +313,76 @@ namespace Engine::Graphics
 
     void Renderer::InitBackgroundPipeline()
     {
-        VkPipelineLayoutCreateInfo computeLayout {
+        VkPushConstantRange pushConstants {
+            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+            .offset = 0,
+            .size = sizeof(ComputePushConstants)
+        };
+
+        VkPipelineLayoutCreateInfo computeLayoutInfo {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
             .setLayoutCount = 1,
-            .pSetLayouts = &renderBufferDescriptorLayout
+            .pSetLayouts = &renderBufferDescriptorLayout,
+            .pushConstantRangeCount = 1,
+            .pPushConstantRanges = &pushConstants
         };
 
-        InstanceManager::CreatePipelineLayout(&computeLayout, &gradientPipelineLayout);
-
-        Shader gradientShader = AssetManager::LoadShader("gradient.comp", ShaderType::COMPUTE);
-
+        VkPipelineLayout computePipelineLayout;
+        InstanceManager::CreatePipelineLayout(&computeLayoutInfo, &computePipelineLayout);
+        
         VkComputePipelineCreateInfo pipelineInfo {
             .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-            .stage = gradientShader.GetStageInfo(),
-            .layout = gradientPipelineLayout
+            .layout = computePipelineLayout
         };
 
-        InstanceManager::CreateComputePipeline(pipelineInfo, &gradientPipeline);
+        for (auto & effect : backgroundEffects) {
+            Shader shader = AssetManager::LoadShader(effect.name + ".comp", ShaderType::COMPUTE);
+            pipelineInfo.stage = shader.GetStageInfo();
 
-        gradientShader.Destroy();
+            effect.pipelineLayout = computePipelineLayout;
+            InstanceManager::CreateComputePipeline(pipelineInfo, &effect.pipeline);
+
+            shader.Destroy();
+        }
+    }
+
+    void Renderer::ImmediateSubmit(Command *command)
+    {
+        InstanceManager::ResetFences(&instance->immediateResources.fence);
+        auto commandInfo = instance->immediateResources.commandQueue.EnqueueCommandSequence({ command });
+        std::vector<VkCommandBufferSubmitInfo> buffer { commandInfo };
+        VkSubmitInfo2 submitInfo = vkinit::SubmitInfo({ }, buffer, { });
+
+        VULKAN_ASSERT(vkQueueSubmit2(instance->graphicsQueue, 1, &submitInfo, instance->immediateResources.fence), "Failed to submit immediate queue")
+
+        InstanceManager::WaitForFences(&instance->immediateResources.fence);
+    }
+
+    void Renderer::GetImGUISection()
+    {
+        if(ImGui::Begin("Background effects")){
+            if (ImGui::BeginCombo("Choose an effect", backgroundEffects[currentBackgroundEffect].name.c_str())) 
+            {
+                for (int i = 0; i < backgroundEffects.size(); i++) {
+                    bool isSelected = currentBackgroundEffect == i;
+                    if (ImGui::Selectable(backgroundEffects[i].name.c_str(), isSelected)) { currentBackgroundEffect = i; }
+                    if (isSelected) { ImGui::SetItemDefaultFocus(); }
+                }
+
+                ImGui::EndCombo();
+            }
+            ImGui::InputFloat4("data1", (float*)&backgroundEffects[currentBackgroundEffect].constants.data1);
+            ImGui::InputFloat4("data2", (float*)&backgroundEffects[currentBackgroundEffect].constants.data2);
+            ImGui::InputFloat4("data3", (float*)&backgroundEffects[currentBackgroundEffect].constants.data3);
+            ImGui::InputFloat4("data4", (float*)&backgroundEffects[currentBackgroundEffect].constants.data4);
+
+            ImGui::End();
+        }
     }
 
     void Renderer::FrameResources::Create()
     {
-        VkFenceCreateInfo fenceInfo { 
-            .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-            .flags = VK_FENCE_CREATE_SIGNALED_BIT 
-        };
+        VkFenceCreateInfo fenceInfo = vkinit::FenceCreateInfo();
 
         VkSemaphoreCreateInfo semaphoreInfo { .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 
@@ -326,6 +402,19 @@ namespace Engine::Graphics
         InstanceManager::DestroySemaphore(swapchainSemaphore);
         InstanceManager::DestroySemaphore(renderSemaphore);
         InstanceManager::DestroyFence(renderFence);
+    }
+
+    void Renderer::ImmediateSubmitResources::Create()
+    {
+        auto fenceInfo = vkinit::FenceCreateInfo();
+        InstanceManager::CreateFence(&fenceInfo, &fence);
+        commandQueue.Create();
+    }
+
+    void Renderer::ImmediateSubmitResources::Destroy()
+    {
+        commandQueue.Destroy();
+        InstanceManager::DestroyFence(fence);
     }
 
 } // namespace Engine::Graphics

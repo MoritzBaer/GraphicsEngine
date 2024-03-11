@@ -7,10 +7,10 @@
 #define PI 3.14159265359
 #define EPS 0.0000001
 
-#define X 0
-#define Y 1
-#define Z 2
-#define W 3
+inline const uint8_t X = 0;
+inline const uint8_t Y = 1;
+inline const uint8_t Z = 2;
+inline const uint8_t W = 3;
 
 namespace Engine::Maths
 {

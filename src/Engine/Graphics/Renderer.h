@@ -1,12 +1,12 @@
 #pragma once
 
 #include "vulkan/vulkan.h"
-#include "../Util/Macros.h"
+#include "Util/Macros.h"
 #include <vector>
 #include <array>
 #include "CommandQueue.h"
-#include "../Util/DeletionQueue.h"
-#include "../Maths/Dimension.h"
+#include "Util/DeletionQueue.h"
+#include "Maths/Dimension.h"
 #include "Image.h"
 #include "Shader.h"
 
@@ -28,6 +28,14 @@ namespace Engine::Graphics
             void Destroy();
         };
 
+        struct ImmediateSubmitResources : public Initializable {
+            CommandQueue commandQueue;
+            VkFence fence;
+
+            void Create();
+            void Destroy();
+        } immediateResources;
+
         static const uint32_t MAX_FRAME_OVERLAP = 2;
 
         VkQueue graphicsQueue;
@@ -47,9 +55,6 @@ namespace Engine::Graphics
         DescriptorAllocator descriptorAllocator;
         VkDescriptorSet renderBufferDescriptors;
         VkDescriptorSetLayout renderBufferDescriptorLayout;
-
-        VkPipeline gradientPipeline;
-        VkPipelineLayout gradientPipelineLayout;
 
         void CreateSwapchain();
         void InitDescriptors();
@@ -73,6 +78,12 @@ namespace Engine::Graphics
             instance->windowDimension = newSize;
             instance->RecreateRenderBuffer();
         }
+
+        static void ImmediateSubmit(Command * command);
+
+        static void GetImGUISection();
+
+        static inline VkFormat GetSwapchainFormat() { return instance->swapchainFormat; }
     };
     
 } // namespace Engine::Graphics

@@ -8,7 +8,7 @@ namespace Engine
 {
     class WindowManager
     {
-        _SINGLETON(WindowManager, uint32_t width, uint32_t height, const char *title)
+        _SINGLETON(WindowManager)
 
         std::vector<Window *> openWindows;
 
@@ -19,7 +19,7 @@ namespace Engine
     public:
         static Window *CreateWindow(uint32_t width, uint32_t height, const char *title);
         static void DestroyWindow(Window *window);
-        inline static Window const *GetMainWindow() { return instance->openWindows[0]; }
+        static inline void CallAllCallbacks() { for(auto window : instance->openWindows) { window->CallCallbacks(); } }
     };
 
 } // namespace Engine::Graphics

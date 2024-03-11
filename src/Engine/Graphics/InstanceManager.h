@@ -2,9 +2,10 @@
 
 #include "vulkan/vulkan.h"
 #include <optional>
-#include "../Util/Macros.h"
-#include "../Window.h"
+#include "Util/Macros.h"
+#include "Window.h"
 #include <vector>
+#include "backends/imgui_impl_vulkan.h"
 
 namespace Engine::Graphics
 {    
@@ -17,7 +18,7 @@ namespace Engine::Graphics
     SwapchainSupportDetails QuerySwapchainSupport(VkPhysicalDevice device, VkSurfaceKHR presentationSurface);
     
     class InstanceManager {
-        _SINGLETON(InstanceManager, const char *)
+        _SINGLETON(InstanceManager, const char *, Window const *)
 
         VkInstance vulkanInstance;
         VkDebugUtilsMessengerEXT debugMessenger;
@@ -40,6 +41,8 @@ namespace Engine::Graphics
         static void GetSwapchainImages(VkSwapchainKHR const & swapchain, std::vector<VkImage> & images);
         static inline void GetGraphicsQueue(VkQueue * queue) { vkGetDeviceQueue(instance->graphicsHandler, GetGraphicsFamily(), 0, queue); } 
         static inline void GetPresentQueue(VkQueue * queue) { vkGetDeviceQueue(instance->graphicsHandler, GetPresentFamily(), 0, queue); } 
+
+        static void FillImGUIInitInfo(ImGui_ImplVulkan_InitInfo & initInfo);
 
         // Create vulkan objects
         static void CreateSwapchain(
