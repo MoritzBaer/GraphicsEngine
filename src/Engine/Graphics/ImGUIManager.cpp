@@ -10,6 +10,7 @@
 #include "WindowManager.h"
 #include "Graphics/InstanceManager.h"
 #include "Graphics/Renderer.h"
+#include "VulkanUtil.h"
 
 namespace Engine::Graphics
 {
@@ -79,23 +80,8 @@ namespace Engine::Graphics
 
     void ImGUIManager::ImGUIDrawCommand::QueueExecution(VkCommandBuffer const &queue) const
     {
-        VkRenderingAttachmentInfo colourAttachment{
-            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView = targetView,
-            .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE
-        };
-
-        VkRenderingInfo renderInfo{
-            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-            .renderArea{
-                .offset = {0, 0},
-                .extent = targetExtent},
-            .layerCount = 1,
-            .colorAttachmentCount = 1,
-            .pColorAttachments = &colourAttachment
-        };
+        VkRenderingAttachmentInfo colourAttachment = vkinit::ColourAttachmentInfo(targetView);
+        VkRenderingInfo renderInfo = vkinit::RenderingInfo(colourAttachment, targetExtent);
 
         vkCmdBeginRendering(queue, &renderInfo);
 

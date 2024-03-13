@@ -56,10 +56,14 @@ namespace Engine::Graphics
         VkDescriptorSet renderBufferDescriptors;
         VkDescriptorSetLayout renderBufferDescriptorLayout;
 
+        VkPipelineLayout trianglePipelineLayout;
+        VkPipeline trianglePipeline;
+
         void CreateSwapchain();
         void InitDescriptors();
         void InitPipelines();
         void InitBackgroundPipeline();
+        void InitTrianglePipeline();
 
         void Draw() const;
         void RecreateRenderBuffer();

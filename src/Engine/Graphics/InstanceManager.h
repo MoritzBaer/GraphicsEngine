@@ -62,6 +62,8 @@ namespace Engine::Graphics
         static void CreatePipelineLayout(VkPipelineLayoutCreateInfo const * createInfo, VkPipelineLayout * layout);
         static void CreateComputePipelines(std::vector<VkComputePipelineCreateInfo> const & createInfos, VkPipeline * pipelines);
         static inline void CreateComputePipeline(VkComputePipelineCreateInfo const & createInfo, VkPipeline * pipeline) { CreateComputePipelines({ createInfo }, pipeline); }
+        static void CreateGraphicsPipelines(std::vector<VkGraphicsPipelineCreateInfo> const & createInfos, VkPipeline * pipelines);
+        static inline void CreateGraphicsPipeline(VkGraphicsPipelineCreateInfo const & createInfo, VkPipeline * pipeline) { CreateGraphicsPipelines({ createInfo }, pipeline); }
 
         // Destroy vulkan objects
         static inline void DestroySwapchain(VkSwapchainKHR const & swapchain) { vkDestroySwapchainKHR(instance->graphicsHandler, swapchain, nullptr); }

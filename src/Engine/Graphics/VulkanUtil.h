@@ -47,6 +47,30 @@ namespace Engine::Graphics::vkinit
             .pImageMemoryBarriers = imageMemoryBarriers.data()
         };
     }
+
+    inline VkRenderingInfo RenderingInfo(VkRenderingAttachmentInfo const & colourAttachmentInfo, VkExtent2D extent) {
+        return {
+            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+            .renderArea {
+                .offset = {0, 0},
+                .extent = extent 
+            },
+            .layerCount = 1,
+            .colorAttachmentCount = 1,
+            .pColorAttachments = &colourAttachmentInfo
+        };
+    }
+
+    inline VkRenderingAttachmentInfo ColourAttachmentInfo(VkImageView const & imageView, VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_LOAD, VkClearColorValue const & clearColour = { 0, 0, 0, 0 }) {
+        return {
+            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+            .imageView = imageView,
+            .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .loadOp = loadOp,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .clearValue { .color = clearColour }
+        };
+    }
 } // namespace Engine::Graphics::vkinit
 
 namespace Engine::Graphics::vkutil

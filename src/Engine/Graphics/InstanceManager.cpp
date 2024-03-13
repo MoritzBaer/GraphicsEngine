@@ -531,7 +531,12 @@ void InstanceManager::CreatePipelineLayout(VkPipelineLayoutCreateInfo const *cre
 
 void InstanceManager::CreateComputePipelines(std::vector<VkComputePipelineCreateInfo> const &createInfos, VkPipeline *pipelines)
 {
-    VULKAN_ASSERT(vkCreateComputePipelines(instance->graphicsHandler, VK_NULL_HANDLE, static_cast<uint32_t>(createInfos.size()), createInfos.data(), nullptr, pipelines), "Failed to allocate pipelines!")
+    VULKAN_ASSERT(vkCreateComputePipelines(instance->graphicsHandler, VK_NULL_HANDLE, static_cast<uint32_t>(createInfos.size()), createInfos.data(), nullptr, pipelines), "Failed to create compute pipelines!")
+}
+
+void InstanceManager::CreateGraphicsPipelines(std::vector<VkGraphicsPipelineCreateInfo> const &createInfos, VkPipeline *pipelines)
+{
+    VULKAN_ASSERT(vkCreateGraphicsPipelines(instance->graphicsHandler, VK_NULL_HANDLE, static_cast<uint32_t>(createInfos.size()), createInfos.data(), nullptr, pipelines), "Failed to create graphics pipelines!")
 }
 
 void InstanceManager::AllocateCommandBuffers(VkCommandBufferAllocateInfo const *allocInfo, VkCommandBuffer *commandBuffers)

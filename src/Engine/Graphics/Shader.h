@@ -26,7 +26,7 @@ namespace Engine::Graphics
         VkShaderModule shaderModule;
     public:
         void Destroy();
-        VkPipelineShaderStageCreateInfo GetStageInfo();
+        VkPipelineShaderStageCreateInfo GetStageInfo() const;
     };
 
     class ShaderCompiler {

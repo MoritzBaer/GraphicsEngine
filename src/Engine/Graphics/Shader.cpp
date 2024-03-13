@@ -59,7 +59,7 @@ namespace Engine::Graphics
         InstanceManager::DestroyShaderModule(shaderModule);
     }
 
-    VkPipelineShaderStageCreateInfo Shader::GetStageInfo()
+    VkPipelineShaderStageCreateInfo Shader::GetStageInfo() const
     {
         return {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
