@@ -24,9 +24,14 @@ namespace Engine
 
         inline void Destroy() { vmaDestroyAllocator(allocator); }
 
+        // TODO: Maybe switch for methods creating Image/Buffer objects
+        // Allocate memory objects
         void CreateImage(VkImageCreateInfo const * imageCreateInfo, VkImage * image, VmaAllocation * allocation) const;
+        void CreateBuffer(VkBufferCreateInfo const * bufferCreateInfo, VmaAllocationCreateInfo const * allocationCreateInfo, VkBuffer * buffer, VmaAllocation * allocation, VmaAllocationInfo * allocationInfo) const;
 
-        inline void DestroyImage(VkImage & image, VmaAllocation &allocation) const { vmaDestroyImage(allocator, image, allocation); }
+        // Free memory objects
+        inline void DestroyImage(VkImage const & image, VmaAllocation const & allocation) const { vmaDestroyImage(allocator, image, allocation); }
+        inline void DestroyBuffer(VkBuffer const & buffer, VmaAllocation const & allocation) const { vmaDestroyBuffer(allocator, buffer, allocation); }
     };
 
     inline MemoryAllocator mainAllocator;

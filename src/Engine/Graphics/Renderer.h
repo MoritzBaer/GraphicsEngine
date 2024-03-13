@@ -58,12 +58,15 @@ namespace Engine::Graphics
 
         VkPipelineLayout trianglePipelineLayout;
         VkPipeline trianglePipeline;
+        VkPipelineLayout meshPipelineLayout;
+        VkPipeline meshPipeline;
 
         void CreateSwapchain();
         void InitDescriptors();
         void InitPipelines();
         void InitBackgroundPipeline();
         void InitTrianglePipeline();
+        void InitMeshPipeline();
 
         void Draw() const;
         void RecreateRenderBuffer();

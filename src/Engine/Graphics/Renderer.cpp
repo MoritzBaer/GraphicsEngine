@@ -10,9 +10,39 @@
 #include "Graphics/ImGUIManager.h"
 #include "ComputeEffect.h"
 #include <vector>
+#include "Buffer.h"
+#include "Mesh.h"
 
 namespace Engine::Graphics
 {   
+    Mesh testMesh;
+
+    void InitTestMesh() {
+        testMesh.vertices.resize(4);
+        testMesh.indices.resize(6);
+
+	    testMesh.vertices[0].position = {0.5,-0.5, 0};
+	    testMesh.vertices[1].position = {0.5,0.5, 0};
+	    testMesh.vertices[2].position = {-0.5,-0.5, 0};
+	    testMesh.vertices[3].position = {-0.5,0.5, 0};
+
+	    testMesh.vertices[0].colour = {0,0, 0,1};
+	    testMesh.vertices[1].colour = { 0.5,0.5,0.5 ,1};
+	    testMesh.vertices[2].colour = { 1,0, 0,1 };
+	    testMesh.vertices[3].colour = { 0,1, 0,1 };
+
+	    testMesh.indices[0] = 0;
+	    testMesh.indices[1] = 1;
+	    testMesh.indices[2] = 2;
+
+	    testMesh.indices[3] = 2;
+	    testMesh.indices[4] = 1;
+	    testMesh.indices[5] = 3;
+
+        testMesh.Upload();
+        mainDeletionQueue.Push(&testMesh);
+    }
+
     struct ComputePushConstants {
         Maths::Vector4 data1, data2, data3, data4;
     };
@@ -133,6 +163,18 @@ namespace Engine::Graphics
         void QueueExecution(VkCommandBuffer const &) const;
     };
     
+    class MultimeshDrawCommand : public Command {
+        VkImageView drawImageView;
+        VkExtent2D drawExtent;
+        VkPipeline graphicsPipeline;
+        VkPipelineLayout graphicsLayout;
+        std::vector<Mesh> singleMeshes;
+    public: 
+        MultimeshDrawCommand(VkImageView const & view, VkExtent2D const & extent, VkPipelineLayout const & graphicsLayout, VkPipeline const & graphicsPipeline, std::initializer_list<Mesh> const & meshes) 
+            : drawImageView(view), drawExtent(extent), graphicsLayout(graphicsLayout), graphicsPipeline(graphicsPipeline), singleMeshes(meshes) { }
+        void QueueExecution(VkCommandBuffer const &) const;
+    };
+
     void Renderer::Init(Maths::Dimension2 windowSize) { 
         instance = new Renderer(); 
         InstanceManager::GetGraphicsQueue(&instance->graphicsQueue);
@@ -143,12 +185,17 @@ namespace Engine::Graphics
         mainDeletionQueue.Push(&instance->immediateResources);
         instance->InitDescriptors();
         instance->InitPipelines();
+        AssetManager::UnloadShaders();  // TODO: See if this isn't too soon (pipeline recreation?)
+
+        InitTestMesh();
     }
 
     void Renderer::Cleanup() { delete instance; }
 
     Renderer::Renderer() {}
     Renderer::~Renderer() {
+        InstanceManager::DestroyPipeline(meshPipeline);
+        InstanceManager::DestroyPipelineLayout(meshPipelineLayout);
         InstanceManager::DestroyPipeline(trianglePipeline);
         InstanceManager::DestroyPipelineLayout(trianglePipelineLayout);
         for(auto effect : backgroundEffects) { InstanceManager::DestroyPipeline(effect.pipeline); }
@@ -274,7 +321,8 @@ namespace Engine::Graphics
         auto renderImGUI = ImGUIManager::DrawFrameCommand(swapchainImageViews[resourceIndex], swapchainExtent);
         auto transitionPresenterToColourAttachment = vkutil::TransitionImageCommand(swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         auto transitionBufferToRenderTarget = vkutil::TransitionImageCommand(renderBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        auto drawGeometry = DrawGeometryCommand(renderBuffer.imageView, { .width = renderBuffer.imageExtent.width, .height = renderBuffer.imageExtent.height }, trianglePipeline);
+        auto drawStaticGeometry = DrawGeometryCommand(renderBuffer.imageView, { .width = renderBuffer.imageExtent.width, .height = renderBuffer.imageExtent.height }, trianglePipeline);
+        auto drawTestMesh = MultimeshDrawCommand(renderBuffer.imageView, { .width = renderBuffer.imageExtent.width, .height=renderBuffer.imageExtent.height }, meshPipelineLayout, meshPipeline, { testMesh });
 
         auto commandBufferSubmitInfo = frameResources[resourceIndex].commandQueue.EnqueueCommandSequence({
             // Draw background
@@ -283,7 +331,8 @@ namespace Engine::Graphics
 
             // Draw geometry
             &transitionBufferToRenderTarget,
-            &drawGeometry,
+            &drawStaticGeometry,
+            &drawTestMesh,
 
             // Copy background to swapchain
             &transitionBufferToTransferSrc,
@@ -364,6 +413,7 @@ namespace Engine::Graphics
     {
         InitBackgroundPipeline();
         InitTrianglePipeline();
+        InitMeshPipeline();
     }
 
     void Renderer::InitBackgroundPipeline()
@@ -396,8 +446,6 @@ namespace Engine::Graphics
 
             effect.pipelineLayout = computePipelineLayout;
             InstanceManager::CreateComputePipeline(pipelineInfo, &effect.pipeline);
-
-            shader.Destroy();
         }
     }
 
@@ -419,8 +467,35 @@ namespace Engine::Graphics
                             .SetColourAttachmentFormat(renderBuffer.imageFormat)
                             .SetDepthFormat(VK_FORMAT_UNDEFINED)
                             .BuildPipeline();
-        vertexShader.Destroy();
-        fragmentShader.Destroy();
+    }
+
+    void Renderer::InitMeshPipeline()
+    {
+        Shader vertexShader = AssetManager::LoadShader("coloured_triangle_mesh.vert", ShaderType::VERTEX);
+        Shader fragmentShader = AssetManager::LoadShader("coloured_triangle.frag", ShaderType::FRAGMENT);
+
+        VkPushConstantRange bufferRange {
+            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+            .offset = 0,
+            .size = sizeof(Mesh::GPUPushConstants)
+        };
+        VkPipelineLayoutCreateInfo layoutInfo { 
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+            .pushConstantRangeCount = 1,
+            .pPushConstantRanges = &bufferRange
+        };
+        InstanceManager::CreatePipelineLayout(&layoutInfo, &meshPipelineLayout);
+
+        PipelineBuilder builder;
+        meshPipeline = builder
+                            .SetPipelineLayout(meshPipelineLayout)
+                            .SetShaderStages(vertexShader, fragmentShader)
+                            .SetInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+                            .SetPolygonMode(VK_POLYGON_MODE_FILL)
+                            .DisableDepthTest()
+                            .SetColourAttachmentFormat(renderBuffer.imageFormat)
+                            .SetDepthFormat(VK_FORMAT_UNDEFINED)
+                            .BuildPipeline();
     }
 
     void Renderer::ImmediateSubmit(Command *command)
@@ -678,6 +753,33 @@ namespace Engine::Graphics
         vkCmdSetScissor(queue, 0, 1, &scissor);
 
         vkCmdDraw(queue, 3, 1, 0, 0);
+        vkCmdEndRendering(queue);
+    }
+
+    void MultimeshDrawCommand::QueueExecution(VkCommandBuffer const & queue) const
+    {
+        VkRenderingAttachmentInfo colourAttachmentInfo = vkinit::ColourAttachmentInfo(drawImageView);
+        VkRenderingInfo renderingInfo = vkinit::RenderingInfo(colourAttachmentInfo, drawExtent);
+        
+        VkViewport viewport {
+            .x = 0,
+            .y = 0,
+            .width = static_cast<float>(drawExtent.width),
+            .height = static_cast<float>(drawExtent.height),
+            .minDepth = 0.0f,
+            .maxDepth = 1.0f
+        };
+
+        VkRect2D scissor {
+            .offset = { 0, 0 }, 
+            .extent = drawExtent
+        };
+
+        vkCmdBeginRendering(queue, &renderingInfo);
+        
+        vkCmdBindPipeline(queue, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+        for(auto mesh : singleMeshes) { mesh.Draw(graphicsLayout).QueueExecution(queue); }
+
         vkCmdEndRendering(queue);
     }
 

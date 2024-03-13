@@ -97,6 +97,7 @@ namespace Engine::Graphics
         static inline void ClearDescriptorPool(VkDescriptorPool const & pool, VkDescriptorPoolResetFlags flags = 0) { vkResetDescriptorPool(instance->graphicsHandler, pool, flags); }
         static inline void UpdateDescriptorSets(std::vector<VkWriteDescriptorSet> const & descriptorSets) { vkUpdateDescriptorSets(instance->graphicsHandler, static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr); }
         static inline void UpdateDescriptorSets(VkWriteDescriptorSet const & descriptorSet) { UpdateDescriptorSets(std::vector<VkWriteDescriptorSet>{ descriptorSet }); }
+        static inline VkDeviceAddress GetBufferDeviceAddress(VkBufferDeviceAddressInfo const * bufferInfo) { return vkGetBufferDeviceAddress(instance->graphicsHandler, bufferInfo); }
     };
 
 } // namespace Engine::Graphics

@@ -10,3 +10,8 @@ void Engine::MemoryAllocator::CreateImage(VkImageCreateInfo const *imageCreateIn
     };
     VULKAN_ASSERT(vmaCreateImage(allocator, imageCreateInfo, &allocationInfo, image, allocation, nullptr), "Failed to create image!")
 }
+
+void Engine::MemoryAllocator::CreateBuffer(VkBufferCreateInfo const *bufferCreateInfo, VmaAllocationCreateInfo const *allocationCreateInfo, VkBuffer *buffer, VmaAllocation *allocation, VmaAllocationInfo *allocationInfo) const
+{
+    VULKAN_ASSERT(vmaCreateBuffer(allocator, bufferCreateInfo, allocationCreateInfo, buffer, allocation, allocationInfo), "Failed to create buffer!")
+}
