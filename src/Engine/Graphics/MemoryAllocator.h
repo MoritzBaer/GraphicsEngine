@@ -2,7 +2,7 @@
 #include "vk_mem_alloc.h"
 #include "Util/DeletionQueue.h"
 
-namespace Engine
+namespace Engine::Graphics
 {
     class MemoryAllocator : public Destroyable
     {

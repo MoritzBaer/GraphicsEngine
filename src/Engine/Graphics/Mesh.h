@@ -11,10 +11,12 @@ namespace Engine::Graphics
 {
     class Mesh : public Destroyable
     {
+        struct VertexFormat;
+
         struct GPUMeshBuffers
         {
-            Buffer vertexBuffer;   
-            Buffer indexBuffer;
+            Buffer<VertexFormat> vertexBuffer;   
+            Buffer<uint32_t> indexBuffer;
             VkDeviceAddress vertexBufferAddress;
         } gpuBuffers;
         
