@@ -3,6 +3,9 @@ cmake_minimum_required(VERSION 3.24)
 project(GRAPHICS_ENGINE)
 
 set(CMAKE_CXX_STANDARD 23)
+# Allow for file name macro set relative to source folder
+string(LENGTH "${CMAKE_SOURCE_DIR}/src/" SOURCE_PATH_SIZE)
+add_definitions("-DSOURCE_PATH_SIZE=${SOURCE_PATH_SIZE}")
 
 find_package(Vulkan REQUIRED COMPONENTS shaderc_combined)
 
