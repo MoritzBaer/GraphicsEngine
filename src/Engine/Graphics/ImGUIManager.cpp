@@ -11,6 +11,7 @@
 #include "Graphics/InstanceManager.h"
 #include "Graphics/Renderer.h"
 #include "VulkanUtil.h"
+#include "Debug/Profiling.h"
 
 namespace Engine::Graphics
 {
@@ -19,6 +20,7 @@ namespace Engine::Graphics
 
     void ImGUIManager::Init(Window const *window)
     {
+        PROFILE_FUNCTION()
         instance = new ImGUIManager();
 
         VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLER, 1000},

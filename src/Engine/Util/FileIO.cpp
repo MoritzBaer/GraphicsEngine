@@ -3,10 +3,12 @@
 #include <fstream>
 #include "Macros.h"
 #include "Debug/Logging.h"
+#include "Debug/Profiling.h"
 
 namespace Engine::Util::FileIO
 {
     std::vector<char> ReadFile(char const * fileName) {
+        PROFILE_FUNCTION()
         std::ifstream file(fileName, std::ios::ate | std::ios::binary);
         
         ENGINE_ASSERT(file.is_open(), "Failed to open file {}!", fileName)

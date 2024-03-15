@@ -11,6 +11,8 @@
 #include "MemoryAllocator.h"
 #include "Util/DeletionQueue.h"
 
+#include "Debug/Profiling.h"
+
 namespace Engine::Graphics
 {
 
@@ -526,11 +528,13 @@ void InstanceManager::CreateDescriptorPool(VkDescriptorPoolCreateInfo const *cre
 
 void InstanceManager::CreatePipelineLayout(VkPipelineLayoutCreateInfo const *createInfo, VkPipelineLayout *layout)
 {
+    PROFILE_FUNCTION()
     VULKAN_ASSERT(vkCreatePipelineLayout(instance->graphicsHandler, createInfo, nullptr, layout), "Failed to create pipeline layout!")
 }
 
 void InstanceManager::CreateComputePipelines(std::vector<VkComputePipelineCreateInfo> const &createInfos, VkPipeline *pipelines)
 {
+    PROFILE_FUNCTION()
     VULKAN_ASSERT(vkCreateComputePipelines(instance->graphicsHandler, VK_NULL_HANDLE, static_cast<uint32_t>(createInfos.size()), createInfos.data(), nullptr, pipelines), "Failed to create compute pipelines!")
 }
 
@@ -599,6 +603,7 @@ void InstanceManager::PickPhysicalDevice()
 
 void InstanceManager::Init(const char * applicationName, Window const * window)
 {
+    PROFILE_FUNCTION()
     instance = new InstanceManager();
     // Only set up vulkan validation if in debug mode
 #ifndef NDEBUG

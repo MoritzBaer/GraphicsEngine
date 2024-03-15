@@ -12,6 +12,7 @@
 #include <vector>
 #include "Buffer.h"
 #include "Mesh.h"
+#include "Debug/Profiling.h"
 
 namespace Engine::Graphics
 {   
@@ -176,6 +177,7 @@ namespace Engine::Graphics
     };
 
     void Renderer::Init(Maths::Dimension2 windowSize) { 
+        PROFILE_FUNCTION()
         instance = new Renderer(); 
         InstanceManager::GetGraphicsQueue(&instance->graphicsQueue);
         InstanceManager::GetPresentQueue(&instance->presentQueue);
@@ -242,6 +244,7 @@ namespace Engine::Graphics
 
     void Renderer::CreateSwapchain()
     {
+        PROFILE_FUNCTION()
         renderBufferInitialized = false;
 
         SwapchainSupportDetails details = InstanceManager::GetSwapchainSupport();
@@ -383,6 +386,7 @@ namespace Engine::Graphics
 
     void Renderer::InitDescriptors()
     {
+        PROFILE_FUNCTION()
         std::vector<DescriptorAllocator::PoolSizeRatio> ratios { { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 } };
 
         descriptorAllocator.InitPool(10, ratios);
@@ -418,6 +422,7 @@ namespace Engine::Graphics
 
     void Renderer::InitBackgroundPipeline()
     {
+        PROFILE_FUNCTION()
         VkPushConstantRange pushConstants {
             .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
             .offset = 0,
@@ -451,6 +456,7 @@ namespace Engine::Graphics
 
     void Renderer::InitTrianglePipeline()
     {
+        PROFILE_FUNCTION()
         Shader vertexShader = AssetManager::LoadShader("coloured_triangle.vert", ShaderType::VERTEX);
         Shader fragmentShader = AssetManager::LoadShader("coloured_triangle.frag", ShaderType::FRAGMENT);
 
@@ -471,6 +477,7 @@ namespace Engine::Graphics
 
     void Renderer::InitMeshPipeline()
     {
+        PROFILE_FUNCTION()
         Shader vertexShader = AssetManager::LoadShader("coloured_triangle_mesh.vert", ShaderType::VERTEX);
         Shader fragmentShader = AssetManager::LoadShader("coloured_triangle.frag", ShaderType::FRAGMENT);
 

@@ -1,6 +1,7 @@
 #include "AssetManager.h"
 
 #include "Util/FileIO.h"
+#include "Debug/Profiling.h"
 
 #define RESOURCE_PATH "res/"
 #define SHADER_PATH "shaders/"
@@ -20,6 +21,7 @@ namespace Engine
 
     Graphics::Shader AssetManager::LoadShader(char const *shaderName, Graphics::ShaderType shaderType)
     {
+        PROFILE_FUNCTION()
         char dirPath[] = CONSTRUCT_PATHS(RESOURCE_PATH, SHADER_PATH);
         char * filePath = static_cast<char *>(malloc(strlen(shaderName) * sizeof(char) + sizeof(dirPath)));
         strcpy(filePath, dirPath);

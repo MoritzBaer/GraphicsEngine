@@ -1,11 +1,22 @@
-cmake_minimum_required(VERSION 3.24)
+cmake_minimum_required(VERSION 3.28)
 
 project(GRAPHICS_ENGINE)
 
+option(BUILD_WITH_PROFILING "Build for profiling" OFF)   # Not working atm. Would be nicer, but here we are
+set(BUILD_WITH_PROFILING TRUE)
+
 set(CMAKE_CXX_STANDARD 23)
+
 # Allow for file name macro set relative to source folder
 string(LENGTH "${CMAKE_SOURCE_DIR}/src/" SOURCE_PATH_SIZE)
 add_definitions("-DSOURCE_PATH_SIZE=${SOURCE_PATH_SIZE}")
+
+if (BUILD_WITH_PROFILING)
+    add_definitions("-DRUN_PROFILER")
+    message("-- BUILDING WITH PROFILER ACTIVE")
+else()
+    message("-- building without profiling")
+endif()
 
 find_package(Vulkan REQUIRED COMPONENTS shaderc_combined)
 
@@ -39,6 +50,10 @@ target_link_libraries(MAIN "${CMAKE_SOURCE_DIR}/dependencies/glfw-3.3.9.bin.WIN6
 target_link_libraries(MAIN Vulkan::Vulkan)
 target_link_libraries(MAIN Vulkan::shaderc_combined)
 
+# To store profiles
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/Release/profiles ${CMAKE_BINARY_DIR}/Debug/profiles)
+
+# To keep assets in the same place as the binaries
 if(CMAKE_BUILD_TYPE MATCHES Debug)
     add_custom_command(TARGET MAIN POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res ${CMAKE_BINARY_DIR}/Debug/res)
 else()
