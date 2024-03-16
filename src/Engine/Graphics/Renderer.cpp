@@ -19,6 +19,7 @@ namespace Engine::Graphics
     Mesh testMesh;
 
     void InitTestMesh() {
+        /*
         testMesh.vertices.resize(4);
         testMesh.indices.resize(6);
 
@@ -39,6 +40,8 @@ namespace Engine::Graphics
 	    testMesh.indices[3] = 2;
 	    testMesh.indices[4] = 1;
 	    testMesh.indices[5] = 3;
+        */
+        testMesh = AssetManager::LoadMeshFromOBJ("suzanne.obj");
 
         testMesh.Upload();
         mainDeletionQueue.Push(&testMesh);
@@ -478,7 +481,7 @@ namespace Engine::Graphics
     void Renderer::InitMeshPipeline()
     {
         PROFILE_FUNCTION()
-        Shader vertexShader = AssetManager::LoadShader("coloured_triangle_mesh.vert", ShaderType::VERTEX);
+        Shader vertexShader = AssetManager::LoadShader("mesh_normals.vert", ShaderType::VERTEX);
         Shader fragmentShader = AssetManager::LoadShader("coloured_triangle.frag", ShaderType::FRAGMENT);
 
         VkPushConstantRange bufferRange {

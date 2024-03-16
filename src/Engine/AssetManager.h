@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <string>
 #include "Graphics/Shader.h"
+#include "Graphics/Mesh.h"
 
 namespace Engine
 {
@@ -18,6 +19,8 @@ namespace Engine
         inline static Graphics::Shader LoadShader(std::string const & shaderName, Graphics::ShaderType shaderType) { return LoadShader(shaderName.c_str(), shaderType); }
         static Graphics::Shader LoadShaderWithInferredType(char const * shaderName);
         inline static Graphics::Shader LoadShaderWithInferredType(std::string const & shaderName) { LoadShaderWithInferredType(shaderName.c_str()); };
+        
+        static Graphics::Mesh LoadMeshFromOBJ(char const * meshName);
 
         inline static void UnloadShaders() { for(auto [_, shader] : instance->loadedShaders) { shader.Destroy(); } }
     };

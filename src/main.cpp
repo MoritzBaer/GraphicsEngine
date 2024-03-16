@@ -6,6 +6,8 @@
 
 int main() {
 
+    Engine::AssetManager::LoadMeshFromOBJ("suzanne.obj");
+
     Engine::Init("Test project");
     Engine::RunMainLoop();
     Engine::Cleanup();
