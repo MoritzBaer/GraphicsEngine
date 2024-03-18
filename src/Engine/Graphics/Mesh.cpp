@@ -38,17 +38,4 @@ namespace Engine::Graphics
         gpuBuffers.indexBuffer.Destroy();
         gpuBuffers.vertexBuffer.Destroy();
     }
-
-    void Mesh::DrawMeshCommand::QueueExecution(VkCommandBuffer const &queue) const
-    {
-        Mesh::GPUPushConstants pushConstants {
-            .modelMatrix = Maths::Matrix4::Identity(),
-            .vertexBufferAddress = buffers.vertexBufferAddress
-        };
-
-        vkCmdPushConstants(queue, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Mesh::GPUPushConstants), &pushConstants);
-        buffers.indexBuffer.BindAsIndexBuffer().QueueExecution(queue);
-        vkCmdDrawIndexed(queue, buffers.indexBuffer.Size(), 1, 0, 0, 0);
-    }
-
 } // namespace Engine::Graphics

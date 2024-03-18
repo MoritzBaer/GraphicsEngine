@@ -6,6 +6,7 @@
 #include <vector>
 #include "CommandQueue.h"
 #include "Util/DeletionQueue.h"
+#include "UniformAggregate.h"
 
 namespace Engine::Graphics
 {
@@ -13,7 +14,7 @@ namespace Engine::Graphics
     {
         struct VertexFormat;
 
-        struct GPUMeshBuffers
+        struct GPUBuffers
         {
             Buffer<VertexFormat> vertexBuffer;   
             Buffer<uint32_t> indexBuffer;
@@ -22,7 +23,6 @@ namespace Engine::Graphics
         
         struct GPUPushConstants
         {
-            Maths::Matrix4 modelMatrix;
             VkDeviceAddress vertexBufferAddress;  
         } pushConstants;
 
@@ -44,13 +44,11 @@ namespace Engine::Graphics
         void Upload();
         void Destroy();
 
-        inline class DrawMeshCommand : public Command {
-            Mesh::GPUMeshBuffers buffers;
-            VkPipelineLayout layout;
-        public:
-            void QueueExecution(VkCommandBuffer const & queue) const;
-            DrawMeshCommand(Mesh::GPUMeshBuffers const & buffers, VkPipelineLayout const & pipelineLayout) : buffers(buffers), layout(pipelineLayout) { }
-        } Draw(VkPipelineLayout const & pipelineLayout) const { return DrawMeshCommand(gpuBuffers, pipelineLayout); }
+        inline void BindAndDraw(VkCommandBuffer const & commandBuffer) const { 
+            gpuBuffers.indexBuffer.BindAsIndexBuffer(commandBuffer);
+            vkCmdDrawIndexed(commandBuffer, gpuBuffers.indexBuffer.Size(), 1, 0, 0, 0);
+        }
+        inline void AppendData(UniformAggregate & aggregate) const { aggregate.PushData(&pushConstants); }
     };
     
 } // namespace Engine::Graphics

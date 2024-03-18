@@ -59,7 +59,7 @@ namespace Engine::Graphics
         template <typename T_Other>
         class BufferCopyCommand CopyTo(Buffer<T_Other> const & other, size_t size, size_t sourceOffset = 0, size_t destinationOffset = 0) const;
 
-        inline BindBufferAsIndexBufferCommand BindAsIndexBuffer() const requires(std::integral<T>) { return BindBufferAsIndexBufferCommand(buffer); }
+        inline void BindAsIndexBuffer(VkCommandBuffer const & commandBuffer) const requires(std::integral<T>) { vkCmdBindIndexBuffer(commandBuffer, buffer, 0, VK_INDEX_TYPE_UINT32); } // TODO: Determine type via switch on T
         
     };
 

@@ -4,7 +4,8 @@
 #include <unordered_map>
 #include <string>
 #include "Graphics/Shader.h"
-#include "Graphics/Mesh.h"
+#include "Graphics/MeshRenderer.h"
+#include "Core/ECS.h"
 
 namespace Engine
 {
@@ -21,6 +22,8 @@ namespace Engine
         inline static Graphics::Shader LoadShaderWithInferredType(std::string const & shaderName) { LoadShaderWithInferredType(shaderName.c_str()); };
         
         static Graphics::Mesh LoadMeshFromOBJ(char const * meshName);
+        static Graphics::Material * LoadMaterial(char const * materialName);
+        static Core::Entity LoadPrefab(char const * prefabName);
 
         inline static void UnloadShaders() { for(auto [_, shader] : instance->loadedShaders) { shader.Destroy(); } }
     };

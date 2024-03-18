@@ -10,6 +10,7 @@
 #include "imgui_internal.h"
 #include "Debug/Logging.h"
 #include "Core/Time.h"
+#include "Core/ECS.h"
 #include "Debug/Profiling.h"
 #include <chrono>
 
@@ -26,10 +27,15 @@ void Engine::Init(const char * applicationName)
     BEGIN_PROFILE_SESSION()
     {
         PROFILE_FUNCTION()
+
         mainDeletionQueue.Create();
 
         Graphics::ShaderCompiler::Init();
         AssetManager::Init();
+        Core::ECS::Init();
+
+        Core::ECS::RegisterComponent<Graphics::Transform>();
+        Core::ECS::RegisterComponent<Graphics::MeshRenderer>();
 
         WindowManager::Init();
         mainWindow = WindowManager::CreateWindow(1600, 900, applicationName);
@@ -74,6 +80,7 @@ void Engine::Cleanup()
         Graphics::InstanceManager::Cleanup();
         EventManager::Cleanup();
         WindowManager::Cleanup();
+        Core::ECS::Cleanup();
         AssetManager::Cleanup();
         Graphics::ShaderCompiler::Cleanup();
 
