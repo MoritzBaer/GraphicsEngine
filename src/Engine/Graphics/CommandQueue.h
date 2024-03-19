@@ -3,6 +3,7 @@
 #include "vulkan/vulkan.h"
 #include <vector>
 #include "ComputeEffect.h"
+#include "Util/DeletionQueue.h"
 
 namespace Engine::Graphics
 {
@@ -11,7 +12,7 @@ namespace Engine::Graphics
         virtual void QueueExecution(VkCommandBuffer const & queue) const = 0;
     };
 
-    class CommandQueue
+    class CommandQueue : public Destroyable
     {
     private:
         VkCommandPool commandPool;
@@ -19,7 +20,7 @@ namespace Engine::Graphics
 
     public:
         void Create();
-        void Destroy();
+        void Destroy() const;
 
         VkCommandBufferSubmitInfo EnqueueCommandSequence(std::initializer_list<Command const *> commands, VkCommandBufferUsageFlags flags = 0) const;
     };

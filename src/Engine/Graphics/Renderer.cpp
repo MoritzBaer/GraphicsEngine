@@ -13,38 +13,17 @@
 #include "Buffer.h"
 #include "Mesh.h"
 #include "Debug/Profiling.h"
+#include "MeshRenderer.h"
+#include "UniformAggregate.h"
 
 namespace Engine::Graphics
 {   
-    Mesh testMesh;
+    Core::Entity testModel;
 
-    void InitTestMesh() {
-        /*
-        testMesh.vertices.resize(4);
-        testMesh.indices.resize(6);
+    void InitTestModel() {
+        testModel = AssetManager::LoadPrefab("suzanne.obj");
 
-	    testMesh.vertices[0].position = {0.5,-0.5, 0};
-	    testMesh.vertices[1].position = {0.5,0.5, 0};
-	    testMesh.vertices[2].position = {-0.5,-0.5, 0};
-	    testMesh.vertices[3].position = {-0.5,0.5, 0};
-
-	    testMesh.vertices[0].colour = {0,0, 0,1};
-	    testMesh.vertices[1].colour = { 0.5,0.5,0.5 ,1};
-	    testMesh.vertices[2].colour = { 1,0, 0,1 };
-	    testMesh.vertices[3].colour = { 0,1, 0,1 };
-
-	    testMesh.indices[0] = 0;
-	    testMesh.indices[1] = 1;
-	    testMesh.indices[2] = 2;
-
-	    testMesh.indices[3] = 2;
-	    testMesh.indices[4] = 1;
-	    testMesh.indices[5] = 3;
-        */
-        testMesh = AssetManager::LoadMeshFromOBJ("suzanne.obj");
-
-        testMesh.Upload();
-        mainDeletionQueue.Push(&testMesh);
+        mainDeletionQueue.Push(&testModel.GetComponent<MeshRenderer>()->mesh);
     }
 
     struct ComputePushConstants {
@@ -126,36 +105,6 @@ namespace Engine::Graphics
         }
     } // namespace vkutil
 
-    class PipelineBuilder {
-        std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
-        
-        VkPipelineInputAssemblyStateCreateInfo inputAssembly;
-        VkPipelineRasterizationStateCreateInfo rasterizer;
-        VkPipelineColorBlendAttachmentState colourBlendAttachment;
-        VkPipelineMultisampleStateCreateInfo multisampling;
-        VkPipelineLayout pipelineLayout;
-        VkPipelineDepthStencilStateCreateInfo depthStencil;
-        VkPipelineRenderingCreateInfo renderInfo;
-        VkFormat colourAttachmentformat;
-
-    public: 
-        PipelineBuilder & Reset();
-
-        PipelineBuilder() { Reset(); }
-
-        inline PipelineBuilder & SetPipelineLayout(VkPipelineLayout const & layout); 
-        inline PipelineBuilder & SetShaderStages(Shader const & vertexShader, Shader const & fragmentShader);
-        inline PipelineBuilder & SetInputTopology(VkPrimitiveTopology const & topology);
-        inline PipelineBuilder & SetPolygonMode(VkPolygonMode const & polygonMode);
-        inline PipelineBuilder & SetCullMode(VkCullModeFlags const & cullMode, VkFrontFace const & frontFace);
-        inline PipelineBuilder & SetColourAttachmentFormat(VkFormat const & format);
-        inline PipelineBuilder & SetDepthFormat(VkFormat const & format);
-        inline PipelineBuilder & DisableDepthTest();
-
-        VkPipeline BuildPipeline() const;
-        void BuildPipeline(VkPipeline * pipeline) const;
-    };
-
     class DrawGeometryCommand : public Command {
         VkImageView drawImageView;
         VkExtent2D drawExtent;
@@ -170,12 +119,18 @@ namespace Engine::Graphics
     class MultimeshDrawCommand : public Command {
         VkImageView drawImageView;
         VkExtent2D drawExtent;
-        VkPipeline graphicsPipeline;
-        VkPipelineLayout graphicsLayout;
-        std::vector<Mesh> singleMeshes;
+        Maths::Matrix4 viewProjection;
+        std::vector<MeshRenderer const *> singleMeshes;
     public: 
-        MultimeshDrawCommand(VkImageView const & view, VkExtent2D const & extent, VkPipelineLayout const & graphicsLayout, VkPipeline const & graphicsPipeline, std::initializer_list<Mesh> const & meshes) 
-            : drawImageView(view), drawExtent(extent), graphicsLayout(graphicsLayout), graphicsPipeline(graphicsPipeline), singleMeshes(meshes) { }
+        MultimeshDrawCommand(VkImageView const & view, VkExtent2D const & extent, Maths::Matrix4 const & viewProjection, std::initializer_list<MeshRenderer const *> const & meshes) 
+            : drawImageView(view), drawExtent(extent), singleMeshes(meshes), viewProjection(viewProjection) { }
+        void QueueExecution(VkCommandBuffer const &) const;
+    };
+
+    class DrawMeshCommand : public Command {
+        MeshRenderer * renderInfo;
+    public: 
+        DrawMeshCommand(MeshRenderer * renderInfo) : renderInfo(renderInfo) { }
         void QueueExecution(VkCommandBuffer const &) const;
     };
 
@@ -190,19 +145,14 @@ namespace Engine::Graphics
         mainDeletionQueue.Push(&instance->immediateResources);
         instance->InitDescriptors();
         instance->InitPipelines();
-        AssetManager::UnloadShaders();  // TODO: See if this isn't too soon (pipeline recreation?)
 
-        InitTestMesh();
+        InitTestModel();
     }
 
     void Renderer::Cleanup() { delete instance; }
 
     Renderer::Renderer() {}
     Renderer::~Renderer() {
-        InstanceManager::DestroyPipeline(meshPipeline);
-        InstanceManager::DestroyPipelineLayout(meshPipelineLayout);
-        InstanceManager::DestroyPipeline(trianglePipeline);
-        InstanceManager::DestroyPipelineLayout(trianglePipelineLayout);
         for(auto effect : backgroundEffects) { InstanceManager::DestroyPipeline(effect.pipeline); }
         InstanceManager::DestroyPipelineLayout(backgroundEffects[0].pipelineLayout);
         descriptorAllocator.ClearDescriptors();
@@ -256,7 +206,7 @@ namespace Engine::Graphics
         VkPresentModeKHR presentMode = ChooseSwapchainPresentMode(details.presentModes);
         VkExtent2D extent = ChooseSwapchainExtent(details.capabilities, windowDimension);
 
-        uint32_t imageCount = std::min(details.capabilities.minImageCount + 1, details.capabilities.maxImageCount);
+        uint32_t imageCount = std::min(std::max(details.capabilities.minImageCount + 1, MAX_FRAME_OVERLAP), details.capabilities.maxImageCount);
 
         InstanceManager::CreateSwapchain(
             surfaceFormat,
@@ -302,54 +252,59 @@ namespace Engine::Graphics
         mainDeletionQueue.Push(&renderBuffer);
     }
 
-    void Renderer::Draw() const
+    void Renderer::Draw(Camera const * camera) const
     {
+        PROFILE_FUNCTION()
         uint32_t resourceIndex = currentFrame % MAX_FRAME_OVERLAP;
-        InstanceManager::WaitForFences(&frameResources[resourceIndex].renderFence);
-        InstanceManager::ResetFences(&frameResources[resourceIndex].renderFence);
-    	
+        VkCommandBufferSubmitInfo commandBufferSubmitInfo {};
+        {
+            PROFILE_SCOPE("Waiting for previous frame to finish rendering")
+            InstanceManager::WaitForFences(&frameResources[resourceIndex].renderFence);
+            InstanceManager::ResetFences(&frameResources[resourceIndex].renderFence);
+        }
         uint32_t swapchainImageIndex = InstanceManager::GetNextSwapchainImageIndex(swapchain, frameResources[resourceIndex].swapchainSemaphore);
+        {   
+            PROFILE_SCOPE("Generate commands")
 
-        auto transitionBufferToWriteable = vkutil::TransitionImageCommand(renderBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+            auto transitionBufferToWriteable = vkutil::TransitionImageCommand(renderBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
-        auto computeRun = ExecuteComputePipelineCommand<ComputePushConstants>(
-                backgroundEffects[currentBackgroundEffect],
-                VK_PIPELINE_BIND_POINT_COMPUTE, 
-                renderBufferDescriptors,
-                std::ceil<uint32_t>(windowDimension[X] / 16u),
-                std::ceil<uint32_t>(windowDimension[Y] / 16u),
-                1
-            );
-        auto transitionBufferToTransferSrc = vkutil::TransitionImageCommand(renderBuffer.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-        auto transitionPresenterToTransferDst = vkutil::TransitionImageCommand(swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        auto copyBufferToPresenter = vkutil::CopyFullImage(renderBuffer.image, swapchainImages[resourceIndex], renderBuffer.imageExtent, { swapchainExtent.width, swapchainExtent.height, 1} );
-        auto transitionPresenterToPresent = vkutil::TransitionImageCommand(swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-        auto renderImGUI = ImGUIManager::DrawFrameCommand(swapchainImageViews[resourceIndex], swapchainExtent);
-        auto transitionPresenterToColourAttachment = vkutil::TransitionImageCommand(swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        auto transitionBufferToRenderTarget = vkutil::TransitionImageCommand(renderBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        auto drawStaticGeometry = DrawGeometryCommand(renderBuffer.imageView, { .width = renderBuffer.imageExtent.width, .height = renderBuffer.imageExtent.height }, trianglePipeline);
-        auto drawTestMesh = MultimeshDrawCommand(renderBuffer.imageView, { .width = renderBuffer.imageExtent.width, .height=renderBuffer.imageExtent.height }, meshPipelineLayout, meshPipeline, { testMesh });
+            auto computeRun = ExecuteComputePipelineCommand<ComputePushConstants>(
+                    backgroundEffects[currentBackgroundEffect],
+                    VK_PIPELINE_BIND_POINT_COMPUTE, 
+                    renderBufferDescriptors,
+                    std::ceil<uint32_t>(windowDimension[X] / 16u),
+                    std::ceil<uint32_t>(windowDimension[Y] / 16u),
+                    1
+                );
+            auto transitionBufferToTransferSrc = vkutil::TransitionImageCommand(renderBuffer.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+            auto transitionPresenterToTransferDst = vkutil::TransitionImageCommand(swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+            auto copyBufferToPresenter = vkutil::CopyFullImage(renderBuffer.image, swapchainImages[resourceIndex], renderBuffer.imageExtent, { swapchainExtent.width, swapchainExtent.height, 1} );
+            auto transitionPresenterToPresent = vkutil::TransitionImageCommand(swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+            auto renderImGUI = ImGUIManager::DrawFrameCommand(swapchainImageViews[resourceIndex], swapchainExtent);
+            auto transitionPresenterToColourAttachment = vkutil::TransitionImageCommand(swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            auto transitionBufferToRenderTarget = vkutil::TransitionImageCommand(renderBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            auto drawTestMesh = MultimeshDrawCommand(renderBuffer.imageView, { .width = renderBuffer.imageExtent.width, .height=renderBuffer.imageExtent.height }, camera->viewProjection, { testModel.GetComponent<MeshRenderer>() });
 
-        auto commandBufferSubmitInfo = frameResources[resourceIndex].commandQueue.EnqueueCommandSequence({
-            // Draw background
-            &transitionBufferToWriteable,
-            &computeRun,
+            commandBufferSubmitInfo = frameResources[resourceIndex].commandQueue.EnqueueCommandSequence({
+                // Draw background
+                &transitionBufferToWriteable,
+                &computeRun,
 
-            // Draw geometry
-            &transitionBufferToRenderTarget,
-            &drawStaticGeometry,
-            &drawTestMesh,
+                // Draw geometry
+                &transitionBufferToRenderTarget,
+                &drawTestMesh,
 
-            // Copy background to swapchain
-            &transitionBufferToTransferSrc,
-            &transitionPresenterToTransferDst,
-            &copyBufferToPresenter,
+                // Copy background to swapchain
+                &transitionBufferToTransferSrc,
+                &transitionPresenterToTransferDst,
+                &copyBufferToPresenter,
 
-            // Render ImGui directly to swapchain
-            &transitionPresenterToColourAttachment,
-            &renderImGUI,
-            &transitionPresenterToPresent
-        });
+                // Render ImGui directly to swapchain
+                &transitionPresenterToColourAttachment,
+                &renderImGUI,
+                &transitionPresenterToPresent
+            });
+        }
 
         auto semaphoreWaitInfo = vkinit::SemaphoreSubmitInfo(frameResources[resourceIndex].swapchainSemaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR);
         auto semaphoreSignalInfo = vkinit::SemaphoreSubmitInfo(frameResources[resourceIndex].renderSemaphore, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
@@ -419,8 +374,6 @@ namespace Engine::Graphics
     void Renderer::InitPipelines()
     {
         InitBackgroundPipeline();
-        InitTrianglePipeline();
-        InitMeshPipeline();
     }
 
     void Renderer::InitBackgroundPipeline()
@@ -455,57 +408,6 @@ namespace Engine::Graphics
             effect.pipelineLayout = computePipelineLayout;
             InstanceManager::CreateComputePipeline(pipelineInfo, &effect.pipeline);
         }
-    }
-
-    void Renderer::InitTrianglePipeline()
-    {
-        PROFILE_FUNCTION()
-        Shader vertexShader = AssetManager::LoadShader("coloured_triangle.vert", ShaderType::VERTEX);
-        Shader fragmentShader = AssetManager::LoadShader("coloured_triangle.frag", ShaderType::FRAGMENT);
-
-        VkPipelineLayoutCreateInfo layoutInfo { .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
-        InstanceManager::CreatePipelineLayout(&layoutInfo, &trianglePipelineLayout);
-
-        PipelineBuilder builder;
-        trianglePipeline = builder
-                            .SetPipelineLayout(trianglePipelineLayout)
-                            .SetShaderStages(vertexShader, fragmentShader)
-                            .SetInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-                            .SetPolygonMode(VK_POLYGON_MODE_FILL)
-                            .DisableDepthTest()
-                            .SetColourAttachmentFormat(renderBuffer.imageFormat)
-                            .SetDepthFormat(VK_FORMAT_UNDEFINED)
-                            .BuildPipeline();
-    }
-
-    void Renderer::InitMeshPipeline()
-    {
-        PROFILE_FUNCTION()
-        Shader vertexShader = AssetManager::LoadShader("mesh_normals.vert", ShaderType::VERTEX);
-        Shader fragmentShader = AssetManager::LoadShader("coloured_triangle.frag", ShaderType::FRAGMENT);
-
-        VkPushConstantRange bufferRange {
-            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-            .offset = 0,
-            .size = sizeof(Mesh::GPUPushConstants)
-        };
-        VkPipelineLayoutCreateInfo layoutInfo { 
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-            .pushConstantRangeCount = 1,
-            .pPushConstantRanges = &bufferRange
-        };
-        InstanceManager::CreatePipelineLayout(&layoutInfo, &meshPipelineLayout);
-
-        PipelineBuilder builder;
-        meshPipeline = builder
-                            .SetPipelineLayout(meshPipelineLayout)
-                            .SetShaderStages(vertexShader, fragmentShader)
-                            .SetInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-                            .SetPolygonMode(VK_POLYGON_MODE_FILL)
-                            .DisableDepthTest()
-                            .SetColourAttachmentFormat(renderBuffer.imageFormat)
-                            .SetDepthFormat(VK_FORMAT_UNDEFINED)
-                            .BuildPipeline();
     }
 
     void Renderer::ImmediateSubmit(Command *command)
@@ -557,7 +459,7 @@ namespace Engine::Graphics
         deletionQueue.Create();
     }
 
-    void Renderer::FrameResources::Destroy()
+    void Renderer::FrameResources::Destroy() const
     {
         deletionQueue.Destroy();
         commandQueue.Destroy();
@@ -573,169 +475,10 @@ namespace Engine::Graphics
         commandQueue.Create();
     }
 
-    void Renderer::ImmediateSubmitResources::Destroy()
+    void Renderer::ImmediateSubmitResources::Destroy() const
     {
         commandQueue.Destroy();
         InstanceManager::DestroyFence(fence);
-    }
-
-    PipelineBuilder & PipelineBuilder::Reset()
-    {
-        inputAssembly = { 
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-            .primitiveRestartEnable = VK_FALSE
-        };
-
-        rasterizer = { 
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-            .lineWidth = 1.0f 
-        };
-
-        colourBlendAttachment = { };
-
-        multisampling = { 
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-            .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
-            .sampleShadingEnable = VK_FALSE,
-            .minSampleShading = 1.0f,
-            .alphaToCoverageEnable = VK_FALSE,
-            .alphaToOneEnable = VK_FALSE
-        };
-
-        colourBlendAttachment = {
-            .blendEnable = VK_FALSE,
-            .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
-        };
-
-        pipelineLayout = { };
-        depthStencil = { 
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-            .depthTestEnable = VK_TRUE,
-	        .depthWriteEnable = VK_TRUE,
-	        .depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL,
-	        .depthBoundsTestEnable = VK_FALSE,
-	        .stencilTestEnable = VK_FALSE,
-	        .front = {},
-	        .back = {},
-	        .minDepthBounds = 0.f,
-	        .maxDepthBounds= 1.f
-        };
-
-        renderInfo = { 
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
-            .colorAttachmentCount = 1,
-            .pColorAttachmentFormats = &colourAttachmentformat
-        };
-
-        shaderStages.clear();
-
-        return *this;
-    }
-
-    inline PipelineBuilder & PipelineBuilder::SetPipelineLayout(VkPipelineLayout const &layout)
-    {
-        pipelineLayout = layout;
-        return *this;
-    }
-
-    inline PipelineBuilder & PipelineBuilder::SetShaderStages(Shader const &vertexShader, Shader const &fragmentShader)
-    {
-        shaderStages.clear();
-
-        shaderStages.push_back(vertexShader.GetStageInfo());
-        shaderStages.push_back(fragmentShader.GetStageInfo());
-        return *this;
-    }
-
-    inline PipelineBuilder & PipelineBuilder::SetInputTopology(VkPrimitiveTopology const & topology)
-    {
-        inputAssembly.topology = topology;
-        return *this;
-    }
-
-    inline PipelineBuilder & PipelineBuilder::SetPolygonMode(VkPolygonMode const &polygonMode)
-    {
-        rasterizer.polygonMode = polygonMode;
-        return *this;
-    }
-
-    inline PipelineBuilder & PipelineBuilder::SetCullMode(VkCullModeFlags const &cullMode, VkFrontFace const &frontFace)
-    {
-        rasterizer.cullMode = cullMode;
-        rasterizer.frontFace = frontFace;
-        return *this;
-    }
-
-    inline PipelineBuilder & PipelineBuilder::SetColourAttachmentFormat(VkFormat const &format)
-    {
-        colourAttachmentformat = format;
-        return *this;
-    }
-
-    inline PipelineBuilder & PipelineBuilder::SetDepthFormat(VkFormat const &format)
-    {
-        renderInfo.depthAttachmentFormat = format;
-        return *this;
-    }
-
-    inline PipelineBuilder & PipelineBuilder::DisableDepthTest()
-    {
-        depthStencil.depthTestEnable = VK_FALSE;
-	    depthStencil.depthWriteEnable = VK_FALSE;
-	    depthStencil.depthCompareOp = VK_COMPARE_OP_NEVER;
-	    depthStencil.depthBoundsTestEnable = VK_FALSE;
-	    depthStencil.stencilTestEnable = VK_FALSE;
-        return *this;
-    }
-
-    VkPipeline PipelineBuilder::BuildPipeline() const
-    {
-        VkPipeline newPipeline;
-        BuildPipeline(&newPipeline);
-        return newPipeline;
-    }
-
-    void PipelineBuilder::BuildPipeline(VkPipeline *pipeline) const
-    {
-        VkPipelineViewportStateCreateInfo viewportInfo {
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
-            .viewportCount = 1,
-            .scissorCount = 1
-        };
-
-        VkPipelineColorBlendStateCreateInfo colourBlendInfo {
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
-            .logicOpEnable = VK_FALSE,
-            .attachmentCount = 1,
-            .pAttachments = &colourBlendAttachment
-        };
-
-        VkPipelineVertexInputStateCreateInfo vertexInputInfo { .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
-
-        VkDynamicState states[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
-        VkPipelineDynamicStateCreateInfo dynamicStateInfo {
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
-            .dynamicStateCount = 2,
-            .pDynamicStates = states
-        };
-
-        VkGraphicsPipelineCreateInfo pipelineInfo {
-            .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-            .pNext = &renderInfo,
-            .stageCount = static_cast<uint32_t>(shaderStages.size()),
-            .pStages = shaderStages.data(),
-            .pVertexInputState = &vertexInputInfo,
-            .pInputAssemblyState = &inputAssembly,
-            .pViewportState = &viewportInfo,
-            .pRasterizationState = &rasterizer,
-            .pMultisampleState = &multisampling,
-            .pDepthStencilState = &depthStencil,
-            .pColorBlendState = &colourBlendInfo,
-            .pDynamicState = &dynamicStateInfo,
-            .layout = pipelineLayout
-        };
-
-        InstanceManager::CreateGraphicsPipeline(pipelineInfo, pipeline);
     }
 
     void DrawGeometryCommand::QueueExecution(VkCommandBuffer const & queue) const
@@ -766,6 +509,25 @@ namespace Engine::Graphics
         vkCmdEndRendering(queue);
     }
 
+    void DrawSingleMesh(VkCommandBuffer const & commandBuffer, MeshRenderer const * renderInfo, Maths::Matrix4 const & viewProjection)
+    {
+        // Bind material pipelines
+        renderInfo->material->Bind(commandBuffer);
+
+        // Upload uniform data
+        Maths::Matrix4 mvp = viewProjection * renderInfo->entity.GetComponent<Transform>()->modelMatrix;
+
+        UniformAggregate data { };
+        data.PushData(&mvp);
+        renderInfo->mesh.AppendData(data);
+        renderInfo->material->AppendData(data);
+
+        vkCmdPushConstants(commandBuffer, renderInfo->material->Layout(), VK_SHADER_STAGE_VERTEX_BIT, 0, data.Size(), data.Data());
+
+        // Draw mesh
+        renderInfo->mesh.BindAndDraw(commandBuffer);
+    }
+
     void MultimeshDrawCommand::QueueExecution(VkCommandBuffer const & queue) const
     {
         VkRenderingAttachmentInfo colourAttachmentInfo = vkinit::ColourAttachmentInfo(drawImageView);
@@ -785,10 +547,12 @@ namespace Engine::Graphics
             .extent = drawExtent
         };
 
+        vkCmdSetViewport(queue, 0, 1, &viewport);
+        vkCmdSetScissor(queue, 0, 1, &scissor);
+
         vkCmdBeginRendering(queue, &renderingInfo);
         
-        vkCmdBindPipeline(queue, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-        for(auto mesh : singleMeshes) { mesh.Draw(graphicsLayout).QueueExecution(queue); }
+        for(auto mesh : singleMeshes) { DrawSingleMesh(queue, mesh, viewProjection); }
 
         vkCmdEndRendering(queue);
     }

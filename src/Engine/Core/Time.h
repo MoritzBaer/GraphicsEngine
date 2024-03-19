@@ -10,7 +10,7 @@ namespace Engine::Time
     inline float deltaTime = 0;
 
     inline void Update() {
-        float newTime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - engineStart).count() / 1000.0f;
+        float newTime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - engineStart).count() / 1000000.0f;
         
         deltaTime = newTime - time;
         time = newTime;

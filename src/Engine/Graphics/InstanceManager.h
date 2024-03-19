@@ -83,7 +83,7 @@ namespace Engine::Graphics
         static inline void AllocateDescriptorSets(VkDescriptorSetLayout const & layout, VkDescriptorPool const & descriptorPool, VkDescriptorSet * descriptorSet) { AllocateDescriptorSets(std::vector<VkDescriptorSetLayout>{ layout }, descriptorPool, descriptorSet); }
 
         // Free vulkan memory
-        static inline void FreeCommandBuffers(VkCommandPool const & commandPool, VkCommandBuffer * buffers, uint32_t bufferCount = 1) { vkFreeCommandBuffers(instance->graphicsHandler, commandPool, bufferCount, buffers); }
+        static inline void FreeCommandBuffers(VkCommandPool const & commandPool, VkCommandBuffer const * buffers, uint32_t bufferCount = 1) { vkFreeCommandBuffers(instance->graphicsHandler, commandPool, bufferCount, buffers); }
 
         // Vulkan synchronization
         static void WaitForFences(VkFence const * fences, uint32_t fenceCount = 1, bool waitForAll = true, uint32_t timeout = 1000000000);

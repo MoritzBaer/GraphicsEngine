@@ -31,7 +31,7 @@ namespace Engine::Graphics
             uint32_t mipLevels = 1, 
             uint32_t arrayLayers = 1, 
             VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT);
-        void Destroy();
+        void Destroy() const;
     };
 
     template <> const VkImageType Engine::Graphics::Image<1>::IMAGE_TYPE = VK_IMAGE_TYPE_1D;
@@ -87,7 +87,7 @@ namespace Engine::Graphics
     }
 
     template <uint8_t Dimension>
-    inline void Image<Dimension>::Destroy()
+    inline void Image<Dimension>::Destroy() const
     {
         InstanceManager::DestroyImageView(imageView);
         mainAllocator.DestroyImage(image, allocation);

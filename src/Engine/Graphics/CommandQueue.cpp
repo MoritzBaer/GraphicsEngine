@@ -3,6 +3,7 @@
 #include "Util/Macros.h"
 #include "Debug/Logging.h"
 #include "VulkanUtil.h"
+#include "Debug/Profiling.h"
 
 void Engine::Graphics::CommandQueue::Create()
 {
@@ -24,7 +25,7 @@ void Engine::Graphics::CommandQueue::Create()
     InstanceManager::AllocateCommandBuffers(&commandBufferInfo, &mainBuffer);
 }
 
-void Engine::Graphics::CommandQueue::Destroy()
+void Engine::Graphics::CommandQueue::Destroy() const
 {
     InstanceManager::FreeCommandBuffers(commandPool, &mainBuffer);
     InstanceManager::DestroyCommandPool(commandPool);
@@ -32,6 +33,7 @@ void Engine::Graphics::CommandQueue::Destroy()
 
 VkCommandBufferSubmitInfo Engine::Graphics::CommandQueue::EnqueueCommandSequence(std::initializer_list<Command const *> commands, VkCommandBufferUsageFlags flags) const
 {
+    PROFILE_FUNCTION()
     VkCommandBufferBeginInfo beginInfo {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .flags = flags
@@ -41,7 +43,7 @@ VkCommandBufferSubmitInfo Engine::Graphics::CommandQueue::EnqueueCommandSequence
 
     VULKAN_ASSERT(vkBeginCommandBuffer(mainBuffer, &beginInfo), "Failed to begin command buffer!")
 
-    for(auto command : commands) { command->QueueExecution(mainBuffer); }
+    for(auto command : commands) { PROFILE_SCOPE("Queueing command") command->QueueExecution(mainBuffer); }
 
     VULKAN_ASSERT(vkEndCommandBuffer(mainBuffer), "Failed to end command buffer!")
 

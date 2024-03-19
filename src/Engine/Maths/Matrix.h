@@ -390,11 +390,11 @@ namespace Engine::Maths
     inline MatrixT<n, l, T> MatrixT<n, m, T>::operator*(MatrixT<m, l, T> const &other) const
     {
         T newVals[n * l];
-        for(int i = 0; i < n; i++) {
-            for(int j = 0; j < l; j++) {
-                newVals[i * l + j] = 0;
+        for(int i = 0; i < n; i++) {                // Columns of result
+            for(int j = 0; j < l; j++) {            // Rows of result
+                newVals[i * n + j] = 0;
                 for(int k = 0; k < m; k++) {
-                    newVals[i * l + j] += data[i * m + k] * other.data[k * l + j];
+                    newVals[i * n + j] += data[k * n + j] * other.data[i * m + k];
                 }
             }
         }

@@ -570,6 +570,7 @@ void InstanceManager::ResetFences(VkFence const *fences, uint32_t fenceCount){
 
 uint32_t InstanceManager::GetNextSwapchainImageIndex(VkSwapchainKHR const &swapchain, VkSemaphore const &semaphore, VkFence const &fence, uint32_t timeout)
 {
+    PROFILE_FUNCTION()
     uint32_t index;
     VULKAN_ASSERT(vkAcquireNextImageKHR(instance->graphicsHandler, swapchain, timeout, semaphore, fence, &index), "Failed to acquire swapchain image!");
     return index;

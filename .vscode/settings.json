@@ -77,7 +77,10 @@
         "cinttypes": "cpp",
         "condition_variable": "cpp",
         "shared_mutex": "cpp",
-        "*.rh": "cpp"
+        "*.rh": "cpp",
+        "stack": "cpp",
+        "deque": "cpp",
+        "ranges": "cpp"
     },
     "cmake.configureSettings": {
         "CMAKE_BUILD_TYPE": "${buildType}"

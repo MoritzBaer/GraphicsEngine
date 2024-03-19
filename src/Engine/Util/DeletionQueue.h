@@ -6,7 +6,7 @@ namespace Engine
 {   
     class Destroyable {
     public:
-        virtual void Destroy() = 0;
+        virtual void Destroy() const = 0;
     };
 
     class Initializable : public Destroyable {
@@ -17,15 +17,15 @@ namespace Engine
     struct DeletionQueue
     {
     private:
-        Destroyable ** queue;
+        Destroyable const ** queue;
         uint32_t queueSize;
         void ChangeBaseMemory();
     public:
         uint32_t queueCapacity;
         void Create();
-        void Destroy();
+        void Destroy() const;
         void Push(Initializable * object, bool preInitialized = false);
-        void Push(Destroyable * object);
+        void Push(Destroyable const * object);
         void Flush();
     };
 

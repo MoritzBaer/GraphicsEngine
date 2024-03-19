@@ -10,6 +10,7 @@
 #include "imgui_internal.h"
 #include "Debug/Logging.h"
 #include "Core/Time.h"
+#include "Core/ECS.h"
 #include "Debug/Profiling.h"
 #include <chrono>
 
@@ -19,6 +20,8 @@ namespace Engine
     bool render = true;
 
     Window * mainWindow;
+
+    Core::Entity mainCam;
 } // namespace Engine
 
 void Engine::Init(const char * applicationName)
@@ -26,10 +29,19 @@ void Engine::Init(const char * applicationName)
     BEGIN_PROFILE_SESSION()
     {
         PROFILE_FUNCTION()
+
         mainDeletionQueue.Create();
 
         Graphics::ShaderCompiler::Init();
         AssetManager::Init();
+        Core::ECS::Init();
+
+        Core::ECS::RegisterComponent<Graphics::Transform>();
+        Core::ECS::RegisterComponent<Graphics::MeshRenderer>();
+        Core::ECS::RegisterComponent<Graphics::Camera>();
+
+        mainCam = Core::Entity(Core::ECS::CreateEntity());
+        mainCam.AddComponent<Graphics::Camera>();
 
         WindowManager::Init();
         mainWindow = WindowManager::CreateWindow(1600, 900, applicationName);
@@ -55,7 +67,7 @@ void Engine::RunMainLoop()
         Time::Update();
         if (render) { 
             Graphics::ImGUIManager::BeginFrame();
-            Graphics::Renderer::DrawFrame(); 
+            Graphics::Renderer::DrawFrame(mainCam.GetComponent<Graphics::Camera>()); 
         }
         else { std::this_thread::sleep_for(std::chrono::milliseconds(100)); }
     }
@@ -74,6 +86,7 @@ void Engine::Cleanup()
         Graphics::InstanceManager::Cleanup();
         EventManager::Cleanup();
         WindowManager::Cleanup();
+        Core::ECS::Cleanup();
         AssetManager::Cleanup();
         Graphics::ShaderCompiler::Cleanup();
 

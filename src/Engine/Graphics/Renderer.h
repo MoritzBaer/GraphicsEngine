@@ -9,6 +9,7 @@
 #include "Maths/Dimension.h"
 #include "Image.h"
 #include "Shader.h"
+#include "Camera.h"
 
 namespace Engine::Graphics
 {
@@ -25,7 +26,7 @@ namespace Engine::Graphics
             VkFence renderFence;
 
             void Create();
-            void Destroy();
+            void Destroy() const;
         };
 
         struct ImmediateSubmitResources : public Initializable {
@@ -33,10 +34,10 @@ namespace Engine::Graphics
             VkFence fence;
 
             void Create();
-            void Destroy();
+            void Destroy() const;
         } immediateResources;
 
-        static const uint32_t MAX_FRAME_OVERLAP = 2;
+        static const uint32_t MAX_FRAME_OVERLAP = 3;
 
         VkQueue graphicsQueue;
         VkQueue presentQueue;
@@ -56,27 +57,20 @@ namespace Engine::Graphics
         VkDescriptorSet renderBufferDescriptors;
         VkDescriptorSetLayout renderBufferDescriptorLayout;
 
-        VkPipelineLayout trianglePipelineLayout;
-        VkPipeline trianglePipeline;
-        VkPipelineLayout meshPipelineLayout;
-        VkPipeline meshPipeline;
-
         void CreateSwapchain();
         void InitDescriptors();
         void InitPipelines();
         void InitBackgroundPipeline();
-        void InitTrianglePipeline();
-        void InitMeshPipeline();
 
-        void Draw() const;
+        void Draw(Camera const * camera) const;
         void RecreateRenderBuffer();
 
         inline FrameResources const & CurrentResources() const { return frameResources[currentFrame % MAX_FRAME_OVERLAP]; }
 
     public:
         // Signature is likely to change (for example a list of render objects will have to be passed somehow)
-        static inline void DrawFrame() { 
-            instance->Draw(); 
+        static inline void DrawFrame(Camera const * camera) { 
+            instance->Draw(camera); 
             instance->frameResources[instance->currentFrame % MAX_FRAME_OVERLAP].deletionQueue.Flush();
             instance->currentFrame++; 
         }     
