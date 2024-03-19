@@ -22,6 +22,8 @@ namespace Engine::Graphics
         gpuBuffers.vertexBuffer.Create(vertices.size(), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
         gpuBuffers.vertexBufferAddress = gpuBuffers.vertexBuffer.GetDeviceAddresss();
 
+        pushConstants.vertexBufferAddress = gpuBuffers.vertexBufferAddress;
+
         Buffer<uint8_t> stagingBuffer(gpuBuffers.vertexBuffer.PhysicalSize() + gpuBuffers.indexBuffer.PhysicalSize(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
 
         void * data = stagingBuffer.GetMappedData();
@@ -33,7 +35,7 @@ namespace Engine::Graphics
         stagingBuffer.Destroy();
     }
 
-    void Mesh::Destroy()
+    void Mesh::Destroy() const
     {
         gpuBuffers.indexBuffer.Destroy();
         gpuBuffers.vertexBuffer.Destroy();

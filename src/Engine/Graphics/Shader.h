@@ -25,7 +25,7 @@ namespace Engine::Graphics
         // TODO: store entry point
         VkShaderModule shaderModule;
     public:
-        void Destroy();
+        void Destroy() const;
         VkPipelineShaderStageCreateInfo GetStageInfo() const;
     };
 

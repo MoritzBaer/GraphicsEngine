@@ -14,6 +14,8 @@ namespace Engine
         _SINGLETON(AssetManager)
 
         std::unordered_map<std::string, Graphics::Shader> loadedShaders;
+        std::unordered_map<std::string, Graphics::Material const *> loadedMaterials;
+        std::unordered_map<std::string, Graphics::Mesh> loadedMeshes;
 
     public:
         static Graphics::Shader LoadShader(char const * shaderName, Graphics::ShaderType shaderType);
@@ -24,8 +26,6 @@ namespace Engine
         static Graphics::Mesh LoadMeshFromOBJ(char const * meshName);
         static Graphics::Material * LoadMaterial(char const * materialName);
         static Core::Entity LoadPrefab(char const * prefabName);
-
-        inline static void UnloadShaders() { for(auto [_, shader] : instance->loadedShaders) { shader.Destroy(); } }
     };
     
 } // namespace Engine

@@ -22,7 +22,7 @@ namespace Engine::Graphics
             vmaCreateAllocator(&allocatorInfo, &allocator);
         }
 
-        inline void Destroy() { vmaDestroyAllocator(allocator); }
+        inline void Destroy() const { vmaDestroyAllocator(allocator); }
 
         // TODO: Maybe switch for methods creating Image/Buffer objects
         // Allocate memory objects

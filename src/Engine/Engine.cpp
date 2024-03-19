@@ -20,6 +20,8 @@ namespace Engine
     bool render = true;
 
     Window * mainWindow;
+
+    Core::Entity mainCam;
 } // namespace Engine
 
 void Engine::Init(const char * applicationName)
@@ -36,6 +38,10 @@ void Engine::Init(const char * applicationName)
 
         Core::ECS::RegisterComponent<Graphics::Transform>();
         Core::ECS::RegisterComponent<Graphics::MeshRenderer>();
+        Core::ECS::RegisterComponent<Graphics::Camera>();
+
+        mainCam = Core::Entity(Core::ECS::CreateEntity());
+        mainCam.AddComponent<Graphics::Camera>();
 
         WindowManager::Init();
         mainWindow = WindowManager::CreateWindow(1600, 900, applicationName);
@@ -61,7 +67,7 @@ void Engine::RunMainLoop()
         Time::Update();
         if (render) { 
             Graphics::ImGUIManager::BeginFrame();
-            Graphics::Renderer::DrawFrame(); 
+            Graphics::Renderer::DrawFrame(mainCam.GetComponent<Graphics::Camera>()); 
         }
         else { std::this_thread::sleep_for(std::chrono::milliseconds(100)); }
     }

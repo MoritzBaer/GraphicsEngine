@@ -13,6 +13,8 @@
 #include "VulkanUtil.h"
 #include "Debug/Profiling.h"
 
+#include "Core/Time.h"
+
 namespace Engine::Graphics
 {
     ImGUIManager::ImGUIManager() {}
@@ -62,6 +64,9 @@ namespace Engine::Graphics
 
         ImGui_ImplVulkan_Init(&imGUIInfo);
         ImGui_ImplVulkan_CreateFontsTexture();
+
+        // Enable docking for whole application
+        ImGui::GetIO().ConfigFlags = ImGuiConfigFlags_DockingEnable;
     }
 
     void ImGUIManager::Cleanup()
@@ -71,11 +76,17 @@ namespace Engine::Graphics
     }
     void ImGUIManager::BeginFrame()
     {
+        PROFILE_FUNCTION()
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        Renderer::GetImGUISection();
+        if(ImGui::Begin("Debug GUI")) {
+            Renderer::GetImGUISection();
+            ImGui::Text("FPS: %.1f", 1.0f / Time::deltaTime);
+
+            ImGui::End();
+        }
 
         ImGui::Render();
     }

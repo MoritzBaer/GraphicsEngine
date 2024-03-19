@@ -5,15 +5,22 @@
 #include "Engine/AssetManager.h"
 #include "Core/ECS.h"
 #include "Maths/Matrix.h"
+#include <iostream>
+#include <iomanip>
 
-ENGINE_COMPONENT_DECLARATION(TransformComponent) {
-    Engine::Maths::Matrix4 locrot;
+#include "glm/matrix.hpp"
+#include "glm/gtx/transform.hpp"
 
-    ENGINE_COMPONENT_CONSTRUCTOR(TransformComponent) { }
-};
-
+void printForMat(void * mat) {
+    for (int i = 0; i < 16; i++) { 
+        float val = *(((float *)mat) + i);
+        if(!std::signbit(val)) { std::cout << " "; }
+        std::cout << val << " "; 
+    }
+}
 
 int main() {
+
     Engine::Init("Test project");
     Engine::RunMainLoop();
     Engine::Cleanup();

@@ -42,7 +42,7 @@ namespace Engine::Graphics
         std::vector<uint32_t> indices;
 
         void Upload();
-        void Destroy();
+        void Destroy() const;
 
         inline void BindAndDraw(VkCommandBuffer const & commandBuffer) const { 
             gpuBuffers.indexBuffer.BindAsIndexBuffer(commandBuffer);

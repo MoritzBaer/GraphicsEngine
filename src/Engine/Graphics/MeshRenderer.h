@@ -12,5 +12,7 @@ namespace Engine::Graphics
         Material * material;
 
         ENGINE_COMPONENT_CONSTRUCTOR(MeshRenderer) { if (!entity.HasComponent<Transform>()) { entity.AddComponent<Transform>(); } }
+
+        ~MeshRenderer() { material->Destroy(); }
     };
 } // namespace Engine::Graphics

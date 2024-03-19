@@ -13,12 +13,24 @@
 #define RESOURCE_PATH "res/"
 #define SHADER_PATH "shaders/"
 #define MESH_PATH "meshes/"
+#define MATERIAL_PATH "materials/"
 
 #define CONSTRUCT_PATHS(a, b) a b
 
-#define _RETURN_ASSET(key, table, constructor)                                                                  \
-    if (instance->table.find(key) == instance->table.end()) { instance->table.insert({key, constructor}); }     \
-    return instance->table.at(key);
+#define MAKE_FILE_PATH(fileName, directoryName)                                                         \
+    char dirPath[] = CONSTRUCT_PATHS(RESOURCE_PATH, directoryName);                                     \
+    char * filePath = static_cast<char *>(malloc(strlen(fileName) * sizeof(char) + sizeof(dirPath)));   \
+    strcpy(filePath, dirPath);                                                                          \
+    strcat(filePath, fileName);                                   
+
+#define _INSERT_ASSET_IF_NEW(key, table, constructor)                   \
+    bool isNew = instance->table.find(key) == instance->table.end();    \
+    if (isNew) { instance->table.insert({key, constructor}); }  
+
+#define _RETURN_ASSET(key, table, constructor)      \
+    _INSERT_ASSET_IF_NEW(key, table, constructor)   \
+    return instance->table[key];
+
 
 namespace Engine
 {
@@ -237,11 +249,11 @@ namespace Engine
     Graphics::Shader AssetManager::LoadShader(char const *shaderName, Graphics::ShaderType shaderType)
     {
         PROFILE_FUNCTION()
-        char dirPath[] = CONSTRUCT_PATHS(RESOURCE_PATH, SHADER_PATH);
-        char * filePath = static_cast<char *>(malloc(strlen(shaderName) * sizeof(char) + sizeof(dirPath)));
-        strcpy(filePath, dirPath);
-        strcat(filePath, shaderName); 
-        _RETURN_ASSET(shaderName, loadedShaders, Graphics::ShaderCompiler::CompileShaderCode(Util::FileIO::ReadFile(filePath), shaderType))
+        MAKE_FILE_PATH(shaderName, SHADER_PATH)
+        _INSERT_ASSET_IF_NEW(shaderName, loadedShaders, Graphics::ShaderCompiler::CompileShaderCode(Util::FileIO::ReadFile(filePath), shaderType))
+        Graphics::Shader & loadedShader = instance->loadedShaders[shaderName];
+        if(isNew) { mainDeletionQueue.Push(&loadedShader); }
+        return loadedShader;
     }
 
     Graphics::Shader AssetManager::LoadShaderWithInferredType(char const * shaderName)
@@ -423,21 +435,15 @@ namespace Engine
 
     Graphics::Mesh AssetManager::LoadMeshFromOBJ(char const *meshName)
     {
-        char dirPath[] = CONSTRUCT_PATHS(RESOURCE_PATH, MESH_PATH);
-        char * filePath = static_cast<char *>(malloc(strlen(meshName) * sizeof(char) + sizeof(dirPath)));
-        strcpy(filePath, dirPath);
-        strcat(filePath, meshName); 
+        MAKE_FILE_PATH(meshName, MESH_PATH)
         auto meshData = Util::FileIO::ReadFile(filePath);
-        
-        return ParseOBJ(meshData.data());
-        return Graphics::Mesh();
+        _RETURN_ASSET(meshName, loadedMeshes, ParseOBJ(meshData.data()))
     }
 
-    Graphics::Material *AssetManager::LoadMaterial(char const *materialName)
-    {
+    Graphics::Material * ParseMAT(char const * materialData) {
         // Dummy implementation // TODO: implement properly
-        Graphics::Shader vertexShader = LoadShader("coloured_triangle_mesh.vert", Graphics::ShaderType::VERTEX);
-        Graphics::Shader fragmentShader = LoadShader("coloured_triangle.frag", Graphics::ShaderType::FRAGMENT);
+        Graphics::Shader vertexShader = AssetManager::LoadShader("coloured_triangle_mesh.vert", Graphics::ShaderType::VERTEX);
+        Graphics::Shader fragmentShader = AssetManager::LoadShader("coloured_triangle.frag", Graphics::ShaderType::FRAGMENT);
         PipelineBuilder builder = PipelineBuilder();
         
         VkPipelineLayout layout;
@@ -465,8 +471,22 @@ namespace Engine
                             .SetPolygonMode(VK_POLYGON_MODE_FILL)
                             .SetColourAttachmentFormat(VK_FORMAT_R16G16B16A16_SFLOAT)
                             .SetDepthFormat(VK_FORMAT_UNDEFINED)
+                            .DisableDepthTest()
                             .BuildPipeline();
+
         return new Graphics::TestMaterial(layout, pipeline, { 0.7, 0.9, 0.4 });
+    }
+
+    Graphics::Material * AssetManager::LoadMaterial(char const *materialName)
+    { 
+        MAKE_FILE_PATH(materialName, MATERIAL_PATH)
+        //auto materialData = Util::FileIO::ReadFile(filePath);
+        char const * materialData = "dummy";
+        //_INSERT_ASSET_IF_NEW(materialName, loadedMaterials, ParseMAT(materialData.data()))
+        _INSERT_ASSET_IF_NEW(materialName, loadedMaterials, ParseMAT(materialData))
+        Graphics::Material const * loadedMaterial = instance->loadedMaterials[materialName];
+        if(isNew) { mainDeletionQueue.Push(loadedMaterial); }
+        return new Graphics::TestMaterial(loadedMaterial);
     }
 
     Core::Entity AssetManager::LoadPrefab(char const *prefabName)

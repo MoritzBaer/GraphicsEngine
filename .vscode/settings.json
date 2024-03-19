@@ -79,7 +79,8 @@
         "shared_mutex": "cpp",
         "*.rh": "cpp",
         "stack": "cpp",
-        "deque": "cpp"
+        "deque": "cpp",
+        "ranges": "cpp"
     },
     "cmake.configureSettings": {
         "CMAKE_BUILD_TYPE": "${buildType}"

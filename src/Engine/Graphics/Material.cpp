@@ -2,7 +2,7 @@
 
 #include "InstanceManager.h"
 
-Engine::Graphics::Material::~Material()
+void Engine::Graphics::Material::Destroy() const
 {
     InstanceManager::DestroyPipeline(pipeline);
     InstanceManager::DestroyPipelineLayout(layout);

@@ -22,6 +22,7 @@ find_package(Vulkan REQUIRED COMPONENTS shaderc_combined)
 
 include_directories("dependencies/glfw-3.3.9.bin.WIN64/include")
 include_directories("dependencies/VMA")
+include_directories("dependencies/GLM/")
 include_directories(${Vulkan_INCLUDE_DIR})
 
 include_directories("src/external/imgui")

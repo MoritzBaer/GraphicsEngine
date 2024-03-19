@@ -5,6 +5,7 @@
 #include "InstanceManager.h"
 #include "CommandQueue.h"
 #include "MemoryAllocator.h"
+#include "Util/DeletionQueue.h"
 
 namespace Engine::Graphics
 {
@@ -28,7 +29,7 @@ namespace Engine::Graphics
     };
 
     template <typename T>
-    class Buffer {
+    class Buffer : public Destroyable {
         VkBuffer buffer;
         VmaAllocation allocation;
         VmaAllocationInfo info;
@@ -38,7 +39,7 @@ namespace Engine::Graphics
 
     public:
         void Create(size_t size, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
-        void Destroy();
+        void Destroy() const;
 
         Buffer() { }
         Buffer(size_t size, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) { Create(size, usage, memoryUsage); }
@@ -72,7 +73,7 @@ namespace Engine::Graphics
     }
 
     template <typename T>
-    void Buffer<T>::Destroy()
+    void Buffer<T>::Destroy() const
     {
         mainAllocator.DestroyBuffer(buffer, allocation);
     }

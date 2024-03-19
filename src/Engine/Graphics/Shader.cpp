@@ -54,7 +54,7 @@ namespace Engine::Graphics
         return result;
     }
 
-    inline void Shader::Destroy()
+    inline void Shader::Destroy() const
     {
         InstanceManager::DestroyShaderModule(shaderModule);
     }

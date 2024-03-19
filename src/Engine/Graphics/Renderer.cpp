@@ -119,10 +119,11 @@ namespace Engine::Graphics
     class MultimeshDrawCommand : public Command {
         VkImageView drawImageView;
         VkExtent2D drawExtent;
+        Maths::Matrix4 viewProjection;
         std::vector<MeshRenderer const *> singleMeshes;
     public: 
-        MultimeshDrawCommand(VkImageView const & view, VkExtent2D const & extent, std::initializer_list<MeshRenderer const *> const & meshes) 
-            : drawImageView(view), drawExtent(extent), singleMeshes(meshes) { }
+        MultimeshDrawCommand(VkImageView const & view, VkExtent2D const & extent, Maths::Matrix4 const & viewProjection, std::initializer_list<MeshRenderer const *> const & meshes) 
+            : drawImageView(view), drawExtent(extent), singleMeshes(meshes), viewProjection(viewProjection) { }
         void QueueExecution(VkCommandBuffer const &) const;
     };
 
@@ -144,7 +145,6 @@ namespace Engine::Graphics
         mainDeletionQueue.Push(&instance->immediateResources);
         instance->InitDescriptors();
         instance->InitPipelines();
-        AssetManager::UnloadShaders();  // TODO: See if this isn't too soon (pipeline recreation?)
 
         InitTestModel();
     }
@@ -206,7 +206,7 @@ namespace Engine::Graphics
         VkPresentModeKHR presentMode = ChooseSwapchainPresentMode(details.presentModes);
         VkExtent2D extent = ChooseSwapchainExtent(details.capabilities, windowDimension);
 
-        uint32_t imageCount = std::min(details.capabilities.minImageCount + 1, details.capabilities.maxImageCount);
+        uint32_t imageCount = std::min(std::max(details.capabilities.minImageCount + 1, MAX_FRAME_OVERLAP), details.capabilities.maxImageCount);
 
         InstanceManager::CreateSwapchain(
             surfaceFormat,
@@ -252,52 +252,59 @@ namespace Engine::Graphics
         mainDeletionQueue.Push(&renderBuffer);
     }
 
-    void Renderer::Draw() const
+    void Renderer::Draw(Camera const * camera) const
     {
+        PROFILE_FUNCTION()
         uint32_t resourceIndex = currentFrame % MAX_FRAME_OVERLAP;
-        InstanceManager::WaitForFences(&frameResources[resourceIndex].renderFence);
-        InstanceManager::ResetFences(&frameResources[resourceIndex].renderFence);
-    	
+        VkCommandBufferSubmitInfo commandBufferSubmitInfo {};
+        {
+            PROFILE_SCOPE("Waiting for previous frame to finish rendering")
+            InstanceManager::WaitForFences(&frameResources[resourceIndex].renderFence);
+            InstanceManager::ResetFences(&frameResources[resourceIndex].renderFence);
+        }
         uint32_t swapchainImageIndex = InstanceManager::GetNextSwapchainImageIndex(swapchain, frameResources[resourceIndex].swapchainSemaphore);
+        {   
+            PROFILE_SCOPE("Generate commands")
 
-        auto transitionBufferToWriteable = vkutil::TransitionImageCommand(renderBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+            auto transitionBufferToWriteable = vkutil::TransitionImageCommand(renderBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
-        auto computeRun = ExecuteComputePipelineCommand<ComputePushConstants>(
-                backgroundEffects[currentBackgroundEffect],
-                VK_PIPELINE_BIND_POINT_COMPUTE, 
-                renderBufferDescriptors,
-                std::ceil<uint32_t>(windowDimension[X] / 16u),
-                std::ceil<uint32_t>(windowDimension[Y] / 16u),
-                1
-            );
-        auto transitionBufferToTransferSrc = vkutil::TransitionImageCommand(renderBuffer.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-        auto transitionPresenterToTransferDst = vkutil::TransitionImageCommand(swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        auto copyBufferToPresenter = vkutil::CopyFullImage(renderBuffer.image, swapchainImages[resourceIndex], renderBuffer.imageExtent, { swapchainExtent.width, swapchainExtent.height, 1} );
-        auto transitionPresenterToPresent = vkutil::TransitionImageCommand(swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-        auto renderImGUI = ImGUIManager::DrawFrameCommand(swapchainImageViews[resourceIndex], swapchainExtent);
-        auto transitionPresenterToColourAttachment = vkutil::TransitionImageCommand(swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        auto transitionBufferToRenderTarget = vkutil::TransitionImageCommand(renderBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        auto drawTestMesh = MultimeshDrawCommand(renderBuffer.imageView, { .width = renderBuffer.imageExtent.width, .height=renderBuffer.imageExtent.height }, { testModel.GetComponent<MeshRenderer>() });
+            auto computeRun = ExecuteComputePipelineCommand<ComputePushConstants>(
+                    backgroundEffects[currentBackgroundEffect],
+                    VK_PIPELINE_BIND_POINT_COMPUTE, 
+                    renderBufferDescriptors,
+                    std::ceil<uint32_t>(windowDimension[X] / 16u),
+                    std::ceil<uint32_t>(windowDimension[Y] / 16u),
+                    1
+                );
+            auto transitionBufferToTransferSrc = vkutil::TransitionImageCommand(renderBuffer.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+            auto transitionPresenterToTransferDst = vkutil::TransitionImageCommand(swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+            auto copyBufferToPresenter = vkutil::CopyFullImage(renderBuffer.image, swapchainImages[resourceIndex], renderBuffer.imageExtent, { swapchainExtent.width, swapchainExtent.height, 1} );
+            auto transitionPresenterToPresent = vkutil::TransitionImageCommand(swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+            auto renderImGUI = ImGUIManager::DrawFrameCommand(swapchainImageViews[resourceIndex], swapchainExtent);
+            auto transitionPresenterToColourAttachment = vkutil::TransitionImageCommand(swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            auto transitionBufferToRenderTarget = vkutil::TransitionImageCommand(renderBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            auto drawTestMesh = MultimeshDrawCommand(renderBuffer.imageView, { .width = renderBuffer.imageExtent.width, .height=renderBuffer.imageExtent.height }, camera->viewProjection, { testModel.GetComponent<MeshRenderer>() });
 
-        auto commandBufferSubmitInfo = frameResources[resourceIndex].commandQueue.EnqueueCommandSequence({
-            // Draw background
-            &transitionBufferToWriteable,
-            &computeRun,
+            commandBufferSubmitInfo = frameResources[resourceIndex].commandQueue.EnqueueCommandSequence({
+                // Draw background
+                &transitionBufferToWriteable,
+                &computeRun,
 
-            // Draw geometry
-            &transitionBufferToRenderTarget,
-            &drawTestMesh,
+                // Draw geometry
+                &transitionBufferToRenderTarget,
+                &drawTestMesh,
 
-            // Copy background to swapchain
-            &transitionBufferToTransferSrc,
-            &transitionPresenterToTransferDst,
-            &copyBufferToPresenter,
+                // Copy background to swapchain
+                &transitionBufferToTransferSrc,
+                &transitionPresenterToTransferDst,
+                &copyBufferToPresenter,
 
-            // Render ImGui directly to swapchain
-            &transitionPresenterToColourAttachment,
-            &renderImGUI,
-            &transitionPresenterToPresent
-        });
+                // Render ImGui directly to swapchain
+                &transitionPresenterToColourAttachment,
+                &renderImGUI,
+                &transitionPresenterToPresent
+            });
+        }
 
         auto semaphoreWaitInfo = vkinit::SemaphoreSubmitInfo(frameResources[resourceIndex].swapchainSemaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR);
         auto semaphoreSignalInfo = vkinit::SemaphoreSubmitInfo(frameResources[resourceIndex].renderSemaphore, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
@@ -452,7 +459,7 @@ namespace Engine::Graphics
         deletionQueue.Create();
     }
 
-    void Renderer::FrameResources::Destroy()
+    void Renderer::FrameResources::Destroy() const
     {
         deletionQueue.Destroy();
         commandQueue.Destroy();
@@ -468,7 +475,7 @@ namespace Engine::Graphics
         commandQueue.Create();
     }
 
-    void Renderer::ImmediateSubmitResources::Destroy()
+    void Renderer::ImmediateSubmitResources::Destroy() const
     {
         commandQueue.Destroy();
         InstanceManager::DestroyFence(fence);
@@ -502,16 +509,19 @@ namespace Engine::Graphics
         vkCmdEndRendering(queue);
     }
 
-    void DrawSingleMesh(VkCommandBuffer const & commandBuffer, MeshRenderer const * renderInfo)
+    void DrawSingleMesh(VkCommandBuffer const & commandBuffer, MeshRenderer const * renderInfo, Maths::Matrix4 const & viewProjection)
     {
         // Bind material pipelines
         renderInfo->material->Bind(commandBuffer);
 
         // Upload uniform data
+        Maths::Matrix4 mvp = viewProjection * renderInfo->entity.GetComponent<Transform>()->modelMatrix;
+
         UniformAggregate data { };
-        data.PushData(&renderInfo->entity.GetComponent<Transform>()->modelMatrix);
+        data.PushData(&mvp);
         renderInfo->mesh.AppendData(data);
         renderInfo->material->AppendData(data);
+
         vkCmdPushConstants(commandBuffer, renderInfo->material->Layout(), VK_SHADER_STAGE_VERTEX_BIT, 0, data.Size(), data.Data());
 
         // Draw mesh
@@ -542,7 +552,7 @@ namespace Engine::Graphics
 
         vkCmdBeginRendering(queue, &renderingInfo);
         
-        for(auto mesh : singleMeshes) { DrawSingleMesh(queue, mesh); }
+        for(auto mesh : singleMeshes) { DrawSingleMesh(queue, mesh, viewProjection); }
 
         vkCmdEndRendering(queue);
     }
