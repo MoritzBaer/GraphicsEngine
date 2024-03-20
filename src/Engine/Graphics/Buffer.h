@@ -1,113 +1,111 @@
 #pragma once
 
-#include "vulkan/vulkan.h"
-#include "vk_mem_alloc.h"
-#include "InstanceManager.h"
 #include "CommandQueue.h"
+#include "Debug/Logging.h"
+#include "InstanceManager.h"
 #include "MemoryAllocator.h"
 #include "Util/DeletionQueue.h"
+#include "Util/Macros.h"
+#include "vk_mem_alloc.h"
+#include "vulkan/vulkan.h"
 
-namespace Engine::Graphics
-{
-    class BufferCopyCommand : public Command {
-        VkBuffer src;
-        VkBuffer dst;
-        size_t srcOffset;   // In bytes
-        size_t dstOffset;   // In bytes
-        size_t size;        // In bytes
-    public: 
-        BufferCopyCommand(VkBuffer source, VkBuffer destination, size_t size, size_t sourceOffset = 0, size_t destinationOffset = 0)
-            : src(source), dst(destination), srcOffset(sourceOffset), dstOffset(destinationOffset), size(size) { }
-        void QueueExecution(VkCommandBuffer const & queue) const;
-    };
+namespace Engine::Graphics {
+class BufferCopyCommand : public Command {
+  VkBuffer src;
+  VkBuffer dst;
+  size_t srcOffset; // In bytes
+  size_t dstOffset; // In bytes
+  size_t size;      // In bytes
+public:
+  BufferCopyCommand(VkBuffer source, VkBuffer destination, size_t size, size_t sourceOffset = 0,
+                    size_t destinationOffset = 0)
+      : src(source), dst(destination), srcOffset(sourceOffset), dstOffset(destinationOffset), size(size) {}
+  void QueueExecution(VkCommandBuffer const &queue) const;
+};
 
-    class BindBufferAsIndexBufferCommand : public Command {
-        VkBuffer buffer;
-    public: 
-        BindBufferAsIndexBufferCommand(VkBuffer const & indexBuffer) : buffer(indexBuffer) { }
-        inline void QueueExecution(VkCommandBuffer const & queue) const { vkCmdBindIndexBuffer(queue, buffer, 0, VK_INDEX_TYPE_UINT32); }
-    };
+class BindBufferAsIndexBufferCommand : public Command {
+  VkBuffer buffer;
 
-    template <typename T>
-    class Buffer : public Destroyable {
-        VkBuffer buffer;
-        VmaAllocation allocation;
-        VmaAllocationInfo info;
-        size_t size;
+public:
+  BindBufferAsIndexBufferCommand(VkBuffer const &indexBuffer) : buffer(indexBuffer) {}
+  inline void QueueExecution(VkCommandBuffer const &queue) const {
+    vkCmdBindIndexBuffer(queue, buffer, 0, VK_INDEX_TYPE_UINT32);
+  }
+};
 
-        template <typename T_Other> friend class Buffer;
+template <typename T> class Buffer : public Destroyable {
+  VkBuffer buffer;
+  VmaAllocation allocation;
+  VmaAllocationInfo info;
+  size_t size;
 
-    public:
-        void Create(size_t size, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
-        void Destroy() const;
+  template <typename T_Other> friend class Buffer;
 
-        Buffer() { }
-        Buffer(size_t size, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) { Create(size, usage, memoryUsage); }
+public:
+  void Create(size_t size, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+  void Destroy() const;
 
-        inline VkDeviceAddress GetDeviceAddresss() const {
-            VkBufferDeviceAddressInfo deviceAdressInfo {
-                .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-                .buffer = buffer
-            };
+  Buffer() {}
+  Buffer(size_t size, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) { Create(size, usage, memoryUsage); }
 
-            return InstanceManager::GetBufferDeviceAddress(&deviceAdressInfo);
-        }
+  inline VkDeviceAddress GetDeviceAddresss() const {
+    VkBufferDeviceAddressInfo deviceAdressInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = buffer};
 
-        inline void * GetMappedData() const { return info.pMappedData; }
-        inline size_t Size() const { return size; }
-        inline size_t PhysicalSize() const { return size * sizeof(T); }
+    return InstanceManager::GetBufferDeviceAddress(&deviceAdressInfo);
+  }
 
-        template <typename T_Other>
-        class BufferCopyCommand CopyTo(Buffer<T_Other> const & other, size_t size, size_t sourceOffset = 0, size_t destinationOffset = 0) const;
+  inline void *GetMappedData() const { return info.pMappedData; }
+  inline size_t Size() const { return size; }
+  inline size_t PhysicalSize() const { return size * sizeof(T); }
 
-        inline void BindAsIndexBuffer(VkCommandBuffer const & commandBuffer) const requires(std::integral<T>) { vkCmdBindIndexBuffer(commandBuffer, buffer, 0, VK_INDEX_TYPE_UINT32); } // TODO: Determine type via switch on T
-        
-    };
+  template <typename T_Other>
+  class BufferCopyCommand CopyTo(Buffer<T_Other> const &other, size_t size, size_t sourceOffset = 0,
+                                 size_t destinationOffset = 0) const;
 
-    // Implementations
-    template <typename T>
-    template <typename T_Other>
-    BufferCopyCommand Buffer<T>::CopyTo(Buffer<T_Other> const &other, size_t size, size_t sourceOffset, size_t destinationOffset) const
-    {
-        return BufferCopyCommand(buffer, other.buffer, size * sizeof(T), sourceOffset * sizeof(T), destinationOffset * sizeof(T_Other));
+  inline void BindAsIndexBuffer(VkCommandBuffer const &commandBuffer) const requires(std::integral<T>) {
+    VkIndexType indexType;
+    switch (sizeof(T)) {
+    case 2:
+      indexType = VK_INDEX_TYPE_UINT16;
+      break;
+    case 4:
+      indexType = VK_INDEX_TYPE_UINT32;
+      break;
+    default:
+      ENGINE_ERROR("Invalid index type!");
     }
 
-    template <typename T>
-    void Buffer<T>::Destroy() const
-    {
-        mainAllocator.DestroyBuffer(buffer, allocation);
-    }
+    vkCmdBindIndexBuffer(commandBuffer, buffer, 0, indexType);
+  }
+};
 
-    template <typename T>
-    void Buffer<T>::Create(size_t size, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage)
-    {
-        this->size = size;
-        
-        VkBufferCreateInfo bufferInfo {
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-            .size = size * sizeof(T),
-            .usage = usage
-        };
+// Implementations
+template <typename T>
+template <typename T_Other>
+BufferCopyCommand Buffer<T>::CopyTo(Buffer<T_Other> const &other, size_t size, size_t sourceOffset,
+                                    size_t destinationOffset) const {
+  return BufferCopyCommand(buffer, other.buffer, size * sizeof(T), sourceOffset * sizeof(T),
+                           destinationOffset * sizeof(T_Other));
+}
 
-        VmaAllocationCreateInfo allocInfo {
-            .flags = VMA_ALLOCATION_CREATE_MAPPED_BIT,
-            .usage = memoryUsage
-        };
+template <typename T> void Buffer<T>::Destroy() const { mainAllocator.DestroyBuffer(buffer, allocation); }
 
-        mainAllocator.CreateBuffer(&bufferInfo, &allocInfo, &buffer, &allocation, &info);
-    }
+template <typename T> void Buffer<T>::Create(size_t size, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) {
+  this->size = size;
 
-    // Implementations of commands
-    inline void BufferCopyCommand::QueueExecution(VkCommandBuffer const &queue) const
-    {
-        VkBufferCopy copy {
-            .srcOffset = srcOffset,
-            .dstOffset = dstOffset,
-            .size = size
-        };
+  VkBufferCreateInfo bufferInfo{
+      .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, .size = size * sizeof(T), .usage = usage};
 
-        vkCmdCopyBuffer(queue, src, dst, 1, &copy);
-    }
+  VmaAllocationCreateInfo allocInfo{.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT, .usage = memoryUsage};
 
+  mainAllocator.CreateBuffer(&bufferInfo, &allocInfo, &buffer, &allocation, &info);
+}
+
+// Implementations of commands
+inline void BufferCopyCommand::QueueExecution(VkCommandBuffer const &queue) const {
+  VkBufferCopy copy{.srcOffset = srcOffset, .dstOffset = dstOffset, .size = size};
+
+  vkCmdCopyBuffer(queue, src, dst, 1, &copy);
+}
 
 } // namespace Engine::Graphics

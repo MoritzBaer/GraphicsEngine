@@ -39,7 +39,6 @@ file(GLOB_RECURSE SourceFiles
     "src/external/imgui/imgui_tables.cpp"
     "src/external/imgui/imgui_widgets.cpp"
     "src/external/imgui/imgui.cpp"
-    "src/external/imgui/imgui_demo.cpp" # TODO: Remove. Only for dummy implementation of ImGUIManager.
 )
 
 
