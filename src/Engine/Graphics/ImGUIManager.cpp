@@ -23,6 +23,7 @@ ImGUIManager::~ImGUIManager() { InstanceManager::DestroyDescriptorPool(instance-
 
 struct TestPublishable : public Publishable {
   Maths::Vector3 position, rotation, scale;
+  Maths::Vector4 colour;
 
   TestPublishable(Maths::Vector3 pos, Maths::Vector3 rot, Maths::Vector3 scl)
       : position(pos), rotation(rot), scale(scl) {}
@@ -42,7 +43,8 @@ struct TestPublishable : public Publishable {
                         .style = Publication::Style::SLIDER,
                         .flags = Publication::Flags::RANGE,
                         .floatRange{.min = 0.01f, .max = 1000.0f, .step = 1.0f},
-                        .referencedPointer = &scale}};
+                        .referencedPointer = &scale},
+            Publication{.label = "Colour", .type = Publication::Type::COLOUR_PICKER, .referencedPointer = &colour}};
   }
 } testPublishable;
 
@@ -99,246 +101,107 @@ void ImGUIManager::Cleanup() {
   delete instance;
 }
 
+#define DRAW_DRAG_INT(func, ranged)                                                                                    \
+  if (ranged) {                                                                                                        \
+    func(publication.label, (int *)publication.referencedPointer, publication.intRange.min, publication.intRange.max,  \
+         publication.intRange.step);                                                                                   \
+  } else {                                                                                                             \
+    func(publication.label, (int *)publication.referencedPointer);                                                     \
+  }
+
+#define DRAW_DRAG_FLOAT(func, ranged)                                                                                  \
+  if (ranged) {                                                                                                        \
+    func(publication.label, (float *)publication.referencedPointer, publication.floatRange.min,                        \
+         publication.floatRange.max, publication.floatRange.step);                                                     \
+  } else {                                                                                                             \
+    func(publication.label, (float *)publication.referencedPointer);                                                   \
+  }
+
+#define DRAW_SLIDER_INT(func, ranged)                                                                                  \
+  func(publication.label, (int *)publication.referencedPointer, publication.intRange.min, publication.intRange.max)
+
+#define DRAW_SLIDER_FLOAT(func, ranged)                                                                                \
+  if (ranged) {                                                                                                        \
+    func(publication.label, (float *)publication.referencedPointer, publication.floatRange.min,                        \
+         publication.floatRange.max);                                                                                  \
+  } else {                                                                                                             \
+    ENGINE_ERROR("Publication labelled {} was styled as slider but the RANGE flag has not been set!",                  \
+                 publication.label)                                                                                    \
+  }
+
+#define SWITCH_PUBLICATION_STYLE_INT(dragFunc, sliderFunc)                                                             \
+  switch (publication.style) {                                                                                         \
+  case Publication::Style::DRAG:                                                                                       \
+    DRAW_DRAG_INT(dragFunc, publication.flags &Publication::Flags::RANGE);                                             \
+    break;                                                                                                             \
+  case Publication::Style::SLIDER:                                                                                     \
+    DRAW_SLIDER_INT(sliderFunc, publication.flags &Publication::Flags::RANGE);                                         \
+    break;                                                                                                             \
+  case Publication::Style::STEPPER:                                                                                    \
+    ENGINE_WARNING("Publication labelled {} was styled as STEPPER, which has not yet been implemented!",               \
+                   publication.label)                                                                                  \
+    break;                                                                                                             \
+  default:                                                                                                             \
+    ENGINE_ERROR("Publication labelled {} has been given an inväalid style!", publication.label)                       \
+    break;                                                                                                             \
+  }
+
+#define SWITCH_PUBLICATION_STYLE_FLOAT(dragFunc, sliderFunc)                                                           \
+  switch (publication.style) {                                                                                         \
+  case Publication::Style::DRAG:                                                                                       \
+    DRAW_DRAG_FLOAT(dragFunc, publication.flags &Publication::Flags::RANGE);                                           \
+    break;                                                                                                             \
+  case Publication::Style::SLIDER:                                                                                     \
+    DRAW_SLIDER_FLOAT(sliderFunc, publication.flags &Publication::Flags::RANGE);                                       \
+    break;                                                                                                             \
+  case Publication::Style::STEPPER:                                                                                    \
+    ENGINE_WARNING("Publication labelled {} was styled as STEPPER, which has not yet been implemented!",               \
+                   publication.label)                                                                                  \
+    break;                                                                                                             \
+  default:                                                                                                             \
+    ENGINE_ERROR("Publication labelled {} has been given an inväalid style!", publication.label)                       \
+    break;                                                                                                             \
+  }
+
 void DrawPublication(Publication &publication) {
   switch (publication.type) {
   case Publication::Type::INTEGER1:
-    switch (publication.style) {
-    case Publication::Style::DRAG:
-      if (publication.flags & Publication::Flags::RANGE) {
-        ImGui::DragInt(publication.label, (int *)publication.referencedPointer, publication.intRange.step,
-                       publication.intRange.min, publication.intRange.max);
-      } else {
-        ImGui::DragInt(publication.label, (int *)publication.referencedPointer);
-      }
-      break;
-    case Publication::Style::SLIDER:
-      if (publication.flags & Publication::Flags::RANGE) {
-        ImGui::SliderInt(publication.label, (int *)publication.referencedPointer, publication.intRange.min,
-                         publication.intRange.max);
-      } else {
-        ENGINE_ERROR("Publication labelled {} was styled as slider but the RANGE flag has not been set!",
-                     publication.label)
-      }
-      break;
-    case Publication::Style::STEPPER:
-      ENGINE_WARNING("Publication labelled {} was styled as STEPPER, which has not yet been implemented!",
-                     publication.label)
-      break;
-    default:
-      ENGINE_ERROR("Publication labelled {} has been given an inväalid style!", publication.label)
-      break;
-    }
+    SWITCH_PUBLICATION_STYLE_INT(ImGui::DragInt, ImGui::SliderInt)
     break;
 
   case Publication::Type::INTEGER2:
-    switch (publication.style) {
-    case Publication::Style::DRAG:
-      if (publication.flags & Publication::Flags::RANGE) {
-        ImGui::DragInt2(publication.label, (int *)publication.referencedPointer, publication.intRange.step,
-                        publication.intRange.min, publication.intRange.max);
-      } else {
-        ImGui::DragInt2(publication.label, (int *)publication.referencedPointer);
-      }
-      break;
-    case Publication::Style::SLIDER:
-      if (publication.flags & Publication::Flags::RANGE) {
-        ImGui::SliderInt2(publication.label, (int *)publication.referencedPointer, publication.intRange.min,
-                          publication.intRange.max);
-      } else {
-        ENGINE_ERROR("Publication labelled {} was styled as slider but the RANGE flag has not been set!",
-                     publication.label)
-      }
-      break;
-    case Publication::Style::STEPPER:
-      ENGINE_WARNING("Publication labelled {} was styled as STEPPER, which has not yet been implemented!",
-                     publication.label)
-      break;
-    default:
-      ENGINE_ERROR("Publication labelled {} has been given an invalid style!", publication.label)
-      break;
-    }
+    SWITCH_PUBLICATION_STYLE_INT(ImGui::DragInt2, ImGui::SliderInt2)
     break;
 
   case Publication::Type::INTEGER3:
-    switch (publication.style) {
-    case Publication::Style::DRAG:
-      if (publication.flags & Publication::Flags::RANGE) {
-        ImGui::DragInt3(publication.label, (int *)publication.referencedPointer, publication.intRange.step,
-                        publication.intRange.min, publication.intRange.max);
-      } else {
-        ImGui::DragInt3(publication.label, (int *)publication.referencedPointer);
-      }
-      break;
-    case Publication::Style::SLIDER:
-      if (publication.flags & Publication::Flags::RANGE) {
-        ImGui::SliderInt3(publication.label, (int *)publication.referencedPointer, publication.intRange.min,
-                          publication.intRange.max);
-      } else {
-        ENGINE_ERROR("Publication labelled {} was styled as slider but the RANGE flag has not been set!",
-                     publication.label)
-      }
-      break;
-    case Publication::Style::STEPPER:
-      ENGINE_WARNING("Publication labelled {} was styled as STEPPER, which has not yet been implemented!",
-                     publication.label)
-      break;
-    default:
-      ENGINE_ERROR("Publication labelled {} has been given an invalid style!", publication.label)
-      break;
-    }
+    SWITCH_PUBLICATION_STYLE_INT(ImGui::DragInt3, ImGui::SliderInt3)
     break;
 
   case Publication::Type::INTEGER4:
-    switch (publication.style) {
-    case Publication::Style::DRAG:
-      if (publication.flags & Publication::Flags::RANGE) {
-        ImGui::DragInt4(publication.label, (int *)publication.referencedPointer, publication.intRange.step,
-                        publication.intRange.min, publication.intRange.max);
-      } else {
-        ImGui::DragInt4(publication.label, (int *)publication.referencedPointer);
-      }
-      break;
-    case Publication::Style::SLIDER:
-      if (publication.flags & Publication::Flags::RANGE) {
-        ImGui::SliderInt4(publication.label, (int *)publication.referencedPointer, publication.intRange.min,
-                          publication.intRange.max);
-      } else {
-        ENGINE_ERROR("Publication labelled {} was styled as slider but the RANGE flag has not been set!",
-                     publication.label)
-      }
-      break;
-    case Publication::Style::STEPPER:
-      ENGINE_WARNING("Publication labelled {} was styled as STEPPER, which has not yet been implemented!",
-                     publication.label)
-      break;
-    default:
-      ENGINE_ERROR("Publication labelled {} has been given an invalid style!", publication.label)
-      break;
-    }
+    SWITCH_PUBLICATION_STYLE_INT(ImGui::DragInt4, ImGui::SliderInt4)
     break;
 
   case Publication::Type::FLOAT1:
-    switch (publication.style) {
-    case Publication::Style::DRAG:
-      if (publication.flags & Publication::Flags::RANGE) {
-        ImGui::DragFloat(publication.label, (float *)publication.referencedPointer, publication.floatRange.step,
-                         publication.floatRange.min, publication.floatRange.max);
-      } else {
-        ImGui::DragFloat(publication.label, (float *)publication.referencedPointer);
-      }
-      break;
-    case Publication::Style::SLIDER:
-      if (publication.flags & Publication::Flags::RANGE) {
-        ImGui::SliderFloat(publication.label, (float *)publication.referencedPointer, publication.floatRange.min,
-                           publication.floatRange.max);
-      } else {
-        ENGINE_ERROR("Publication labelled {} was styled as slider but the RANGE flag has not been set!",
-                     publication.label)
-      }
-      break;
-    case Publication::Style::STEPPER:
-      ENGINE_WARNING("Publication labelled {} was styled as STEPPER, which has not yet been implemented!",
-                     publication.label)
-      break;
-    default:
-      ENGINE_ERROR("Publication labelled {} has been given an invalid style!", publication.label)
-      break;
-    }
+    SWITCH_PUBLICATION_STYLE_FLOAT(ImGui::DragFloat, ImGui::SliderFloat)
     break;
 
   case Publication::Type::FLOAT2:
-    switch (publication.style) {
-    case Publication::Style::DRAG:
-      if (publication.flags & Publication::Flags::RANGE) {
-        ImGui::DragFloat2(publication.label, (float *)publication.referencedPointer, publication.floatRange.step,
-                          publication.floatRange.min, publication.floatRange.max);
-      } else {
-        ImGui::DragFloat2(publication.label, (float *)publication.referencedPointer);
-      }
-      break;
-    case Publication::Style::SLIDER:
-      if (publication.flags & Publication::Flags::RANGE) {
-        ImGui::SliderFloat2(publication.label, (float *)publication.referencedPointer, publication.floatRange.min,
-                            publication.floatRange.max);
-      } else {
-        ENGINE_ERROR("Publication labelled {} was styled as slider but the RANGE flag has not been set!",
-                     publication.label)
-      }
-      break;
-    case Publication::Style::STEPPER:
-      ENGINE_WARNING("Publication labelled {} was styled as STEPPER, which has not yet been implemented!",
-                     publication.label)
-      break;
-    default:
-      ENGINE_ERROR("Publication labelled {} has been given an invalid style!", publication.label)
-      break;
-    }
+    SWITCH_PUBLICATION_STYLE_FLOAT(ImGui::DragFloat2, ImGui::SliderFloat2)
     break;
 
   case Publication::Type::FLOAT3:
-    switch (publication.style) {
-    case Publication::Style::DRAG:
-      if (publication.flags & Publication::Flags::RANGE) {
-        ImGui::DragFloat3(publication.label, (float *)publication.referencedPointer, publication.floatRange.step,
-                          publication.floatRange.min, publication.floatRange.max);
-      } else {
-        ImGui::DragFloat3(publication.label, (float *)publication.referencedPointer);
-      }
-      break;
-    case Publication::Style::SLIDER:
-      if (publication.flags & Publication::Flags::RANGE) {
-        ImGui::SliderFloat3(publication.label, (float *)publication.referencedPointer, publication.floatRange.min,
-                            publication.floatRange.max);
-      } else {
-        ENGINE_ERROR("Publication labelled {} was styled as slider but the RANGE flag has not been set!",
-                     publication.label)
-      }
-      break;
-    case Publication::Style::STEPPER:
-      ENGINE_WARNING("Publication labelled {} was styled as STEPPER, which has not yet been implemented!",
-                     publication.label)
-      break;
-    default:
-      ENGINE_ERROR("Publication labelled {} has been given an invalid style!", publication.label)
-      break;
-    }
+    SWITCH_PUBLICATION_STYLE_FLOAT(ImGui::DragFloat3, ImGui::SliderFloat3)
     break;
 
   case Publication::Type::FLOAT4:
-    switch (publication.style) {
-    case Publication::Style::DRAG:
-      if (publication.flags & Publication::Flags::RANGE) {
-        ImGui::DragFloat4(publication.label, (float *)publication.referencedPointer, publication.floatRange.step,
-                          publication.floatRange.min, publication.floatRange.max);
-      } else {
-        ImGui::DragFloat4(publication.label, (float *)publication.referencedPointer);
-      }
-      break;
-    case Publication::Style::SLIDER:
-      if (publication.flags & Publication::Flags::RANGE) {
-        ImGui::SliderFloat4(publication.label, (float *)publication.referencedPointer, publication.floatRange.min,
-                            publication.floatRange.max);
-      } else {
-        ENGINE_ERROR("Publication labelled {} was styled as slider but the RANGE flag has not been set!",
-                     publication.label)
-      }
-      break;
-    case Publication::Style::STEPPER:
-      ENGINE_WARNING("Publication labelled {} was styled as STEPPER, which has not yet been implemented!",
-                     publication.label)
-      break;
-    default:
-      ENGINE_ERROR("Publication labelled {} has been given an invalid style!", publication.label)
-      break;
-    }
+    SWITCH_PUBLICATION_STYLE_FLOAT(ImGui::DragFloat4, ImGui::SliderFloat4)
     break;
 
   case Publication::Type::TEXT:
     ImGui::Text(publication.label);
     break;
   case Publication::Type::COLOUR_PICKER:
-    ENGINE_WARNING("Publication labelled {} has Type COLOUR_PICKER, which has not yet been implemented!",
-                   publication.label)
+    ImGui::ColorEdit4(publication.label, (float *)publication.referencedPointer, ImGuiColorEditFlags_NoInputs);
     break;
   case Publication::Type::TEXTURE_SELECT:
     ENGINE_WARNING("Publication labelled {} has Type COLOUR_PICKER, which has not yet been implemented!",
