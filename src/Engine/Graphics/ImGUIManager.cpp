@@ -17,6 +17,8 @@
 
 #include "Publishable.h"
 
+#include "Editor/SceneView.h"
+
 namespace Engine::Graphics {
 ImGUIManager::ImGUIManager() {}
 ImGUIManager::~ImGUIManager() { InstanceManager::DestroyDescriptorPool(instance->imGUIPool); }
@@ -254,7 +256,8 @@ void ImGUIManager::BeginFrame() {
 
     Publication p{.label = "Test", .type = Publication::Type::COMPOSITE, .referencedPointer = &testPublishable};
 
-    DrawPublication(p);
+    Editor::SceneView v;
+    v.Draw();
 
     ImGui::End();
   }

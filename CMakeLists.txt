@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.28)
 
 project(GRAPHICS_ENGINE)
 
-option(BUILD_WITH_PROFILING "Build for profiling" OFF)   # Not working atm. Would be nicer, but here we are
+option(BUILD_WITH_PROFILING "Build for profiling" OFF) # Not working atm. Would be nicer, but here we are
 set(BUILD_WITH_PROFILING TRUE)
 
 set(CMAKE_CXX_STANDARD 23)
@@ -11,7 +11,7 @@ set(CMAKE_CXX_STANDARD 23)
 string(LENGTH "${CMAKE_SOURCE_DIR}/src/" SOURCE_PATH_SIZE)
 add_definitions("-DSOURCE_PATH_SIZE=${SOURCE_PATH_SIZE}")
 
-if (BUILD_WITH_PROFILING)
+if(BUILD_WITH_PROFILING)
     add_definitions("-DRUN_PROFILER")
     message("-- BUILDING WITH PROFILER ACTIVE")
 else()
@@ -27,12 +27,15 @@ include_directories(${Vulkan_INCLUDE_DIR})
 
 include_directories("src/external/imgui")
 include_directories("src/Engine")
+include_directories("src/Editor")
 
 file(GLOB ImGUIFiles "src/external/imgui/*.h" "src/external/imgui/*.cpp")
 
 file(GLOB_RECURSE SourceFiles
-    "src/Engine/*.h"    
+    "src/Engine/*.h"
     "src/Engine/*.cpp"
+    "src/Editor/*.h"
+    "src/Editor/*.cpp"
     "src/external/imgui/backends/imgui_impl_vulkan.cpp"
     "src/external/imgui/backends/imgui_impl_glfw.cpp"
     "src/external/imgui/imgui_draw.cpp"
@@ -41,10 +44,9 @@ file(GLOB_RECURSE SourceFiles
     "src/external/imgui/imgui.cpp"
 )
 
-
 aux_source_directory(src/external EXTERNAL)
 
-add_executable(MAIN "src/main.cpp" ${SourceFiles}) 
+add_executable(MAIN "src/main.cpp" ${SourceFiles})
 
 target_link_libraries(MAIN "${CMAKE_SOURCE_DIR}/dependencies/glfw-3.3.9.bin.WIN64/lib-vc2022/glfw3_mt.lib")
 target_link_libraries(MAIN Vulkan::Vulkan)

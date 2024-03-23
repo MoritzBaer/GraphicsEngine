@@ -2,7 +2,6 @@
 #include "Util/DeletionQueue.h"
 #include "vk_mem_alloc.h"
 
-
 namespace Engine::Graphics {
 class MemoryAllocator : public Destroyable {
 private:
@@ -30,10 +29,10 @@ public:
                     VkBuffer *buffer, VmaAllocation *allocation, VmaAllocationInfo *allocationInfo) const;
 
   // Free memory objects
-  inline void DestroyImage(VkImage const &image, VmaAllocation const &allocation) const {
+  void DestroyImage(VkImage const &image, VmaAllocation const &allocation) const {
     vmaDestroyImage(allocator, image, allocation);
   }
-  inline void DestroyBuffer(VkBuffer const &buffer, VmaAllocation const &allocation) const {
+  void DestroyBuffer(VkBuffer const &buffer, VmaAllocation const &allocation) const {
     vmaDestroyBuffer(allocator, buffer, allocation);
   }
 };

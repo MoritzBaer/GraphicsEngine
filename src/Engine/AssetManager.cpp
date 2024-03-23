@@ -1,9 +1,10 @@
 #include "AssetManager.h"
 
+#include "Core/SceneHierarchy.h"
 #include "Debug/Profiling.h"
+#include "Editor/Display.h"
 #include "Graphics/MeshRenderer.h"
 #include "Graphics/TestMaterial.h"
-#include "Graphics/Transform.h"
 #include "Util/FileIO.h"
 
 #include <functional>
@@ -397,12 +398,9 @@ Graphics::Mesh ParseOBJ(char const *charStream) {
       indexTriple = {intBuffer[0], intBuffer[1], intBuffer[2]};
       if (vertexIndices.find(indexTriple) == vertexIndices.end()) {
         vertexIndices.emplace(indexTriple, static_cast<uint32_t>(resultMesh.vertices.size()));
-        resultMesh.vertices.push_back(Graphics::Mesh::VertexFormat{
-            .position = vertexPositions[indexTriple.pos - 1],
-            .uv_x = vertexUVs[indexTriple.uv - 1].x(),
-            .normal = vertexNormals[indexTriple.normal - 1],
-            .uv_y = vertexUVs[indexTriple.uv - 1].y(),
-        });
+        resultMesh.vertices.push_back(Graphics::Mesh::Vertex{.position = vertexPositions[indexTriple.pos - 1],
+                                                             .uv = vertexUVs[indexTriple.uv - 1],
+                                                             .normal = vertexNormals[indexTriple.normal - 1]});
       }
       resultMesh.indices.push_back(vertexIndices.at(indexTriple));
       intBuffer = {};
@@ -473,8 +471,11 @@ Core::Entity AssetManager::LoadPrefab(char const *prefabName) {
   Core::Entity prefab = ENGINE_NEW_ENTITY();
   prefab.AddComponent<Graphics::Transform>()->modelMatrix = Maths::Matrix4::Identity();
   prefab.AddComponent<Graphics::MeshRenderer>()->mesh = LoadMeshFromOBJ(prefabName);
-  prefab.GetComponent<Graphics::MeshRenderer>()->mesh.Upload();
   prefab.GetComponent<Graphics::MeshRenderer>()->material = LoadMaterial(prefabName);
+  prefab.AddComponent<Editor::Display>()->label = "monke";
+
+  Core::SceneHierarchy::BuildHierarchy();
+
   return prefab;
 }
 
