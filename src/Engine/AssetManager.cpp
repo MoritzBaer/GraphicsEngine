@@ -398,9 +398,9 @@ Graphics::Mesh ParseOBJ(char const *charStream) {
       indexTriple = {intBuffer[0], intBuffer[1], intBuffer[2]};
       if (vertexIndices.find(indexTriple) == vertexIndices.end()) {
         vertexIndices.emplace(indexTriple, static_cast<uint32_t>(resultMesh.vertices.size()));
-        resultMesh.vertices.push_back(Graphics::Mesh::Vertex{.position = vertexPositions[indexTriple.pos - 1],
-                                                             .uv = vertexUVs[indexTriple.uv - 1],
-                                                             .normal = vertexNormals[indexTriple.normal - 1]});
+        resultMesh.vertices.push_back(Graphics::Vertex{.position = vertexPositions[indexTriple.pos - 1],
+                                                       .uv = vertexUVs[indexTriple.uv - 1],
+                                                       .normal = vertexNormals[indexTriple.normal - 1]});
       }
       resultMesh.indices.push_back(vertexIndices.at(indexTriple));
       intBuffer = {};
@@ -470,7 +470,7 @@ Core::Entity AssetManager::LoadPrefab(char const *prefabName) {
   // TODO: Read prefab json to get all properties
   Core::Entity prefab = ENGINE_NEW_ENTITY();
   prefab.AddComponent<Graphics::Transform>()->modelMatrix = Maths::Matrix4::Identity();
-  prefab.AddComponent<Graphics::MeshRenderer>()->mesh = LoadMeshFromOBJ(prefabName);
+  prefab.AddComponent<Graphics::MeshRenderer>()->SetMesh(LoadMeshFromOBJ(prefabName));
   prefab.GetComponent<Graphics::MeshRenderer>()->material = LoadMaterial(prefabName);
   prefab.AddComponent<Editor::Display>()->label = "monke";
 
