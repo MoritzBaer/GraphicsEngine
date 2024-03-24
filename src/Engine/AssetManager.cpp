@@ -422,7 +422,7 @@ Graphics::Mesh AssetManager::LoadMeshFromOBJ(char const *meshName) {
   _RETURN_ASSET(meshName, loadedMeshes, ParseOBJ(meshData.data()))
 }
 
-Graphics::Material *ParseMAT(char const *materialData) {
+Graphics::Pipeline *ParsePipeline(char const *pipelineData) {
   // Dummy implementation // TODO: implement properly
   Graphics::Shader vertexShader = AssetManager::LoadShader("coloured_triangle_mesh.vert", Graphics::ShaderType::VERTEX);
   Graphics::Shader fragmentShader = AssetManager::LoadShader("coloured_triangle.frag", Graphics::ShaderType::FRAGMENT);
@@ -450,7 +450,12 @@ Graphics::Material *ParseMAT(char const *materialData) {
                             .DisableDepthTest()
                             .BuildPipeline();
 
-  return new Graphics::TestMaterial(layout, pipeline, {0.7, 0.9, 0.4});
+  return new Graphics::Pipeline(layout, pipeline);
+}
+
+Graphics::Material *ParseMAT(char const *materialData) {
+  auto pl = AssetManager::LoadPipeline("dummy");
+  return new Graphics::TestMaterial(pl, Maths::Vector3{0.3, 0.9, 0.5});
 }
 
 Graphics::Material *AssetManager::LoadMaterial(char const *materialName) {
@@ -460,10 +465,16 @@ Graphics::Material *AssetManager::LoadMaterial(char const *materialName) {
   //_INSERT_ASSET_IF_NEW(materialName, loadedMaterials, ParseMAT(materialData.data()))
   _INSERT_ASSET_IF_NEW(materialName, loadedMaterials, ParseMAT(materialData))
   Graphics::Material const *loadedMaterial = instance->loadedMaterials[materialName];
-  if (isNew) {
-    mainDeletionQueue.Push(loadedMaterial);
-  }
   return new Graphics::TestMaterial(loadedMaterial);
+}
+
+Graphics::Pipeline const *AssetManager::LoadPipeline(char const *pipelineName) {
+  _INSERT_ASSET_IF_NEW(pipelineName, loadedPipelines, ParsePipeline(pipelineName));
+  auto p = instance->loadedPipelines[pipelineName];
+  if (isNew) {
+    mainDeletionQueue.Push(p);
+  }
+  return p;
 }
 
 Core::Entity AssetManager::LoadPrefab(char const *prefabName) {

@@ -455,7 +455,8 @@ void DrawGeometryCommand::QueueExecution(VkCommandBuffer const &queue) const {
 void DrawSingleMesh(VkCommandBuffer const &commandBuffer, MeshRenderer const *renderInfo,
                     Maths::Matrix4 const &viewProjection) {
   // Bind material pipelines
-  renderInfo->material->Bind(commandBuffer);
+  auto usedPipeline = renderInfo->material->GetPipeline();
+  usedPipeline->Bind(commandBuffer);
 
   // Upload uniform data
   Maths::Matrix4 mvp = viewProjection * renderInfo->entity.GetComponent<Transform>()->modelMatrix;
@@ -465,8 +466,7 @@ void DrawSingleMesh(VkCommandBuffer const &commandBuffer, MeshRenderer const *re
   renderInfo->mesh->AppendData(data);
   renderInfo->material->AppendData(data);
 
-  vkCmdPushConstants(commandBuffer, renderInfo->material->Layout(), VK_SHADER_STAGE_VERTEX_BIT, 0, data.Size(),
-                     data.Data());
+  vkCmdPushConstants(commandBuffer, usedPipeline->Layout(), VK_SHADER_STAGE_VERTEX_BIT, 0, data.Size(), data.Data());
 
   // Draw mesh
   renderInfo->mesh->BindAndDraw(commandBuffer);
