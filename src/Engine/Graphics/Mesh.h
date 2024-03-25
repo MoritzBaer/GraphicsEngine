@@ -1,54 +1,44 @@
 #pragma once
 
-#include "Maths/Matrix.h"
 #include "Buffer.h"
-#include "Renderer.h"
-#include <vector>
 #include "CommandQueue.h"
-#include "Util/DeletionQueue.h"
-#include "UniformAggregate.h"
+#include "Maths/Matrix.h"
+#include <algorithm>
 
-namespace Engine::Graphics
-{
-    class Mesh : public Destroyable
-    {
-        struct VertexFormat;
+namespace Engine::Graphics {
+// T_GPU must have a constructor taking a T_CPU const &
+template <typename T_CPU, typename T_GPU> class MeshT {
 
-        struct GPUBuffers
-        {
-            Buffer<VertexFormat> vertexBuffer;   
-            Buffer<uint32_t> indexBuffer;
-            VkDeviceAddress vertexBufferAddress;
-        } gpuBuffers;
-        
-        struct GPUPushConstants
-        {
-            VkDeviceAddress vertexBufferAddress;  
-        } pushConstants;
+public:
+  std::vector<T_CPU> vertices;
+  std::vector<uint32_t> indices;
 
-        friend class Renderer;
+  inline std::vector<T_GPU> ReformattedVertices() {
+    std::vector<T_GPU> reformattedVerts(vertices.size());
+    std::transform(vertices.begin(), vertices.end(), reformattedVerts.begin(), [](T_CPU const &v) { return T_GPU(v); });
+    return reformattedVerts;
+  }
+};
 
-    public:
-        struct VertexFormat
-        {
-            Maths::Vector3 position;
-            float uv_x;
-            Maths::Vector3 normal;
-            float uv_y;
-            Maths::Vector4 colour;
-        };
+struct Vertex {
+  Maths::Vector3 position;
+  Maths::Vector2 uv;
+  Maths::Vector3 normal;
+  Maths::Vector4 colour;
+};
 
-        std::vector<VertexFormat> vertices;
-        std::vector<uint32_t> indices;
+struct VertexFormat {
+  Maths::Vector3 position;
+  float uv_x;
+  Maths::Vector3 normal;
+  float uv_y;
+  Maths::Vector4 colour;
 
-        void Upload();
-        void Destroy() const;
+  VertexFormat() : position(), uv_x(), normal(), uv_y(), colour() {}
+  VertexFormat(Vertex const &v)
+      : position(v.position), uv_x(v.uv[X]), normal(v.normal), uv_y(v.uv[Y]), colour(v.colour) {}
+};
 
-        inline void BindAndDraw(VkCommandBuffer const & commandBuffer) const { 
-            gpuBuffers.indexBuffer.BindAsIndexBuffer(commandBuffer);
-            vkCmdDrawIndexed(commandBuffer, gpuBuffers.indexBuffer.Size(), 1, 0, 0, 0);
-        }
-        inline void AppendData(UniformAggregate & aggregate) const { aggregate.PushData(&pushConstants); }
-    };
-    
+using Mesh = MeshT<Vertex, VertexFormat>;
+
 } // namespace Engine::Graphics
