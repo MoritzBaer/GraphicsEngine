@@ -32,17 +32,16 @@ include_directories("src/Editor")
 file(GLOB ImGUIFiles "src/external/imgui/*.h" "src/external/imgui/*.cpp")
 
 file(GLOB_RECURSE SourceFiles
-
-    # "src/Engine/*.h"
-    # "src/Engine/*.cpp"
-    # "src/Editor/*.h"
-    # "src/Editor/*.cpp"
-    # "src/external/imgui/backends/imgui_impl_vulkan.cpp"
-    # "src/external/imgui/backends/imgui_impl_glfw.cpp"
-    # "src/external/imgui/imgui_draw.cpp"
-    # "src/external/imgui/imgui_tables.cpp"
-    # "src/external/imgui/imgui_widgets.cpp"
-    # "src/external/imgui/imgui.cpp"
+    "src/Engine/*.h"
+    "src/Engine/*.cpp"
+    "src/Editor/*.h"
+    "src/Editor/*.cpp"
+    "src/external/imgui/backends/imgui_impl_vulkan.cpp"
+    "src/external/imgui/backends/imgui_impl_glfw.cpp"
+    "src/external/imgui/imgui_draw.cpp"
+    "src/external/imgui/imgui_tables.cpp"
+    "src/external/imgui/imgui_widgets.cpp"
+    "src/external/imgui/imgui.cpp"
 )
 
 aux_source_directory(src/external EXTERNAL)

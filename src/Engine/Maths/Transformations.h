@@ -96,9 +96,9 @@ MatrixT<4, 4, T> LookAt(VectorT<3, T> const &eye, VectorT<3, T> const &target, V
 
 inline Vector3 RotateByQuaternion(Vector3 const &point, Quaternion const &rotation) {
   // FIXME: Maybe broken, figure out why
-  Vector3 t = 2 * rotation.XYZ().Cross(point);
+  Vector3 t = 2 * rotation.xyz().Cross(point);
   // return 2.0f * (point * u) * u + s * s - (point * u) * point + 2.0f * s * u.Cross(point);
-  return point + rotation.w * t + rotation.XYZ().Cross(t);
+  return point + rotation.w * t + rotation.xyz().Cross(t);
 }
 
 } // namespace Engine::Maths::Transformations

@@ -67,7 +67,7 @@ public:
   inline MatrixT<n, n, T> Inverse() const
     requires(m == n)
   {
-    return Matrix<n, n, T>(data).Invert();
+    return MatrixT<n, n, T>(data).Invert();
   }
   MatrixT<n, n, T> &Invert()
     requires(m == n);
@@ -75,6 +75,7 @@ public:
   inline static MatrixT<n, n, T> Identity()
     requires(m == n);
   inline static MatrixT<n, m, T> Zero();
+  inline static MatrixT<n, m, T> One();
 
   // +--------------------------------+
   // |    Vector-specific operations  |
@@ -242,7 +243,7 @@ private:
       parent.data[index3] /= value;
     }
     inline operator MatrixT<3, 1, T>() const {
-      return MatrixT<3, 1, T>(parent.data[index1], parent.data[index2], parent.data[index3]);
+      return MatrixT<3, 1, T>{parent.data[index1], parent.data[index2], parent.data[index3]};
     }
   };
 
@@ -393,7 +394,7 @@ private:
 // +------------------------+
 
 template <uint8_t n, uint8_t m, typename T>
-inline MatrixT<n, n, T> &MatrixT<n, m, T>::Invert()
+inline MatrixT<n, n, T> &MatrixT<n, m, T>::Invert() // Uses the gaussean algorithm
   requires(m == n)
 {
   MatrixT<n, n, T> id = MatrixT<n, n, T>::Identity();
@@ -418,7 +419,7 @@ inline MatrixT<n, n, T> &MatrixT<n, m, T>::Invert()
     for (int row = diag + 1; row < n; row++) {
       T factor = -data[row * m + diag] / data[diag * m + diag];
       RowOp(diag, row, factor);
-      id.rowOp(diag, row, factor);
+      id.RowOp(diag, row, factor);
     }
   }
 
@@ -429,7 +430,7 @@ inline MatrixT<n, n, T> &MatrixT<n, m, T>::Invert()
     for (int row = 0; row < diag; row++) {
       T factor = -data[row * m + diag] / data[diag * m + diag];
       RowOp(diag, row, factor);
-      id.Op(diag, row, factor);
+      id.RowOp(diag, row, factor);
     }
   }
 
@@ -457,6 +458,10 @@ inline MatrixT<n, n, T> MatrixT<n, m, T>::Identity()
 
 template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> MatrixT<n, m, T>::Zero() { return {}; }
 
+template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> MatrixT<n, m, T>::One() {
+  return MatrixT<n, m, T>::Zero() + 1;
+}
+
 template <uint8_t n, uint8_t m, typename T>
 inline VectorT<3, T> MatrixT<n, m, T>::Cross(VectorT<3, T> const &other) const
   requires(m == 1 && n == 3)
@@ -482,6 +487,14 @@ template <uint8_t n, uint8_t m, typename T> inline void MatrixT<n, m, T>::ColSwa
     T temp = data[row * m + col2];
     data[row * m + col2] = data[row * m + col1];
     data[row * m + col1] = temp;
+  }
+}
+
+template <uint8_t n, uint8_t m, typename T> inline void MatrixT<n, m, T>::RowSwap(uint8_t row1, uint8_t row2) {
+  for (int col = 0; col < n; col++) {
+    T temp = data[row1 * m + col];
+    data[row1 * m + col] = data[row2 * m + col];
+    data[row2 * m + col] = temp;
   }
 }
 

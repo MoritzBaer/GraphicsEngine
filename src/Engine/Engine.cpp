@@ -60,8 +60,7 @@ void Engine::Init(const char *applicationName) {
     monke2.GetComponent<Editor::Display>()->label = "monke 2";
     auto monke21 = AssetManager::LoadPrefab("suzanne.obj");
     monke21.GetComponent<Editor::Display>()->label = "monke 2.1";
-    monke2.GetComponent<Graphics::Transform>()->children.push_back(monke21.GetComponent<Graphics::Transform>());
-    monke21.GetComponent<Graphics::Transform>()->parent = monke2.GetComponent<Graphics::Transform>();
+    monke21.GetComponent<Graphics::Transform>()->SetParent(monke2);
     Core::SceneHierarchy::BuildHierarchy();
 
     Time::Update();

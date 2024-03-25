@@ -11,6 +11,8 @@ public:
   Quaternion(Vector3 const &p) : w(0), x(p[X]), y(p[Y]), z(p[Z]) {} // For rotating p (by calculating r p r*)
   Quaternion() : w(0), x(0), y(0), z(0) {}
 
+  static inline Quaternion Identity() { return {1, 0, 0, 0}; }
+
   inline Quaternion operator*(Quaternion const &other) const;
   inline Quaternion operator+(Quaternion const &other) const {
     return {w + other.w, x + other.x, y + other.y, z + other.z};
@@ -23,9 +25,11 @@ public:
   inline Quaternion operator*(float theta) const { return {w * theta, x * theta, y * theta, z * theta}; }
   inline Quaternion operator/(float theta) const { return {w / theta, x / theta, y / theta, z / theta}; }
   inline friend Quaternion operator*(float theta, Quaternion const &q) { return q * theta; }
+  inline Quaternion &operator*=(Quaternion const &other);
+  inline Quaternion &operator*=(float theta);
   inline Quaternion &operator/=(float theta);
 
-  inline Vector3 XYZ() const { return {x, y, z}; }
+  inline Vector3 xyz() const { return {x, y, z}; }
 
   // Conversions
   inline Vector3 EulerAngles() const;
@@ -41,6 +45,19 @@ Quaternion Quaternion::operator*(Quaternion const &other) const {
 Quaternion &Quaternion::Normalize() {
   float sqrLen = Vector4{w, x, y, z}.SqrMagnitude();
   *this /= sqrLen;
+  return *this;
+}
+
+inline Quaternion &Quaternion::operator*=(Quaternion const &other) {
+  *this = *this * other;
+  return *this;
+}
+
+inline Quaternion &Quaternion::operator*=(float theta) {
+  w *= theta;
+  x *= theta;
+  y *= theta;
+  z *= theta;
   return *this;
 }
 

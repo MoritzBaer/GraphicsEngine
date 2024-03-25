@@ -459,7 +459,7 @@ void DrawSingleMesh(VkCommandBuffer const &commandBuffer, MeshRenderer const *re
   usedPipeline->Bind(commandBuffer);
 
   // Upload uniform data
-  Maths::Matrix4 mvp = viewProjection * renderInfo->entity.GetComponent<Transform>()->modelMatrix;
+  Maths::Matrix4 mvp = viewProjection * renderInfo->entity.GetComponent<Transform>()->ModelToWorldMatrix();
 
   UniformAggregate data{};
   data.PushData(&mvp);
