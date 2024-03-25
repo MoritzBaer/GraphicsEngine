@@ -30,14 +30,14 @@ using Vector2 = Vector<2>;
 using Vector3 = Vector<3>;
 using Vector4 = Vector<4>;
 
-// Saved in column form
+// Saved in row form (n x m means m columns, n rows)
+// TODO: Rework entirely probably.
 template <uint8_t n, uint8_t m, typename T> struct MatrixT {
 public:
-  MatrixT<n, m, T>(T const values[n][m]);
   MatrixT<n, m, T>(T const values[n * m]) {
-    for (int i = 0; i < n; i++) {
-      for (int j = 0; j < m; j++) {
-        data[i * m + j] = values[i * m + j];
+    for (int row = 0; row < n; row++) {
+      for (int col = 0; col < m; col++) {
+        data[row * m + col] = values[row * m + col];
       }
     }
   };
@@ -76,19 +76,6 @@ public:
     requires(m == n);
   inline static MatrixT<n, m, T> Zero();
 
-  // Transform matrices
-  // TODO: Probably refactor
-  static MatrixT<4, 4, T> LookAt(VectorT<3, T> const &eye, VectorT<3, T> const &target, VectorT<3, T> const &up)
-    requires(m == 4 && n == 4);
-  static MatrixT<3, 3, T> RodriguesRotation(VectorT<3, T> const &axis, T theta)
-    requires(m == 3 && n == 3);
-  static MatrixT<4, 4, T> Rotate(VectorT<3, T> const &axis, T theta)
-    requires(m == 4 && n == 4); // Rotate around origin
-  static MatrixT<4, 4, T> Rotate(VectorT<3, T> const &axis, VectorT<3, T> const &center, T theta)
-    requires(m == 4 && n == 4); // Rotate around center
-  static MatrixT<4, 4, T> Perspective(T near, T far, T fov, T aspectRatio)
-    requires(m == 4 && n == 4);
-
   // +--------------------------------+
   // |    Vector-specific operations  |
   // +--------------------------------+
@@ -125,25 +112,33 @@ public:
   inline VectorT<n, T> &Normalize()
     requires(m == 1)
   {
-    return (*this /= this->Length);
+    return (*this /= this->Length());
   }
   inline VectorT<3, T> Cross(VectorT<3, T> const &other) const
     requires(m == 1 && n == 3);
 
   // "Properties" for easier access
 private:
-  class Column {
+  class Row {
     MatrixT<n, m, T> &parent;
-    uint8_t column;
+    uint8_t row;
 
   public:
-    Column(MatrixT<n, m, T> &mat, uint8_t col) : parent(mat), column(col) {}
+    Row(MatrixT<n, m, T> &mat, uint8_t row) : parent(mat), row(row) {}
     inline VectorT<m, T> operator=(VectorT<m, T> const &values) {
-      for (uint8_t j = 0; j < m; j++) {
-        parent.data[column * m + j] = values[j];
+      for (uint8_t col = 0; col < m; col++) {
+        parent.data[row * m + col] = values[col];
       }
     }
-    inline T &operator[](uint8_t j) { return parent.data[column * m + j]; }
+
+    inline operator VectorT<m, T>() {
+      VectorT<m, T> res{};
+      for (uint8_t col = 0; col < m; col++) {
+        res[col] = parent.data[col];
+      }
+    }
+
+    inline T &operator[](uint8_t column) { return parent.data[row * m + column]; }
   };
 
   class Entry {
@@ -251,9 +246,65 @@ private:
     }
   };
 
+  class EntryQuadruple {
+    MatrixT<n, 1, T> &parent;
+    uint8_t index1;
+    uint8_t index2;
+    uint8_t index3;
+    uint8_t index4;
+
+  public:
+    EntryQuadruple(MatrixT<n, 1, T> &v, uint8_t i1, uint8_t i2, uint8_t i3, uint8_t i4)
+        : parent(v), index1(i1), index2(i2), index3(i3), index4(i4) {}
+    inline void operator=(MatrixT<4, 1, T> const &values) {
+      parent.data[index1] = values[X];
+      parent.data[index2] = values[Y];
+      parent.data[index3] = values[Z];
+      parent.data[index4] = values[W];
+    }
+    inline void operator+=(MatrixT<4, 1, T> const &values) {
+      parent.data[index1] += values[X];
+      parent.data[index2] += values[Y];
+      parent.data[index3] += values[Z];
+      parent.data[index4] += values[W];
+    }
+    inline void operator+=(T value) {
+      parent.data[index1] += value;
+      parent.data[index2] += value;
+      parent.data[index3] += value;
+      parent.data[index4] += value;
+    }
+    inline void operator-=(MatrixT<4, 1, T> const &values) {
+      parent.data[index1] -= values[X];
+      parent.data[index2] -= values[Y];
+      parent.data[index3] -= values[Z];
+      parent.data[index4] -= values[W];
+    }
+    inline void operator-=(T value) {
+      parent.data[index1] += value;
+      parent.data[index2] -= value;
+      parent.data[index3] -= value;
+      parent.data[index4] -= value;
+    }
+    inline void operator*=(T value) {
+      parent.data[index1] *= value;
+      parent.data[index2] *= value;
+      parent.data[index3] *= value;
+      parent.data[index4] *= value;
+    }
+    inline void operator/=(T value) {
+      parent.data[index1] /= value;
+      parent.data[index2] /= value;
+      parent.data[index3] /= value;
+      parent.data[index4] /= value;
+    }
+    inline operator MatrixT<4, 1, T>() const {
+      return MatrixT<4, 1, T>({parent.data[index1], parent.data[index2], parent.data[index3], parent.data[index4]});
+    }
+  };
+
 public:
-  inline Column operator[](uint8_t i) { return Column(*this, i); };
-  inline MatrixT<m, 1, T> operator[](uint8_t i) const;
+  inline Row operator[](uint8_t row) { return Row(*this, row); };
 
   Entry x()
     requires(m == 1)
@@ -319,11 +370,18 @@ public:
     return EntryTriplet(*this, X, Y, Z);
   }
 
+  EntryQuadruple xyzw()
+    requires(m == 1 && n >= 4)
+  {
+    return EntryQuadruple(*this, X, Y, Z, W);
+  }
+
 private:
   // Adds factor * row1 to row2
   inline void RowOp(uint8_t row1, uint8_t row2, T factor);
   inline void ColOp(uint8_t col1, uint8_t col2, T factor);
   inline void ColSwap(uint8_t col1, uint8_t col2);
+  inline void RowSwap(uint8_t row1, uint8_t row2);
   T data[n * m];
 
   // Needed for access of private members of other instance in matrix multiplication
@@ -340,44 +398,46 @@ inline MatrixT<n, n, T> &MatrixT<n, m, T>::Invert()
 {
   MatrixT<n, n, T> id = MatrixT<n, n, T>::Identity();
   // Triangularize A
-  for (int j = 0; j < n; j++) // Go through rows
+  for (int diag = 0; diag < n; diag++) // Go through rows
   {
-    for (int k = j; k < n; k++) {
-      if (data[k * m + j]) { // Find first column with non-zero entry on row j, swap to col j
-        ColSwap(j, k);
-        id.ColSwap(j, k);
+    for (int row = diag; row < n; row++) {
+      if (data[row * m + diag]) { // Find first row with non-zero entry on column j, swap to row j
+        RowSwap(diag, row);
+        id.RowSwap(diag, row);
         break;
       }
     }
 
-    if (data[j * m + j] == 0) {
+    if (data[diag * m + diag] == 0) {
       throw "Inverse of irregular matrix requested.";
     }
 
-    // Eliminate j-th row
-    for (int i = j + 1; i < n; i++) {
-      T factor = -data[i * m + j] / data[j * m + j];
-      ColOp(j, i, factor);
-      id.ColOp(j, i, factor);
+    // Now the j-th diagonal entry is non-zero
+
+    // Eliminate j-th column
+    for (int row = diag + 1; row < n; row++) {
+      T factor = -data[row * m + diag] / data[diag * m + diag];
+      RowOp(diag, row, factor);
+      id.rowOp(diag, row, factor);
     }
   }
 
   // Empty upper triangle
-  for (int j = 0; j < n; j++) // Go through rows
+  for (int diag = n - 1; diag >= 0; diag--) // Go through columns
   {
     // Eliminate j-th row
-    for (int i = 0; i < j; i++) {
-      T factor = -data[i * m + j] / data[j * m + j];
-      ColOp(j, i, factor);
-      id.ColOp(j, i, factor);
+    for (int row = 0; row < diag; row++) {
+      T factor = -data[row * m + diag] / data[diag * m + diag];
+      RowOp(diag, row, factor);
+      id.Op(diag, row, factor);
     }
   }
 
   // Normalize
-  for (int i = 0; i < n; i++) {
-    T factor = data[i * n + i];
-    for (int j = 0; j < n; j++) {
-      data[i * n + j] = id.data[i * n + j] / data[i * n + i];
+  for (int row = 0; row < n; row++) {
+    T factor = data[row * n + row];
+    for (int col = 0; col < n; col++) {
+      data[row * n + col] = id.data[row * n + col] / data[row * n + row];
     }
   }
 
@@ -389,86 +449,13 @@ inline MatrixT<n, n, T> MatrixT<n, m, T>::Identity()
   requires(m == n)
 {
   T values[n * n] = {0};
-  for (int i = 0; i < n; i++) {
-    values[i * n + i] = 1;
+  for (int diag = 0; diag < n; diag++) {
+    values[diag * n + diag] = 1;
   }
   return MatrixT<n, n, T>(values);
 }
 
 template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> MatrixT<n, m, T>::Zero() { return {}; }
-
-template <uint8_t n, uint8_t m, typename T>
-MatrixT<4, 4, T> MatrixT<n, m, T>::LookAt(VectorT<3, T> const &eye, VectorT<3, T> const &target,
-                                          VectorT<3, T> const &up)
-  requires(m == 4 && n == 4)
-{
-  const VectorT<3, T> f = (target - eye).Normalized();
-  const VectorT<3, T> r = f.Cross(up).Normalized();
-  const VectorT<3, T> u = r.Cross(f).Normalized();
-
-  return MatrixT<4, 4, T>{r[X], u[X], -f[X], 0, r[Y],       u[Y],       -f[Y],   0,
-                          r[Z], u[Z], -f[Z], 0, -(r * eye), -(u * eye), f * eye, 1};
-}
-
-template <uint8_t n, uint8_t m, typename T>
-inline MatrixT<3, 3, T> MatrixT<n, m, T>::RodriguesRotation(VectorT<3, T> const &axis, T theta)
-  requires(m == 3 && n == 3)
-{
-  T sinTheta = sin(theta);
-  T cosTheta = cos(theta);
-  auto a = axis.Normalized();
-  return MatrixT<3, 3, T>{
-      cosTheta + a[X] * a[X] * (T(1) - cosTheta),         a[Z] * sinTheta + a[X] * a[Y] * (T(1) - cosTheta),
-      a[Y] * sinTheta + a[X] * a[Z] * (T(1) - cosTheta),
-
-      -a[Z] * sinTheta + a[Y] * a[X] * (T(1) - cosTheta), cosTheta + a[Y] * a[Y] * (T(1) - cosTheta),
-      a[X] * sinTheta + a[Y] * a[Z] * (T(1) - cosTheta),
-
-      a[Y] * sinTheta + a[Z] * a[X] * (T(1) - cosTheta),  -a[X] * sinTheta + a[Z] * a[Y] * (T(1) - cosTheta),
-      cosTheta + a[Z] * a[Z] * (T(1) - cosTheta)};
-}
-
-template <uint8_t n, uint8_t m, typename T>
-inline MatrixT<4, 4, T> MatrixT<n, m, T>::Rotate(VectorT<3, T> const &axis, T theta)
-  requires(m == 4 && n == 4)
-{
-  auto R = MatrixT<3, 3, T>::RodriguesRotation(axis, theta);
-  return MatrixT<4, 4, T>{R[0][0], R[0][1], R[0][2], 0, R[1][0], R[1][1], R[1][2], 0,
-                          R[2][0], R[2][1], R[2][2], 0, 0,       0,       0,       1};
-}
-
-template <uint8_t n, uint8_t m, typename T>
-inline MatrixT<4, 4, T> MatrixT<n, m, T>::Rotate(VectorT<3, T> const &axis, VectorT<3, T> const &center, T theta)
-  requires(m == 4 && n == 4)
-{
-  auto R = MatrixT<3, 3, T>::RodriguesRotation(axis, theta);
-  auto Rp = center - R * center;
-  return MatrixT<4, 4, T>{R[0][0], R[0][1], R[0][2], 0, R[1][0], R[1][1], R[1][2], 0,
-                          R[2][0], R[2][1], R[2][2], 0, Rp[0],   Rp[1],   Rp[2],   1};
-}
-
-template <uint8_t n, uint8_t m, typename T>
-inline MatrixT<4, 4, T> MatrixT<n, m, T>::Perspective(T near, T far, T fov, T aspectRatio)
-  requires(m == 4 && n == 4)
-{
-  T s = T(1) / tan(PI * fov / T(360));
-  return MatrixT<4, 4, T>{s / aspectRatio,
-                          0,
-                          0,
-                          0,
-                          0,
-                          -s,
-                          0,
-                          0,
-                          0,
-                          0,
-                          -(far + near) / (far - near),
-                          -1,
-                          0,
-                          0,
-                          -2 * far * near / (far - near),
-                          0};
-}
 
 template <uint8_t n, uint8_t m, typename T>
 inline VectorT<3, T> MatrixT<n, m, T>::Cross(VectorT<3, T> const &other) const
@@ -479,30 +466,22 @@ inline VectorT<3, T> MatrixT<n, m, T>::Cross(VectorT<3, T> const &other) const
 }
 
 template <uint8_t n, uint8_t m, typename T> inline void MatrixT<n, m, T>::RowOp(uint8_t row1, uint8_t row2, T factor) {
-  for (int i = 0; i < n; i++) {
-    data[i * m + row2] += data[i * m + row1];
+  for (int col = 0; col < n; col++) {
+    data[row2 * m + col] += factor * data[row1 * m + col];
   }
 }
 
 template <uint8_t n, uint8_t m, typename T> inline void MatrixT<n, m, T>::ColOp(uint8_t col1, uint8_t col2, T factor) {
-  for (int j = 0; j < n; j++) {
-    data[col2 * m + j] += factor * data[col1 * m + j];
+  for (int row = 0; row < n; row++) {
+    data[row * m + col2] += factor * data[row * m + col1];
   }
 }
 
 template <uint8_t n, uint8_t m, typename T> inline void MatrixT<n, m, T>::ColSwap(uint8_t col1, uint8_t col2) {
-  for (int j = 0; j < n; j++) {
-    T temp = data[col2 * m + j];
-    data[col2 * m + j] = data[col1 * m + j];
-    data[col1 * m + j] = temp;
-  }
-}
-
-template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T>::MatrixT(T const values[n][m]) {
-  for (int i = 0; i < n; i++) {
-    for (int j = 0; j < m; j++) {
-      data[i *m = j] = values[i][j];
-    }
+  for (int row = 0; row < n; row++) {
+    T temp = data[row * m + col2];
+    data[row * m + col2] = data[row * m + col1];
+    data[row * m + col1] = temp;
   }
 }
 
@@ -524,11 +503,11 @@ template <uint8_t n, uint8_t m, typename T>
 template <uint8_t l>
 inline MatrixT<n, l, T> MatrixT<n, m, T>::operator*(MatrixT<m, l, T> const &other) const {
   T newVals[n * l];
-  for (int i = 0; i < n; i++) {   // Columns of result
-    for (int j = 0; j < l; j++) { // Rows of result
-      newVals[i * n + j] = 0;
-      for (int k = 0; k < m; k++) {
-        newVals[i * n + j] += data[k * n + j] * other.data[i * m + k];
+  for (int resRow = 0; resRow < n; resRow++) {
+    for (int resCol = 0; resCol < l; resCol++) {
+      newVals[resRow * l + resCol] = 0;
+      for (int i = 0; i < m; i++) {
+        newVals[resRow * l + resCol] += data[resRow * m + i] * other.data[i * l + resCol];
       }
     }
   }
@@ -537,9 +516,9 @@ inline MatrixT<n, l, T> MatrixT<n, m, T>::operator*(MatrixT<m, l, T> const &othe
 
 template <uint8_t n, uint8_t m, typename T>
 inline bool MatrixT<n, m, T>::operator==(MatrixT<n, m, T> const &other) const {
-  for (int i = 0; i < n; i++) {
-    for (int j = 0; j < m; j++) {
-      if (abs(data[i * m + j] - other.data[i * m + j]) > EPS)
+  for (int row = 0; row < n; row++) {
+    for (int col = 0; col < m; col++) {
+      if (abs(data[row * m + col] - other.data[row * m + col]) > EPS)
         return false;
     }
   }
@@ -549,8 +528,8 @@ inline bool MatrixT<n, m, T>::operator==(MatrixT<n, m, T> const &other) const {
 template <uint8_t n, uint8_t m, typename T>
 inline MatrixT<n, m, T> MatrixT<n, m, T>::operator+(MatrixT<n, m, T> const &other) const {
   T newVals[n * m];
-  for (int k = 0; k < n * m; k++) {
-    newVals[k] = data[k] + other[k];
+  for (int i = 0; i < n * m; i++) {
+    newVals[i] = data[i] + other[i];
   }
   return MatrixT<n, m, T>(newVals);
 }
@@ -558,112 +537,104 @@ inline MatrixT<n, m, T> MatrixT<n, m, T>::operator+(MatrixT<n, m, T> const &othe
 template <uint8_t n, uint8_t m, typename T>
 inline MatrixT<n, m, T> MatrixT<n, m, T>::operator-(MatrixT<n, m, T> const &other) const {
   T newVals[n * m];
-  for (int k = 0; k < n * m; k++) {
-    newVals[k] = data[k] - other[k];
+  for (int i = 0; i < n * m; i++) {
+    newVals[i] = data[i] - other[i];
   }
   return MatrixT<n, m, T>(newVals);
 }
 
 template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> MatrixT<n, m, T>::operator+(T value) const {
   T newVals[n * m];
-  for (int k = 0; k < n * m; k++) {
-    newVals[k] = data[k] + value;
+  for (int i = 0; i < n * m; i++) {
+    newVals[i] = data[i] + value;
   }
   return MatrixT<n, m, T>(newVals);
 }
 
 template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> MatrixT<n, m, T>::operator-(T value) const {
   T newVals[n * m];
-  for (int k = 0; k < n * m; k++) {
-    newVals[k] = data[k] - value;
+  for (int i = 0; i < n * m; i++) {
+    newVals[i] = data[i] - value;
   }
   return MatrixT<n, m, T>(newVals);
 }
 
 template <uint8_t n, uint8_t m, typename T>
 inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator+=(MatrixT<n, m, T> const &other) {
-  for (int k = 0; k < n * m; k++) {
-    data[k] += other[k];
+  for (int i = 0; i < n * m; i++) {
+    data[i] += other[i];
   }
   return *this;
 }
 
 template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator+=(T value) {
-  for (int k = 0; k < n * m; k++) {
-    data[k] += value;
+  for (int i = 0; i < n * m; i++) {
+    data[i] += value;
   }
   return *this;
 }
 
 template <uint8_t n, uint8_t m, typename T>
 inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator-=(MatrixT<n, m, T> const &other) {
-  for (int k = 0; k < n * m; k++) {
-    data[k] += other[k];
+  for (int i = 0; i < n * m; i++) {
+    data[i] -= other[i];
   }
   return *this;
 }
 
 template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator-=(T value) {
-  for (int k = 0; k < n * m; k++) {
-    data[k] -= value;
+  for (int i = 0; i < n * m; i++) {
+    data[i] -= value;
   }
   return *this;
 }
 
 template <uint8_t n, uint8_t m, typename T>
 inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator*=(MatrixT<n, m, T> const &other) {
-  for (int k = 0; k < n * m; k++) {
-    data[k] *= other[k];
+  for (int i = 0; i < n * m; i++) {
+    data[i] *= other[i];
   }
   return *this;
 }
 
 template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator*=(T value) {
-  for (int k = 0; k < n * m; k++) {
-    data[k] *= value;
+  for (int i = 0; i < n * m; i++) {
+    data[i] *= value;
   }
   return *this;
 }
 
 template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator/=(T value) {
-  for (int k = 0; k < n * m; k++) {
-    data[k] /= value;
+  for (int i = 0; i < n * m; i++) {
+    data[i] /= value;
   }
   return *this;
 }
 
 template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> MatrixT<n, m, T>::operator*(T value) const {
   T newVals[n * m];
-  for (int k = 0; k < n * m; k++) {
-    newVals[k] = data[k] * value;
+  for (int i = 0; i < n * m; i++) {
+    newVals[i] = data[i] * value;
   }
   return MatrixT<n, m, T>(newVals);
 }
 
 template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> MatrixT<n, m, T>::operator/(T value) const {
   T newVals[n * m];
-  for (int k = 0; k < n * m; k++) {
-    newVals[k] = data[k] / value;
+  for (int i = 0; i < n * m; i++) {
+    newVals[i] = data[i] / value;
   }
   return MatrixT<n, m, T>(newVals);
 }
 
 template <uint8_t n, uint8_t m, typename T> inline MatrixT<m, n, T> MatrixT<n, m, T>::Transposed() const {
   T newVals[m * n];
-  for (int i = 0; i < n; i++) {
-    for (int j = 0; j < m; j++) {
-      newVals[j * n + i] = data[i * m + j];
+  for (int row = 0; row < n; row++) {
+    for (int col = 0; col < m; col++) {
+      newVals[col * n + row] = data[row * m + col];
     }
   }
   return MatrixT<m, n, T>(newVals);
-}
-
-template <uint8_t n, uint8_t m, typename T> inline MatrixT<m, 1, T> MatrixT<n, m, T>::operator[](uint8_t i) const {
-  T _data[n] = {0};
-  for (int j = 0; j < m; j++) {
-    _data[j] = data[i * m + j];
-  }
-  return MatrixT<m, 1, T>(data);
 }
 
 } // namespace Engine::Maths

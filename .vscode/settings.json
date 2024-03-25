@@ -80,7 +80,8 @@
         "*.rh": "cpp",
         "stack": "cpp",
         "deque": "cpp",
-        "ranges": "cpp"
+        "ranges": "cpp",
+        "strstream": "cpp"
     },
     "cmake.configureSettings": {
         "CMAKE_BUILD_TYPE": "${buildType}"

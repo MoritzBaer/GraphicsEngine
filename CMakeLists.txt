@@ -32,32 +32,35 @@ include_directories("src/Editor")
 file(GLOB ImGUIFiles "src/external/imgui/*.h" "src/external/imgui/*.cpp")
 
 file(GLOB_RECURSE SourceFiles
-    "src/Engine/*.h"
-    "src/Engine/*.cpp"
-    "src/Editor/*.h"
-    "src/Editor/*.cpp"
-    "src/external/imgui/backends/imgui_impl_vulkan.cpp"
-    "src/external/imgui/backends/imgui_impl_glfw.cpp"
-    "src/external/imgui/imgui_draw.cpp"
-    "src/external/imgui/imgui_tables.cpp"
-    "src/external/imgui/imgui_widgets.cpp"
-    "src/external/imgui/imgui.cpp"
+
+    # "src/Engine/*.h"
+    # "src/Engine/*.cpp"
+    # "src/Editor/*.h"
+    # "src/Editor/*.cpp"
+    # "src/external/imgui/backends/imgui_impl_vulkan.cpp"
+    # "src/external/imgui/backends/imgui_impl_glfw.cpp"
+    # "src/external/imgui/imgui_draw.cpp"
+    # "src/external/imgui/imgui_tables.cpp"
+    # "src/external/imgui/imgui_widgets.cpp"
+    # "src/external/imgui/imgui.cpp"
 )
 
 aux_source_directory(src/external EXTERNAL)
 
-add_executable(MAIN "src/main.cpp" ${SourceFiles})
+add_executable(DebugApp "src/main.cpp" ${SourceFiles})
 
-target_link_libraries(MAIN "${CMAKE_SOURCE_DIR}/dependencies/glfw-3.3.9.bin.WIN64/lib-vc2022/glfw3_mt.lib")
-target_link_libraries(MAIN Vulkan::Vulkan)
-target_link_libraries(MAIN Vulkan::shaderc_combined)
+target_link_libraries(DebugApp "${CMAKE_SOURCE_DIR}/dependencies/glfw-3.3.9.bin.WIN64/lib-vc2022/glfw3_mt.lib")
+target_link_libraries(DebugApp Vulkan::Vulkan)
+target_link_libraries(DebugApp Vulkan::shaderc_combined)
 
 # To store profiles
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/Release/profiles ${CMAKE_BINARY_DIR}/Debug/profiles)
 
 # To keep assets in the same place as the binaries
 if(CMAKE_BUILD_TYPE MATCHES Debug)
-    add_custom_command(TARGET MAIN POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res ${CMAKE_BINARY_DIR}/Debug/res)
+    add_custom_command(TARGET DebugApp POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res ${CMAKE_BINARY_DIR}/Debug/res)
 else()
-    add_custom_command(TARGET MAIN POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res ${CMAKE_BINARY_DIR}/Release/res)
+    add_custom_command(TARGET DebugApp POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res ${CMAKE_BINARY_DIR}/Release/res)
 endif()
+
+add_executable(TestApp "src/test.cpp" ${SourceFiles})
