@@ -67,6 +67,8 @@ public:
   template <class C> static bool HasComponent(_Entity e);
   template <class C> static void RemoveComponent(_Entity e);
 
+  template <class... Cs> static std::vector<std::tuple<Cs *...>> FilterEntities();
+
   class EntityIterator;
 
   inline static class EntityContainer {
@@ -188,6 +190,21 @@ template <class C> inline void ECS::RemoveComponent(_Entity e) {
     ENGINE_ERROR("Tried to query component the entity does not have!") return nullptr;
   }
   instance->componentArrays[C::COMPONENT_INDEX]->RemoveComponent(e);
+}
+
+template <class C> inline uint64_t get_flag() { return COMPONENT_FLAG(C); }
+
+template <class... Cs> inline std::vector<std::tuple<Cs *...>> ECS::FilterEntities() {
+  std::vector<std::tuple<Cs *...>> result;
+  uint64_t filterMask = ALIVE_FLAG | (get_flag<Cs>() | ...);
+
+  for (int e = 0; e < MAX_ENTITY_NUMBER; e++) {
+    if ((instance->aliveAndComponentFlags[e] & filterMask) == filterMask) {
+      result.push_back(std::make_tuple(GetComponent<Cs>(e)...));
+    }
+  }
+
+  return result;
 }
 
 } // namespace Engine::Core

@@ -46,20 +46,23 @@ file(GLOB_RECURSE SourceFiles
 
 aux_source_directory(src/external EXTERNAL)
 
-add_executable(DebugApp "src/main.cpp" ${SourceFiles})
+macro(make_app NAME ENTRY_POINT)
+    add_executable(${NAME} "src/${ENTRY_POINT}.cpp" ${SourceFiles})
 
-target_link_libraries(DebugApp "${CMAKE_SOURCE_DIR}/dependencies/glfw-3.3.9.bin.WIN64/lib-vc2022/glfw3_mt.lib")
-target_link_libraries(DebugApp Vulkan::Vulkan)
-target_link_libraries(DebugApp Vulkan::shaderc_combined)
+    target_link_libraries(${NAME} "${CMAKE_SOURCE_DIR}/dependencies/glfw-3.3.9.bin.WIN64/lib-vc2022/glfw3_mt.lib")
+    target_link_libraries(${NAME} Vulkan::Vulkan)
+    target_link_libraries(${NAME} Vulkan::shaderc_combined)
 
-# To store profiles
-file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/Release/profiles ${CMAKE_BINARY_DIR}/Debug/profiles)
+    # To store profiles
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/Release/profiles ${CMAKE_BINARY_DIR}/Debug/profiles)
 
-# To keep assets in the same place as the binaries
-if(CMAKE_BUILD_TYPE MATCHES Debug)
-    add_custom_command(TARGET DebugApp POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res ${CMAKE_BINARY_DIR}/Debug/res)
-else()
-    add_custom_command(TARGET DebugApp POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res ${CMAKE_BINARY_DIR}/Release/res)
-endif()
+    # To keep assets in the same place as the binaries
+    if(CMAKE_BUILD_TYPE MATCHES Debug)
+        add_custom_command(TARGET ${NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res ${CMAKE_BINARY_DIR}/Debug/res)
+    else()
+        add_custom_command(TARGET ${NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res ${CMAKE_BINARY_DIR}/Release/res)
+    endif()
+endmacro()
 
-add_executable(TestApp "src/test.cpp" ${SourceFiles})
+make_app(TestApp test)
+make_app(DebugApp main)

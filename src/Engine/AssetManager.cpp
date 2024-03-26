@@ -480,7 +480,7 @@ Graphics::Pipeline const *AssetManager::LoadPipeline(char const *pipelineName) {
 Core::Entity AssetManager::LoadPrefab(char const *prefabName) {
   // TODO: Read prefab json to get all properties
   Core::Entity prefab = ENGINE_NEW_ENTITY();
-  prefab.AddComponent<Graphics::Transform>()->scale = Vector3{0.5, 0.5, 1};
+  prefab.AddComponent<Graphics::Transform>(); //->scale = Vector3{0.5, 0.5, 1};
   prefab.AddComponent<Graphics::MeshRenderer>()->SetMesh(LoadMeshFromOBJ(prefabName));
   prefab.GetComponent<Graphics::MeshRenderer>()->material = LoadMaterial(prefabName);
   prefab.AddComponent<Editor::Display>()->label = "monke";

@@ -9,9 +9,11 @@
 #include "Core/Time.h"
 #include "Debug/Logging.h"
 #include "Debug/Profiling.h"
+#include "EventManager.h"
 #include "Graphics/ImGUIManager.h"
 #include "Util/DeletionQueue.h"
 #include "Util/FileIO.h"
+#include "WindowManager.h"
 #include "imgui_internal.h"
 #include <chrono>
 
@@ -56,6 +58,7 @@ void Engine::Init(const char *applicationName) {
     Graphics::Renderer::Init(mainWindow->GetCanvasSize());
     Graphics::ImGUIManager::Init(mainWindow);
 
+    // TODO: Remove (dummy scene for testing)
     auto monke2 = AssetManager::LoadPrefab("suzanne.obj");
     monke2.GetComponent<Editor::Display>()->label = "monke 2";
     auto monke21 = AssetManager::LoadPrefab("suzanne.obj");
@@ -75,8 +78,12 @@ void Engine::RunMainLoop() {
     EventManager::HandleWindowEvents();
     Time::Update();
     if (render) {
+      auto renderersWithTransforms = Core::ECS::FilterEntities<Graphics::MeshRenderer, Graphics::Transform>();
+      std::vector<Graphics::MeshRenderer const *> meshRenderers(renderersWithTransforms.size());
+      std::transform(renderersWithTransforms.begin(), renderersWithTransforms.end(), meshRenderers.begin(),
+                     [](auto const &t) { return std::get<0>(t); });
       Graphics::ImGUIManager::BeginFrame();
-      Graphics::Renderer::DrawFrame(mainCam.GetComponent<Graphics::Camera>());
+      Graphics::Renderer::DrawFrame(mainCam.GetComponent<Graphics::Camera>(), meshRenderers);
     } else {
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
