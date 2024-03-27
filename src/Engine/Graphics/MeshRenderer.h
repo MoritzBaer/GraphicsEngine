@@ -6,6 +6,7 @@
 #include "Transform.h"
 
 namespace Engine::Graphics {
+
 ENGINE_COMPONENT_DECLARATION(MeshRenderer) {
   AllocatedMesh *mesh;
   Material *material;

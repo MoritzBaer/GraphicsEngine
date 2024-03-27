@@ -1,92 +1,90 @@
 #pragma once
 
-#include "vulkan/vulkan.h"
-#include "Util/Macros.h"
-#include <vector>
-#include <array>
-#include "CommandQueue.h"
-#include "Util/DeletionQueue.h"
-#include "Maths/Dimension.h"
-#include "Image.h"
-#include "Shader.h"
 #include "Camera.h"
+#include "CommandQueue.h"
+#include "Image.h"
+#include "Maths/Dimension.h"
+#include "Shader.h"
+#include "Util/DeletionQueue.h"
+#include "Util/Macros.h"
+#include "vulkan/vulkan.h"
+#include <array>
+#include <vector>
 
-namespace Engine::Graphics
-{
+namespace Engine::Graphics {
 
-    class Renderer
-    {
-        _SINGLETON(Renderer, Maths::Dimension2 windowSize)
+class MeshRenderer;
 
-        struct FrameResources : public Initializable {
-            CommandQueue commandQueue;
-            DeletionQueue deletionQueue;
-            VkSemaphore swapchainSemaphore;
-            VkSemaphore renderSemaphore;
-            VkFence renderFence;
+class Renderer {
+  _SINGLETON(Renderer, Maths::Dimension2 windowSize)
 
-            void Create();
-            void Destroy() const;
-        };
+  struct FrameResources : public Initializable {
+    CommandQueue commandQueue;
+    DeletionQueue deletionQueue;
+    VkSemaphore swapchainSemaphore;
+    VkSemaphore renderSemaphore;
+    VkFence renderFence;
 
-        struct ImmediateSubmitResources : public Initializable {
-            CommandQueue commandQueue;
-            VkFence fence;
+    void Create();
+    void Destroy() const;
+  };
 
-            void Create();
-            void Destroy() const;
-        } immediateResources;
+  struct ImmediateSubmitResources : public Initializable {
+    CommandQueue commandQueue;
+    VkFence fence;
 
-        static const uint32_t MAX_FRAME_OVERLAP = 3;
+    void Create();
+    void Destroy() const;
+  } immediateResources;
 
-        VkQueue graphicsQueue;
-        VkQueue presentQueue;
+  static const uint32_t MAX_FRAME_OVERLAP = 3;
 
-        VkSwapchainKHR swapchain;
-        VkFormat swapchainFormat;
-        VkExtent2D swapchainExtent;
-        std::vector<VkImage> swapchainImages;
-        std::vector<VkImageView> swapchainImageViews;
-        std::array<FrameResources, MAX_FRAME_OVERLAP> frameResources; 
-        uint32_t currentFrame = 0;
+  VkQueue graphicsQueue;
+  VkQueue presentQueue;
 
-        Maths::Dimension2 windowDimension;
-        bool renderBufferInitialized;
-        Image<2> renderBuffer;
-        DescriptorAllocator descriptorAllocator;
-        VkDescriptorSet renderBufferDescriptors;
-        VkDescriptorSetLayout renderBufferDescriptorLayout;
+  VkSwapchainKHR swapchain;
+  VkFormat swapchainFormat;
+  VkExtent2D swapchainExtent;
+  std::vector<VkImage> swapchainImages;
+  std::vector<VkImageView> swapchainImageViews;
+  std::array<FrameResources, MAX_FRAME_OVERLAP> frameResources;
+  uint32_t currentFrame = 0;
 
-        void CreateSwapchain();
-        void InitDescriptors();
-        void InitPipelines();
-        void InitBackgroundPipeline();
+  Maths::Dimension2 windowDimension;
+  bool renderBufferInitialized;
+  Image<2> renderBuffer;
+  DescriptorAllocator descriptorAllocator;
+  VkDescriptorSet renderBufferDescriptors;
+  VkDescriptorSetLayout renderBufferDescriptorLayout;
 
-        void Draw(Camera const * camera) const;
-        void RecreateRenderBuffer();
+  void CreateSwapchain();
+  void InitDescriptors();
+  void InitPipelines();
+  void InitBackgroundPipeline();
 
-        inline FrameResources const & CurrentResources() const { return frameResources[currentFrame % MAX_FRAME_OVERLAP]; }
+  void Draw(Camera const *camera, std::span<MeshRenderer const *> const &objectsToDraw) const;
+  void RecreateRenderBuffer();
 
-    public:
-        // Signature is likely to change (for example a list of render objects will have to be passed somehow)
-        static inline void DrawFrame(Camera const * camera) { 
-            instance->Draw(camera); 
-            instance->frameResources[instance->currentFrame % MAX_FRAME_OVERLAP].deletionQueue.Flush();
-            instance->currentFrame++; 
-        }     
+  inline FrameResources const &CurrentResources() const { return frameResources[currentFrame % MAX_FRAME_OVERLAP]; }
 
-        static inline void SetWindowSize(Maths::Dimension2 newSize) { 
-            instance->windowDimension = newSize;
-            instance->RecreateRenderBuffer();
-        }
+public:
+  // Signature is likely to change (for example a list of render objects will have to be passed somehow)
+  static inline void DrawFrame(Camera const *camera, std::span<MeshRenderer const *> const &objectsToDraw) {
+    instance->Draw(camera, objectsToDraw);
+    instance->frameResources[instance->currentFrame % MAX_FRAME_OVERLAP].deletionQueue.Flush();
+    instance->currentFrame++;
+  }
 
-        static void ImmediateSubmit(Command * command);
+  static inline void SetWindowSize(Maths::Dimension2 newSize) {
+    instance->windowDimension = newSize;
+    instance->RecreateRenderBuffer();
+  }
 
-        static void GetImGUISection();
+  static void ImmediateSubmit(Command *command);
 
-        static inline VkFormat GetSwapchainFormat() { return instance->swapchainFormat; }
-    };
-    
+  static void GetImGUISection();
+
+  static inline VkFormat GetSwapchainFormat() { return instance->swapchainFormat; }
+};
+
 } // namespace Engine::Graphics
-
-

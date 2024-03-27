@@ -15,13 +15,16 @@
 
 #include "Core/Time.h"
 
-#include "Publishable.h"
+#include "Editor/Publishable.h"
 
 #include "Editor/SceneView.h"
 
 namespace Engine::Graphics {
 ImGUIManager::ImGUIManager() {}
 ImGUIManager::~ImGUIManager() { InstanceManager::DestroyDescriptorPool(instance->imGUIPool); }
+
+using Editor::Publication;
+using Editor::Publishable;
 
 struct TestPublishable : public Publishable {
   Maths::Vector3 position, rotation, scale;
@@ -32,21 +35,7 @@ struct TestPublishable : public Publishable {
   TestPublishable() : position(), rotation(), scale() {}
 
   std::vector<Publication> GetPublications() {
-    return {Publication{.label = "Position",
-                        .type = Publication::Type::FLOAT3,
-                        .style = Publication::Style::DRAG,
-                        .referencedPointer = &position},
-            Publication{.label = "Rotation",
-                        .type = Publication::Type::FLOAT3,
-                        .style = Publication::Style::DRAG,
-                        .referencedPointer = &rotation},
-            Publication{.label = "Scale",
-                        .type = Publication::Type::FLOAT3,
-                        .style = Publication::Style::SLIDER,
-                        .flags = Publication::Flags::RANGE,
-                        .floatRange{.min = 0.01f, .max = 1000.0f, .step = 1.0f},
-                        .referencedPointer = &scale},
-            Publication{.label = "Colour", .type = Publication::Type::COLOUR_PICKER, .referencedPointer = &colour}};
+    return {PUBLISH(position), PUBLISH(rotation), PUBLISH_SLIDER(scale, 0.01f, 1000.0f, 1.0f), PUBLISH(colour)};
   }
 } testPublishable;
 
@@ -255,6 +244,8 @@ void ImGUIManager::BeginFrame() {
     ImGui::Text("FPS: %.1f", 1.0f / Time::deltaTime);
 
     Publication p{.label = "Test", .type = Publication::Type::COMPOSITE, .referencedPointer = &testPublishable};
+
+    DrawPublication(p);
 
     Editor::SceneView v;
     v.Draw();

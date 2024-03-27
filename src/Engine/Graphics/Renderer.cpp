@@ -17,9 +17,6 @@
 #include <vector>
 
 namespace Engine::Graphics {
-Core::Entity testModel;
-
-void InitTestModel() { testModel = AssetManager::LoadPrefab("suzanne.obj"); }
 
 struct ComputePushConstants {
   Maths::Vector4 data1, data2, data3, data4;
@@ -92,20 +89,12 @@ class MultimeshDrawCommand : public Command {
   VkImageView drawImageView;
   VkExtent2D drawExtent;
   Maths::Matrix4 viewProjection;
-  std::vector<MeshRenderer const *> singleMeshes;
+  std::span<MeshRenderer const *> singleMeshes;
 
 public:
   MultimeshDrawCommand(VkImageView const &view, VkExtent2D const &extent, Maths::Matrix4 const &viewProjection,
-                       std::initializer_list<MeshRenderer const *> const &meshes)
+                       std::span<MeshRenderer const *> const &meshes)
       : drawImageView(view), drawExtent(extent), singleMeshes(meshes), viewProjection(viewProjection) {}
-  void QueueExecution(VkCommandBuffer const &) const;
-};
-
-class DrawMeshCommand : public Command {
-  MeshRenderer *renderInfo;
-
-public:
-  DrawMeshCommand(MeshRenderer *renderInfo) : renderInfo(renderInfo) {}
   void QueueExecution(VkCommandBuffer const &) const;
 };
 
@@ -122,8 +111,6 @@ void Renderer::Init(Maths::Dimension2 windowSize) {
   mainDeletionQueue.Push(&instance->immediateResources);
   instance->InitDescriptors();
   instance->InitPipelines();
-
-  InitTestModel();
 }
 
 void Renderer::Cleanup() { delete instance; }
@@ -222,7 +209,7 @@ void Renderer::CreateSwapchain() {
   mainDeletionQueue.Push(&renderBuffer);
 }
 
-void Renderer::Draw(Camera const *camera) const {
+void Renderer::Draw(Camera const *camera, std::span<MeshRenderer const *> const &objectsToDraw) const {
   PROFILE_FUNCTION()
   uint32_t resourceIndex = currentFrame % MAX_FRAME_OVERLAP;
   VkCommandBufferSubmitInfo commandBufferSubmitInfo{};
@@ -256,16 +243,16 @@ void Renderer::Draw(Camera const *camera) const {
         swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     auto transitionBufferToRenderTarget = vkutil::TransitionImageCommand(renderBuffer.image, VK_IMAGE_LAYOUT_GENERAL,
                                                                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    auto drawTestMesh = MultimeshDrawCommand(
+    auto drawMeshes = MultimeshDrawCommand(
         renderBuffer.imageView, {.width = renderBuffer.imageExtent.width, .height = renderBuffer.imageExtent.height},
-        camera->viewProjection, {testModel.GetComponent<MeshRenderer>()});
+        camera->viewProjection, objectsToDraw);
 
     commandBufferSubmitInfo = frameResources[resourceIndex].commandQueue.EnqueueCommandSequence(
         {// Draw background
          &transitionBufferToWriteable, &computeRun,
 
          // Draw geometry
-         &transitionBufferToRenderTarget, &drawTestMesh,
+         &transitionBufferToRenderTarget, &drawMeshes,
 
          // Copy background to swapchain
          &transitionBufferToTransferSrc, &transitionPresenterToTransferDst, &copyBufferToPresenter,

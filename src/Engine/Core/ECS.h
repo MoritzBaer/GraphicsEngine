@@ -2,6 +2,7 @@
 
 #include "Debug/Logging.h"
 #include "Util/Macros.h"
+#include "Util/Serializable.h"
 
 #include <array>
 #include <inttypes.h>
@@ -67,6 +68,10 @@ public:
   template <class C> static bool HasComponent(_Entity e);
   template <class C> static void RemoveComponent(_Entity e);
 
+  static std::vector<_Component *> GetComponents(_Entity e);
+
+  template <class... Cs> static std::vector<std::tuple<Cs *...>> FilterEntities();
+
   class EntityIterator;
 
   inline static class EntityContainer {
@@ -80,7 +85,7 @@ public:
   } Entities;
 };
 
-class Entity { // Wrapper for internal entity, convenience only
+class Entity : public Util::Serializable { // Wrapper for internal entity, convenience only
   _Entity id;
 
 public:
@@ -91,6 +96,8 @@ public:
   template <class C> inline C *GetComponent() const { return ECS::GetComponent<C>(id); }
   template <class C> inline bool HasComponent() const { return ECS::HasComponent<C>(id); }
   template <class C> inline void RemoveComponent() const { ECS::RemoveComponent<C>(id); }
+
+  void Serialize(std::stringstream &targetStream) const override;
 };
 
 class ECS::EntityIterator {
@@ -109,11 +116,12 @@ public:
   EntityIterator(std::vector<_Entity>::iterator parent) : internalIt(parent) {}
 };
 
-struct _Component {
+class _Component {
+public:
   Entity entity;
   inline _Component(_Entity e) : entity(e) {}
-  inline ~_Component() {}
-  virtual void Update(_Entity e){};
+  virtual inline ~_Component() {}
+  virtual inline void Update(){};
 };
 
 template <class C> struct Component : public _Component {
@@ -188,6 +196,21 @@ template <class C> inline void ECS::RemoveComponent(_Entity e) {
     ENGINE_ERROR("Tried to query component the entity does not have!") return nullptr;
   }
   instance->componentArrays[C::COMPONENT_INDEX]->RemoveComponent(e);
+}
+
+template <class C> inline uint64_t get_flag() { return COMPONENT_FLAG(C); }
+
+template <class... Cs> inline std::vector<std::tuple<Cs *...>> ECS::FilterEntities() {
+  std::vector<std::tuple<Cs *...>> result;
+  uint64_t filterMask = ALIVE_FLAG | (get_flag<Cs>() | ...);
+
+  for (int e = 0; e < MAX_ENTITY_NUMBER; e++) {
+    if ((instance->aliveAndComponentFlags[e] & filterMask) == filterMask) {
+      result.push_back(std::make_tuple(GetComponent<Cs>(e)...));
+    }
+  }
+
+  return result;
 }
 
 } // namespace Engine::Core

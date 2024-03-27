@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Util/Serializable.h" // TODO: remove
 #include <cmath>
 #include <initializer_list>
 #include <stdint.h>
@@ -31,7 +32,6 @@ using Vector3 = Vector<3>;
 using Vector4 = Vector<4>;
 
 // Saved in row form (n x m means m columns, n rows)
-// TODO: Rework entirely probably.
 template <uint8_t n, uint8_t m, typename T> struct MatrixT {
 public:
   MatrixT<n, m, T>(T const values[n * m]) {
@@ -377,6 +377,10 @@ public:
     return EntryQuadruple(*this, X, Y, Z, W);
   }
 
+  // Matrix cannot Serializable because otherwise the Serializable* offsets the data by 64bit,
+  // which breaks GPU communication.
+  inline void Serialize(std::stringstream &stream) const;
+
 private:
   // Adds factor * row1 to row2
   inline void RowOp(uint8_t row1, uint8_t row2, T factor);
@@ -468,6 +472,16 @@ inline VectorT<3, T> MatrixT<n, m, T>::Cross(VectorT<3, T> const &other) const
 {
   return VectorT<3, T>{data[Y] * other[Z] - data[Z] * other[Y], data[Z] * other[X] - data[X] * other[Z],
                        data[X] * other[Y] - data[Y] * other[X]};
+}
+
+template <uint8_t n, uint8_t m, typename T> inline void MatrixT<n, m, T>::Serialize(std::stringstream &stream) const {
+  stream << "{ ";
+  for (int row = 0; row < n; row++) {
+    for (int col = 0; col < m; col++) {
+      stream << data[row * m + col] << " ";
+    }
+  }
+  stream << "}";
 }
 
 template <uint8_t n, uint8_t m, typename T> inline void MatrixT<n, m, T>::RowOp(uint8_t row1, uint8_t row2, T factor) {
