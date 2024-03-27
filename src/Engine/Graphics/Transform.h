@@ -1,13 +1,14 @@
 #pragma once
 
 #include "Core/ECS.h"
+#include "Editor/Publishable.h"
 #include "Maths/Transformations.h"
 #include "Util/Serializable.h"
 
 using namespace Engine::Maths;
 
 namespace Engine::Graphics {
-ENGINE_COMPONENT_DECLARATION(Transform), public Util::Serializable {
+ENGINE_COMPONENT_DECLARATION(Transform), public Util::Serializable, public Editor::Publishable {
   Vector3 position;
   Quaternion rotation;
   Vector3 scale;
@@ -16,7 +17,7 @@ ENGINE_COMPONENT_DECLARATION(Transform), public Util::Serializable {
   std::vector<Transform *> children;
 
   ENGINE_COMPONENT_CONSTRUCTOR(Transform), position(Vector3::Zero()), rotation(Quaternion::Identity()),
-      scale(Vector3::One()), parent(nullptr), children() {}
+      scale(Vector3::One()), parent(nullptr), children(), Publishable("Transform") {}
 
   // Scale is not adjusted as by stacking scales and rotation, shearing is possible (which cannot be represented as a
   // Vector3)
@@ -32,6 +33,10 @@ ENGINE_COMPONENT_DECLARATION(Transform), public Util::Serializable {
     return (ModelToWorldMatrix() * Vector4{position[X], position[Y], position[Z], 1}).xyz();
   }
   inline Quaternion WorldRotation() const;
+
+  inline std::vector<Editor::Publication> GetPublications() override {
+    return {PUBLISH(position), PUBLISH_RANGE(rotation, 0.0f, 1.0f, 0.1f), PUBLISH_RANGE(scale, 0.001f, 10000.0f, 1.0f)};
+  }
 
   inline void Serialize(std::stringstream & targetStream) const override {
     targetStream << "Transform: { "

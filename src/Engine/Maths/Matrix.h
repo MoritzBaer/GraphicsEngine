@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Util/Serializable.h" // TODO: remove
 #include <cmath>
 #include <initializer_list>
+#include <sstream>
 #include <stdint.h>
 
 #define PI 3.14159265359

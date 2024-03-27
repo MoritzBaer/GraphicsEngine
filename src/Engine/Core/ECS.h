@@ -97,6 +97,8 @@ public:
   template <class C> inline bool HasComponent() const { return ECS::HasComponent<C>(id); }
   template <class C> inline void RemoveComponent() const { ECS::RemoveComponent<C>(id); }
 
+  inline std::vector<_Component *> GetComponents() const { return ECS::GetComponents(id); }
+
   void Serialize(std::stringstream &targetStream) const override;
 };
 

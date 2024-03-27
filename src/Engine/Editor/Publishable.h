@@ -61,9 +61,16 @@ struct Publication {
 };
 
 class Publishable {
+protected:
+  Publishable(const char *label) : typeLabel(label) {}
+
 public:
+  const char *typeLabel;
   virtual std::vector<Publication> GetPublications() { return {}; }
 };
+
+void DrawPublication(Publication const &publication);
+void DrawPublishable(Publishable *publishable);
 
 namespace _Publication {
 

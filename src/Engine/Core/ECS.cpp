@@ -63,10 +63,13 @@ std::vector<_Component *> ECS::GetComponents(_Entity e) {
 void Entity::Serialize(std::stringstream &targetStream) const {
   targetStream << "{ Components: [";
   auto comps = ECS::GetComponents(id);
-  for (int c = 0; c < comps.size(); c++) {
-    if (Util::Serializable *scomp = dynamic_cast<Util::Serializable *>(comps[c])) {
-      if (c > 0) {
+  bool firstComp = true;
+  for (auto c : ECS::GetComponents(id)) {
+    if (Util::Serializable *scomp = dynamic_cast<Util::Serializable *>(c)) {
+      if (!firstComp) {
         targetStream << ", ";
+      } else {
+        firstComp = false;
       }
       scomp->Serialize(targetStream);
     }

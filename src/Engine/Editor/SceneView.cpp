@@ -2,6 +2,7 @@
 
 #include "Core/SceneHierarchy.h"
 #include "Editor/Display.h"
+#include "EntityDetails.h"
 #include "imgui.h"
 
 namespace Engine::Editor {
@@ -23,9 +24,16 @@ void DrawNode(Core::SceneHierarchy::TreeNode const &node) {
 }
 
 void SceneView::Draw() const {
+  int entity = 0;
   ImGui::Begin("Scene");
 
   for (auto const &node : Core::SceneHierarchy::RootEntities) {
+    if (entity == 1) {
+      for (auto ed : entityDetailViews) {
+        ed->SetEntity(node.entity);
+      }
+    }
+    entity++;
     DrawNode(node);
   }
 

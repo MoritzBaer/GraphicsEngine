@@ -18,6 +18,7 @@
 #include <chrono>
 
 #include "Editor/Display.h"
+#include "Editor/EntityDetails.h"
 
 namespace Engine {
 bool quit = false;
@@ -38,10 +39,10 @@ void Engine::Init(const char *applicationName) {
     AssetManager::Init();
     Core::ECS::Init();
 
+    Core::ECS::RegisterComponent<Editor::Display>(); // Must be at the top so name is displayed above other components
     Core::ECS::RegisterComponent<Graphics::Transform>();
     Core::ECS::RegisterComponent<Graphics::MeshRenderer>();
     Core::ECS::RegisterComponent<Graphics::Camera>();
-    Core::ECS::RegisterComponent<Editor::Display>();
 
     mainCam = Core::Entity(Core::ECS::CreateEntity());
     mainCam.AddComponent<Graphics::Camera>();
