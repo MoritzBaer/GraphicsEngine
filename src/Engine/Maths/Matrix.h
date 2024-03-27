@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Util/Serializable.h"
+#include "Util/Serializable.h" // TODO: remove
 #include <cmath>
 #include <initializer_list>
 #include <stdint.h>
@@ -32,8 +32,7 @@ using Vector3 = Vector<3>;
 using Vector4 = Vector<4>;
 
 // Saved in row form (n x m means m columns, n rows)
-// TODO: Rework entirely probably.
-template <uint8_t n, uint8_t m, typename T> struct MatrixT : public Util::Serializable {
+template <uint8_t n, uint8_t m, typename T> struct MatrixT {
 public:
   MatrixT<n, m, T>(T const values[n * m]) {
     for (int row = 0; row < n; row++) {
@@ -378,7 +377,9 @@ public:
     return EntryQuadruple(*this, X, Y, Z, W);
   }
 
-  inline void Serialize(std::stringstream &stream) const override {
+  // Matrix cannot Serializable because otherwise the Serializable* offsets the data by 64bit,
+  // which breaks GPU communication.
+  inline void Serialize(std::stringstream &stream) const {
     stream << "{ ";
     for (int row = 0; row < n; row++) {
       for (int col = 0; col < m; col++) {
