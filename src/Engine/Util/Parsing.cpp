@@ -204,85 +204,38 @@ enum class EntityParsingState {
 Core::Entity ParseEntity(const char *&charStream) {
   SkipWhitespace(charStream);
 
-  if (*charStream != '{') {
-    ENGINE_ERROR("Input is not a valid entity serialization!");
-    return Core::Entity();
-  }
-
-  charStream++; // Enter content part
-
   Core::Entity e = ENGINE_NEW_ENTITY();
 
-  char tokenBuffer[64] = {0};
-  uint8_t lastTokenChar = 0;
+  PARSE_BLOCK(charStream,
+              FIRST_TOKEN_REACTION(
+                  "Components",
+                  PARSE_ARRAY(
+                      charStream,
+                      // Read component type to buffer
+                      ReadTokenToBuffer(charStream, tokenBuffer, sizeof(tokenBuffer) / sizeof(uint8_t));
+                      if (componentParsers.find(tokenBuffer) != componentParsers.end()) {
+                        componentParsers[tokenBuffer](e, charStream);
+                      } else {
+                        ENGINE_WARNING(
+                            "Component '{}' found in entity serialization, but no deserializer for {} was registered!",
+                            tokenBuffer, tokenBuffer);
+                      },
+                      "component")),
+              "Entity")
 
-  SkipWhitespace(charStream); // Handle case of empty entity
-
-  while (*charStream != '}') {
-    ReadTokenToBuffer(charStream, tokenBuffer, sizeof(tokenBuffer) / sizeof(uint8_t));
-    if (!strcmp("Components", tokenBuffer)) {
-      SkipWhitespace(charStream);
-      ENGINE_ASSERT(*charStream == '[', "Expected '[' after 'Components' label");
-      charStream++; // Enter components array
-      SkipWhitespace(charStream);
-
-      while (*charStream != ']') {
-        // Read component type to buffer
-        ReadTokenToBuffer(charStream, tokenBuffer, sizeof(tokenBuffer) / sizeof(uint8_t));
-        if (componentParsers.find(tokenBuffer) != componentParsers.end()) {
-          componentParsers[tokenBuffer](e, charStream);
-        } else {
-          ENGINE_WARNING("Component '{}' found in entity serialization, but no deserializer for {} was registered!",
-                         tokenBuffer, tokenBuffer);
-        }
-        if (*charStream == ',') {
-          charStream++;
-        }
-        SkipWhitespace(charStream);
-      }
-      charStream++; // Exit components array
-      if (*charStream == ',') {
-        charStream++;
-      }
-      SkipWhitespace(charStream);
-    }
-  }
-
-  charStream++; // Exit content part
-
+  // TODO: Returns valid (but empty) entity even if parsing fails. Figure out if this is desirable.
   return e;
 }
 
 std::vector<Core::Entity> ParseEntityArray(char const *&charStream) {
-  SkipWhitespace(charStream);
-  ENGINE_ASSERT(*charStream == '[', "Expected '[' at start of entity array!");
-  charStream++; // Enter array
-  SkipWhitespace(charStream);
-
   std::vector<Core::Entity> result;
-  while (*charStream != ']') {
-    result.push_back(ParseEntity(charStream));
-    if (*charStream == ',') {
-      charStream++;
-    }
-    SkipWhitespace(charStream);
-  }
-  charStream++; // Exit array
+  PARSE_ARRAY(charStream, result.push_back(ParseEntity(charStream)), "entity")
   return result;
 }
 
 std::vector<float> ParseFloatArray(char const *&charStream) {
-  SkipWhitespace(charStream);
-  ENGINE_ASSERT(*charStream == '{', "Expected '{' at start of float array!");
-  charStream++; // Enter array
-  SkipWhitespace(charStream);
-
   std::vector<float> result;
-  while (*charStream != '}') {
-    result.push_back(ReadFloat(charStream));
-    SkipWhitespace(charStream);
-  }
-  charStream++; // Exit array
+  PARSE_VALUE_LIST(charStream, result.push_back(ReadFloat(charStream)), "float array")
   return result;
 }
 
@@ -293,38 +246,19 @@ Maths::Vector3 ParseVector3(char const *&charStream) {
 }
 
 Maths::Quaternion ParseQuaternion(char const *&charStream) {
-  SkipWhitespace(charStream);
-  ENGINE_ASSERT(*charStream == '{', "Expected '{' at start of quaternion!");
-  charStream++; // Enter quaternion
-  SkipWhitespace(charStream);
   Maths::Quaternion result{};
-  char tokenBuffer[64] = {0};
-  uint8_t lastTokenChar = 0;
 
-  while (*charStream != '}') {
-    ReadTokenToBuffer(charStream, tokenBuffer, sizeof(tokenBuffer) / sizeof(uint8_t));
-    if (!strcmp("x", tokenBuffer)) {
-      result.x = ReadFloat(charStream);
-    } else if (!strcmp("y", tokenBuffer)) {
-      result.y = ReadFloat(charStream);
-    } else if (!strcmp("z", tokenBuffer)) {
-      result.z = ReadFloat(charStream);
-    } else if (!strcmp("w", tokenBuffer)) {
-      result.w = ReadFloat(charStream);
-    } else {
-      ENGINE_WARNING("Unknown token '{}' in quaternion serialization!", tokenBuffer);
-    }
-    SkipWhitespace(charStream);
-  }
-  charStream++; // Exit quaternion
+  PARSE_BLOCK(charStream,
+              FIRST_TOKEN_REACTION("x", result.x = ReadFloat(charStream))
+                  LATER_TOKEN_REACTION("y", result.y = ReadFloat(charStream))
+                      LATER_TOKEN_REACTION("z", result.z = ReadFloat(charStream))
+                          LATER_TOKEN_REACTION("w", result.w = ReadFloat(charStream)),
+              "quaternion")
   return result;
 }
 
-void RegisterComponentParser(const char *identifier, std::function<void(Core::Entity, char const *&)> parser) {
+void RegisterComponentParser(const char *identifier, std::function<void(Core::Entity const &, char const *&)> parser) {
   componentParsers.emplace(identifier, parser);
-  if (componentParsers.find("Transform") == componentParsers.end()) {
-    ENGINE_ERROR("Failed to register component parser for '{}'", identifier);
-  }
 }
 
 } // namespace Engine::Util
