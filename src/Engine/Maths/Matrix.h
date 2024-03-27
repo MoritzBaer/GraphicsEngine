@@ -379,15 +379,7 @@ public:
 
   // Matrix cannot Serializable because otherwise the Serializable* offsets the data by 64bit,
   // which breaks GPU communication.
-  inline void Serialize(std::stringstream &stream) const {
-    stream << "{ ";
-    for (int row = 0; row < n; row++) {
-      for (int col = 0; col < m; col++) {
-        stream << data[row * m + col] << " ";
-      }
-    }
-    stream << "}";
-  }
+  inline void Serialize(std::stringstream &stream) const;
 
 private:
   // Adds factor * row1 to row2
@@ -480,6 +472,16 @@ inline VectorT<3, T> MatrixT<n, m, T>::Cross(VectorT<3, T> const &other) const
 {
   return VectorT<3, T>{data[Y] * other[Z] - data[Z] * other[Y], data[Z] * other[X] - data[X] * other[Z],
                        data[X] * other[Y] - data[Y] * other[X]};
+}
+
+template <uint8_t n, uint8_t m, typename T> inline void MatrixT<n, m, T>::Serialize(std::stringstream &stream) const {
+  stream << "{ ";
+  for (int row = 0; row < n; row++) {
+    for (int col = 0; col < m; col++) {
+      stream << data[row * m + col] << " ";
+    }
+  }
+  stream << "}";
 }
 
 template <uint8_t n, uint8_t m, typename T> inline void MatrixT<n, m, T>::RowOp(uint8_t row1, uint8_t row2, T factor) {
