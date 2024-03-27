@@ -57,7 +57,7 @@
 
 namespace Engine::Util {
 
-inline bool IsWhitespace(char c) { return c == ' ' || c == '\n'; }
+inline bool IsWhitespace(char c) { return c == ' ' || c == '\n' || c == '\r'; }
 
 inline bool isDigit(char c) { return c >= '0' && c <= '9'; }
 
@@ -103,6 +103,17 @@ inline void ReadValueToBuffer(char const *&charStream, char *valueBuffer, uint8_
   if (*charStream == ',') {
     charStream++;
   }
+}
+
+inline std::string ReadString(char const *&charStream) {
+  char stringBuffer[64] = {0};
+  uint8_t lastBufferChar = 0;
+
+  SkipWhitespace(charStream);
+
+  ReadValueToBuffer(charStream, stringBuffer, sizeof(stringBuffer) / sizeof(char));
+
+  return std::string(stringBuffer);
 }
 
 inline float ReadFloat(char const *&charStream) {

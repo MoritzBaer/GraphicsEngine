@@ -5,7 +5,7 @@
 #include "Util/ParsingSubfunctions.h"
 
 namespace Engine::Util::Deserializers {
-void ParseTransform(Core::Entity const &entity, char const *&data) {
+inline void ParseTransform(Core::Entity const &entity, char const *&data) {
   auto t = entity.AddComponent<Graphics::Transform>();
 
   PARSE_BLOCK(

@@ -27,6 +27,7 @@ public:
   };
 
   static Graphics::Mesh LoadMeshFromOBJ(char const *meshName);
+  static Graphics::AllocatedMesh *LoadMesh(char const *meshName);
   static Graphics::Material *LoadMaterial(char const *materialName);
   static Graphics::Pipeline const *LoadPipeline(char const *pipelineName);
   static Core::Entity LoadPrefab(char const *prefabName);
