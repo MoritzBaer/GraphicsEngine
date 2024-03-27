@@ -1,9 +1,10 @@
 #pragma once
 
 #include "Matrix.h"
+#include "Util/Serializable.h"
 
 namespace Engine::Maths {
-class Quaternion {
+class Quaternion : public Util::Serializable {
 public:
   float w, x, y, z;
   Quaternion(float w, float x, float y, float z) : w(w), x(x), y(y), z(z) {}
@@ -35,6 +36,10 @@ public:
   inline Vector3 EulerAngles() const;
   inline static Quaternion FromEulerAngles(Vector3 const &eulerAngles);
   inline Matrix3 RotationMatrix() const;
+
+  inline void Serialize(std::stringstream &targetStream) const override {
+    targetStream << "{w: " << w << ", x: " << x << ", y: " << y << ", z: " << z << "}";
+  }
 };
 
 Quaternion Quaternion::operator*(Quaternion const &other) const {

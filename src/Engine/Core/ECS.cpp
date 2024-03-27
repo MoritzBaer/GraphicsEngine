@@ -49,4 +49,29 @@ void ECS::DestroyEntity(_Entity e) {
   }
   KILL(e)
 }
+
+std::vector<_Component *> ECS::GetComponents(_Entity e) {
+  std::vector<_Component *> result;
+  for (int i = 0; i < instance->componentArrays.size(); i++) {
+    if (instance->aliveAndComponentFlags[e] & (uint64_t(1) << i)) {
+      result.push_back(instance->componentArrays[i]->GetComponent(e));
+    }
+  }
+  return result;
+}
+
+void Entity::Serialize(std::stringstream &targetStream) const {
+  targetStream << "{ Components: [";
+  auto comps = ECS::GetComponents(id);
+  for (int c = 0; c < comps.size(); c++) {
+    if (Util::Serializable *scomp = dynamic_cast<Util::Serializable *>(comps[c])) {
+      if (c > 0) {
+        targetStream << ", ";
+      }
+      scomp->Serialize(targetStream);
+    }
+  }
+  targetStream << "] }";
+}
+
 } // namespace Engine::Core

@@ -58,14 +58,6 @@ void Engine::Init(const char *applicationName) {
     Graphics::Renderer::Init(mainWindow->GetCanvasSize());
     Graphics::ImGUIManager::Init(mainWindow);
 
-    // TODO: Remove (dummy scene for testing)
-    auto monke2 = AssetManager::LoadPrefab("suzanne.obj");
-    monke2.GetComponent<Editor::Display>()->label = "monke 2";
-    auto monke21 = AssetManager::LoadPrefab("suzanne.obj");
-    monke21.GetComponent<Editor::Display>()->label = "monke 2.1";
-    monke21.GetComponent<Graphics::Transform>()->SetParent(monke2);
-    Core::SceneHierarchy::BuildHierarchy();
-
     Time::Update();
   }
   WRITE_PROFILE_SESSION("Init")

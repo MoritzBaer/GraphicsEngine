@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Util/Serializable.h"
 #include <cmath>
 #include <initializer_list>
 #include <stdint.h>
@@ -32,7 +33,7 @@ using Vector4 = Vector<4>;
 
 // Saved in row form (n x m means m columns, n rows)
 // TODO: Rework entirely probably.
-template <uint8_t n, uint8_t m, typename T> struct MatrixT {
+template <uint8_t n, uint8_t m, typename T> struct MatrixT : public Util::Serializable {
 public:
   MatrixT<n, m, T>(T const values[n * m]) {
     for (int row = 0; row < n; row++) {
@@ -375,6 +376,16 @@ public:
     requires(m == 1 && n >= 4)
   {
     return EntryQuadruple(*this, X, Y, Z, W);
+  }
+
+  inline void Serialize(std::stringstream &stream) const override {
+    stream << "{ ";
+    for (int row = 0; row < n; row++) {
+      for (int col = 0; col < m; col++) {
+        stream << data[row * m + col] << " ";
+      }
+    }
+    stream << "}";
   }
 
 private:

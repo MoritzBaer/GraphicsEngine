@@ -34,8 +34,6 @@ file(GLOB ImGUIFiles "src/external/imgui/*.h" "src/external/imgui/*.cpp")
 file(GLOB_RECURSE SourceFiles
     "src/Engine/*.h"
     "src/Engine/*.cpp"
-    "src/Editor/*.h"
-    "src/Editor/*.cpp"
     "src/external/imgui/backends/imgui_impl_vulkan.cpp"
     "src/external/imgui/backends/imgui_impl_glfw.cpp"
     "src/external/imgui/imgui_draw.cpp"

@@ -2,11 +2,12 @@
 
 #include "Core/ECS.h"
 #include "Maths/Transformations.h"
+#include "Util/Serializable.h"
 
 using namespace Engine::Maths;
 
 namespace Engine::Graphics {
-ENGINE_COMPONENT_DECLARATION(Transform) {
+ENGINE_COMPONENT_DECLARATION(Transform), public Util::Serializable {
   Vector3 position;
   Quaternion rotation;
   Vector3 scale;
@@ -19,8 +20,8 @@ ENGINE_COMPONENT_DECLARATION(Transform) {
 
   // Scale is not adjusted as by stacking scales and rotation, shearing is possible (which cannot be represented as a
   // Vector3)
-  inline void SetParent(Transform * newParent);
-  inline void SetParent(Core::Entity const &newParent);
+  inline void SetParent(Transform * newParent, bool recalculateTransform = true);
+  inline void SetParent(Core::Entity const &newParent, bool recalculateTransform = true);
 
   inline Matrix4 ModelToParentMatrix() const;
   inline Matrix4 ParentToModelMatrix() const { return ModelToParentMatrix().Inverse(); }
@@ -31,12 +32,33 @@ ENGINE_COMPONENT_DECLARATION(Transform) {
     return (ModelToWorldMatrix() * Vector4{position[X], position[Y], position[Z], 1}).xyz();
   }
   inline Quaternion WorldRotation() const;
+
+  inline void Serialize(std::stringstream & targetStream) const override {
+    targetStream << "Transform: { "
+                 << "position: ";
+    position.Serialize(targetStream);
+    targetStream << ", rotation: ";
+    rotation.Serialize(targetStream);
+    targetStream << ", scale: ";
+    scale.Serialize(targetStream);
+    targetStream << ", children: [";
+
+    for (int c = 0; c < children.size(); c++) {
+      if (c > 0) {
+        targetStream << ",";
+      }
+      children[c]->entity.Serialize(targetStream);
+    }
+    targetStream << "] }";
+  }
 };
 
-inline void Transform::SetParent(Transform *newParent) {
+inline void Transform::SetParent(Transform *newParent, bool recaltulateTransform) {
   // Remove from old parent
-  position = WorldPosition();
-  rotation = WorldRotation();
+  if (recaltulateTransform) {
+    position = WorldPosition();
+    rotation = WorldRotation();
+  }
   if (parent) {
     parent->children.erase(std::remove(parent->children.begin(), parent->children.end(), this), parent->children.end());
   }
@@ -44,13 +66,15 @@ inline void Transform::SetParent(Transform *newParent) {
   // Add to new parent
   parent = newParent;
   newParent->children.push_back(this);
-  position = (parent->WorldToModelMatrix() * Vector4{position[X], position[Y], position[Z], 1}).xyz();
-  rotation *= parent->WorldRotation().Conjugate();
+  if (recaltulateTransform) {
+    position = (parent->WorldToModelMatrix() * Vector4{position[X], position[Y], position[Z], 1}).xyz();
+    rotation *= parent->WorldRotation().Conjugate();
+  }
 }
 
-inline void Transform::SetParent(Core::Entity const &newParent) {
+inline void Transform::SetParent(Core::Entity const &newParent, bool recalculateTransform) {
   ENGINE_ASSERT(newParent.HasComponent<Transform>(), "Tried to assign a transformless entity as parent!")
-  SetParent(newParent.GetComponent<Transform>());
+  SetParent(newParent.GetComponent<Transform>(), recalculateTransform);
 }
 
 Matrix4 Transform::ModelToParentMatrix() const {

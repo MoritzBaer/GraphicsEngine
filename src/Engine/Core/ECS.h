@@ -2,6 +2,7 @@
 
 #include "Debug/Logging.h"
 #include "Util/Macros.h"
+#include "Util/Serializable.h"
 
 #include <array>
 #include <inttypes.h>
@@ -67,6 +68,8 @@ public:
   template <class C> static bool HasComponent(_Entity e);
   template <class C> static void RemoveComponent(_Entity e);
 
+  static std::vector<_Component *> GetComponents(_Entity e);
+
   template <class... Cs> static std::vector<std::tuple<Cs *...>> FilterEntities();
 
   class EntityIterator;
@@ -82,7 +85,7 @@ public:
   } Entities;
 };
 
-class Entity { // Wrapper for internal entity, convenience only
+class Entity : public Util::Serializable { // Wrapper for internal entity, convenience only
   _Entity id;
 
 public:
@@ -93,6 +96,8 @@ public:
   template <class C> inline C *GetComponent() const { return ECS::GetComponent<C>(id); }
   template <class C> inline bool HasComponent() const { return ECS::HasComponent<C>(id); }
   template <class C> inline void RemoveComponent() const { ECS::RemoveComponent<C>(id); }
+
+  void Serialize(std::stringstream &targetStream) const override;
 };
 
 class ECS::EntityIterator {
@@ -111,11 +116,12 @@ public:
   EntityIterator(std::vector<_Entity>::iterator parent) : internalIt(parent) {}
 };
 
-struct _Component {
+class _Component {
+public:
   Entity entity;
   inline _Component(_Entity e) : entity(e) {}
-  inline ~_Component() {}
-  virtual void Update(_Entity e){};
+  virtual inline ~_Component() {}
+  virtual inline void Update(){};
 };
 
 template <class C> struct Component : public _Component {
