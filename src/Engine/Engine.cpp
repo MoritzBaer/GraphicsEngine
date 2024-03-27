@@ -46,7 +46,7 @@ void Engine::Init(const char *applicationName) {
 
     mainCam = Core::Entity(Core::ECS::CreateEntity());
     mainCam.AddComponent<Graphics::Camera>();
-    mainCam.AddComponent<Editor::Display>()->label = "Main camera";
+    mainCam.AddComponent<Editor::Display>()->AssignLabel("Main camera");
 
     WindowManager::Init();
     mainWindow = WindowManager::CreateWindow(1600, 900, applicationName);

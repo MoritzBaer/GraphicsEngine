@@ -5,6 +5,7 @@
 #include "Engine/Core/SceneHierarchy.h"
 #include "Engine/Editor/Display.h"
 #include "Engine/Editor/EntityDetails.h"
+#include "Util/Deserializers/DisplayParser.h"
 #include "Util/Deserializers/MeshRendererParser.h"
 #include "Util/Deserializers/TransformParser.h"
 #include "Util/FileIO.h"
@@ -15,7 +16,7 @@ Engine::Core::Entity dummyEntity() {
   prefab.AddComponent<Engine::Graphics::Transform>()->scale = Vector3{0.5, 0.5, 1};
   prefab.AddComponent<Engine::Graphics::MeshRenderer>()->AssignMesh("suzanne.obj");
   prefab.GetComponent<Engine::Graphics::MeshRenderer>()->AssignMaterial("dummy");
-  prefab.AddComponent<Engine::Editor::Display>()->label = "monke";
+  prefab.AddComponent<Engine::Editor::Display>()->AssignLabel("monke");
 
   Engine::Core::SceneHierarchy::BuildHierarchy();
 
@@ -28,6 +29,7 @@ int main() {
 
   Engine::Util::RegisterComponentParser("Transform", Engine::Util::Deserializers::ParseTransform);
   Engine::Util::RegisterComponentParser("MeshRenderer", Engine::Util::Deserializers::ParseMeshRenderer);
+  Engine::Util::RegisterComponentParser("Display", Engine::Util::Deserializers::ParseDisplay);
 
   // TODO: Remove (dummy scene for testing)
 

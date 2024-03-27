@@ -10,8 +10,8 @@ namespace Engine::Graphics {
 
 ENGINE_COMPONENT_DECLARATION(MeshRenderer), public Util::Serializable {
 private:
-  const char *baseMesh;
-  const char *baseMaterial;
+  std::string baseMesh;
+  std::string baseMaterial;
 
 public:
   AllocatedMesh *mesh;

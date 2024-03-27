@@ -299,7 +299,6 @@ Graphics::Pipeline const *AssetManager::LoadPipeline(char const *pipelineName) {
 }
 
 Core::Entity AssetManager::LoadPrefab(char const *prefabName) {
-  // TODO: Read prefab json to get all properties
   MAKE_FILE_PATH(prefabName, PREFAB_PATH);
 
   auto prefabData = Util::FileIO::ReadFile(filePath);

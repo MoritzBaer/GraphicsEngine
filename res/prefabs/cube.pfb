@@ -12,6 +12,10 @@
         { 
             mesh: cube.obj, 
             material: dummy 
+        },
+        Display:
+        {
+            label: Cube
         }
     ] 
 }
