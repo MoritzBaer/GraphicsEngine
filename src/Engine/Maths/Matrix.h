@@ -9,6 +9,9 @@
 #define PI 3.14159265359
 #define EPS 0.0000001
 
+#define MATRIX_AT_IJ(n, m, row, col) col *n + row
+#define MATRIX_NM_AT_IJ(row, col) MATRIX_AT_IJ(n, m, row, col)
+
 inline const uint8_t X = 0;
 inline const uint8_t Y = 1;
 inline const uint8_t Z = 2;
@@ -78,7 +81,7 @@ public:
   inline MatrixT<n, n, T> Inverse() const
     requires(m == n)
   {
-    return MatrixT<n, n, T>(data).Invert();
+    return MatrixT<n, n, T>(false, data).Invert();
   }
   MatrixT<n, n, T> &Invert()
     requires(m == n);
@@ -396,8 +399,8 @@ private:
   // Adds factor * row1 to row2
   inline void RowOp(uint8_t row1, uint8_t row2, T factor);
   inline void ColOp(uint8_t col1, uint8_t col2, T factor);
-  inline void ColSwap(uint8_t col1, uint8_t col2);
   inline void RowSwap(uint8_t row1, uint8_t row2);
+  inline void ColSwap(uint8_t col1, uint8_t col2);
   std::array<T, n * m> data;
 
   // Needed for access of private members of other instance in matrix multiplication
@@ -414,46 +417,46 @@ inline MatrixT<n, n, T> &MatrixT<n, m, T>::Invert() // Uses the gaussean algorit
 {
   MatrixT<n, n, T> id = MatrixT<n, n, T>::Identity();
   // Triangularize A
-  for (int diag = 0; diag < n; diag++) // Go through rows
+  for (int diag = 0; diag < n; diag++) // Pass along diagonal
   {
-    for (int row = diag; row < n; row++) {
-      if (data[row * m + diag]) { // Find first row with non-zero entry on column j, swap to row j
-        RowSwap(diag, row);
-        id.RowSwap(diag, row);
+    for (int col = diag; col < n; col++) {
+      if (data[MATRIX_NM_AT_IJ(diag, col)]) { // Find first column with non-zero entry on diagonal j, swap with column j
+        ColSwap(diag, col);
+        id.ColSwap(diag, col);
         break;
       }
     }
 
-    if (data[diag * m + diag] == 0) {
+    if (data[MATRIX_NM_AT_IJ(diag, diag)] == 0) {
       throw "Inverse of irregular matrix requested.";
     }
 
     // Now the j-th diagonal entry is non-zero
 
     // Eliminate j-th column
-    for (int row = diag + 1; row < n; row++) {
-      T factor = -data[row * m + diag] / data[diag * m + diag];
-      RowOp(diag, row, factor);
-      id.RowOp(diag, row, factor);
+    for (int col = diag + 1; col < n; col++) {
+      T factor = -data[MATRIX_NM_AT_IJ(diag, col)] / data[MATRIX_NM_AT_IJ(diag, diag)];
+      ColOp(diag, col, factor);
+      id.ColOp(diag, col, factor);
     }
   }
 
   // Empty upper triangle
   for (int diag = n - 1; diag >= 0; diag--) // Go through columns
   {
-    // Eliminate j-th row
-    for (int row = 0; row < diag; row++) {
-      T factor = -data[row * m + diag] / data[diag * m + diag];
-      RowOp(diag, row, factor);
-      id.RowOp(diag, row, factor);
+    // Eliminate j-th column
+    for (int col = 0; col < diag; col++) {
+      T factor = -data[MATRIX_NM_AT_IJ(diag, col)] / data[MATRIX_NM_AT_IJ(diag, diag)];
+      ColOp(diag, col, factor);
+      id.ColOp(diag, col, factor);
     }
   }
 
   // Normalize
-  for (int row = 0; row < n; row++) {
-    T factor = data[row * n + row];
-    for (int col = 0; col < n; col++) {
-      data[row * n + col] = id.data[row * n + col] / data[row * n + row];
+  for (int col = 0; col < n; col++) {
+    T factor = data[MATRIX_NM_AT_IJ(col, col)];
+    for (int row = 0; row < n; row++) {
+      data[MATRIX_NM_AT_IJ(row, col)] = id.data[MATRIX_NM_AT_IJ(row, col)] / factor;
     }
   }
 
@@ -466,7 +469,7 @@ inline MatrixT<n, n, T> MatrixT<n, m, T>::Identity()
 {
   std::array<T, n * m> values = {0};
   for (int diag = 0; diag < n; diag++) {
-    values[diag * n + diag] = 1;
+    values[MATRIX_NM_AT_IJ(diag, diag)] = 1;
   }
   return MatrixT<n, n, T>(values);
 }
@@ -489,7 +492,7 @@ template <uint8_t n, uint8_t m, typename T> inline void MatrixT<n, m, T>::Serial
   stream << "{ ";
   for (int row = 0; row < n; row++) {
     for (int col = 0; col < m; col++) {
-      stream << data[row * m + col] << " ";
+      stream << data[MATRIX_NM_AT_IJ(row, col)] << " ";
     }
   }
   stream << "}";
@@ -497,29 +500,29 @@ template <uint8_t n, uint8_t m, typename T> inline void MatrixT<n, m, T>::Serial
 
 template <uint8_t n, uint8_t m, typename T> inline void MatrixT<n, m, T>::RowOp(uint8_t row1, uint8_t row2, T factor) {
   for (int col = 0; col < n; col++) {
-    data[row2 * m + col] += factor * data[row1 * m + col];
+    data[MATRIX_NM_AT_IJ(row2, col)] += factor * data[MATRIX_NM_AT_IJ(row1, col)];
   }
 }
 
 template <uint8_t n, uint8_t m, typename T> inline void MatrixT<n, m, T>::ColOp(uint8_t col1, uint8_t col2, T factor) {
   for (int row = 0; row < n; row++) {
-    data[row * m + col2] += factor * data[row * m + col1];
+    data[MATRIX_NM_AT_IJ(row, col2)] += factor * data[MATRIX_NM_AT_IJ(row, col1)];
   }
 }
 
 template <uint8_t n, uint8_t m, typename T> inline void MatrixT<n, m, T>::ColSwap(uint8_t col1, uint8_t col2) {
   for (int row = 0; row < n; row++) {
-    T temp = data[row * m + col2];
-    data[row * m + col2] = data[row * m + col1];
-    data[row * m + col1] = temp;
+    T temp = data[MATRIX_NM_AT_IJ(row, col1)];
+    data[MATRIX_NM_AT_IJ(row, col1)] = data[MATRIX_NM_AT_IJ(row, col2)];
+    data[MATRIX_NM_AT_IJ(row, col2)] = temp;
   }
 }
 
 template <uint8_t n, uint8_t m, typename T> inline void MatrixT<n, m, T>::RowSwap(uint8_t row1, uint8_t row2) {
   for (int col = 0; col < n; col++) {
-    T temp = data[row1 * m + col];
-    data[row1 * m + col] = data[row2 * m + col];
-    data[row2 * m + col] = temp;
+    T temp = data[MATRIX_NM_AT_IJ(row1, col)];
+    data[MATRIX_NM_AT_IJ(row1, col)] = data[MATRIX_NM_AT_IJ(row2, col)];
+    data[MATRIX_NM_AT_IJ(row2, col)] = temp;
   }
 }
 
@@ -530,7 +533,8 @@ inline MatrixT<n, l, T> MatrixT<n, m, T>::operator*(MatrixT<m, l, T> const &othe
   for (int resCol = 0; resCol < l; resCol++) {
     for (int resRow = 0; resRow < n; resRow++) {
       for (int i = 0; i < m; i++) {
-        newVals[resCol * n + resRow] += data[i * n + resRow] * other.data[resCol * m + i];
+        newVals[MATRIX_AT_IJ(n, l, resRow, resCol)] +=
+            data[MATRIX_AT_IJ(n, m, resRow, i)] * other.data[MATRIX_AT_IJ(m, l, i, resCol)];
       }
     }
   }
@@ -541,7 +545,7 @@ template <uint8_t n, uint8_t m, typename T>
 inline bool MatrixT<n, m, T>::operator==(MatrixT<n, m, T> const &other) const {
   for (int row = 0; row < n; row++) {
     for (int col = 0; col < m; col++) {
-      if (abs(data[row * m + col] - other.data[row * m + col]) > EPS)
+      if (abs(data[MATRIX_NM_AT_IJ(row, col)] - other.data[MATRIX_NM_AT_IJ(row, col)]) > EPS)
         return false;
     }
   }
@@ -654,7 +658,7 @@ template <uint8_t n, uint8_t m, typename T> inline MatrixT<m, n, T> MatrixT<n, m
   std::array<T, n * m> newVals;
   for (int row = 0; row < n; row++) {
     for (int col = 0; col < m; col++) {
-      newVals[col * n + row] = data[row * m + col];
+      newVals[MATRIX_AT_IJ(m, n, col, row)] = data[MATRIX_AT_IJ(n, m, row, col)];
     }
   }
   return MatrixT<m, n, T>(newVals);
@@ -664,7 +668,8 @@ template <uint8_t n, uint8_t m, typename T> inline void MatrixT<n, m, T>::Conver
   std::array<T, n * m> transposedData;
   for (int row = 0; row < n; row++) {
     for (int col = 0; col < m; col++) {
-      transposedData[col * n + row] = data[row * m + col]; // values are row-wise but data is column-wise
+      transposedData[MATRIX_AT_IJ(n, m, row, col)] =
+          data[MATRIX_AT_IJ(m, n, col, row)]; // values are row-wise but data is column-wise
     }
   }
   data = transposedData;
