@@ -110,18 +110,40 @@ void VectorTests() {
   TEST_ASSERT_EQUAL(axb, "own", glmaxb, "glm", "Cross product gives incorrect result!")
 }
 
+// TODO: Transpose glm constructor inputs
 void MatrixTests() {
   TEST_SCOPE("matrix")
-  Matrix4 m1{8.96836, 8.39039, 4.75992, 6.66451, 2.10230, 5.83538, 5.49344, 8.18015,
-             1.89949, 7.79529, 0.39212, 3.31983, 4.60040, 6.32591, 0.78537, 4.87304};
+
+  MatrixNM<2, 3> A = MatrixNM<2, 3>(1, 2, 3, 3, 2, 1);
+  Matrix3 B{4, 1, 0, 0, 3, 0, 2, 1, 2};
+
+  MatrixNM<2, 3> C{10, 10, 6, 14, 10, 2};
+  MatrixNM<2, 3> D = A * B;
+  TEST_ASSERT_EQUAL(D, "own", C, "expected", "Matrix multiplication does not give the correct result!")
+
+  Matrix4 M{1, 3, 2, 4, 0, 1, 1, 3, 2, 0, 0, 2, 1, 2, 4, 1};
+  Vector4 x{4, 2, 3, 0};
+  Vector4 y = (M * 2.5f) * (x * 2.5f);
+  Vector4 y_ = Vector4{10, 14, 10, 28} * (2.5f * 2.5f);
+  TEST_ASSERT_EQUAL(y, "own", y_, "expected", "Matrix-vector multiplication does not give the correct result!")
+
+  // GLM has their constructors in column-major order, so we need to transpose the matrix
+  Matrix4 m1 = Matrix4(8.96836, 2.10230, 1.89949, 4.60040, 8.39039, 5.83538, 7.79529, 6.32591, 4.75992, 5.49344,
+                       0.39212, 0.78537, 6.66451, 8.18015, 3.31983, 4.87304);
   glm::mat4 glm1 = glm::mat4(8.96836, 8.39039, 4.75992, 6.66451, 2.10230, 5.83538, 5.49344, 8.18015, 1.89949, 7.79529,
                              0.39212, 3.31983, 4.60040, 6.32591, 0.78537, 4.87304);
   TEST_ASSERT_EQUAL(m1, "own", glm1, "glm", "Matrix representation does not match!")
 
-  Matrix4 m2{8.96836, 8.39039, 4.75992, 6.66451, 2.10230, 5.83538, 5.49344, 8.18015,
-             1.89949, 7.79529, 0.39212, 3.31983, 4.60040, 6.32591, 0.78537, 4.87304};
-  glm::mat4 glm2 = glm::mat4(8.96836, 8.39039, 4.75992, 6.66451, 2.10230, 5.83538, 5.49344, 8.18015, 1.89949, 7.79529,
-                             0.39212, 3.31983, 4.60040, 6.32591, 0.78537, 4.87304);
+  Matrix4 m2{5.03589, 6.78238, 7.17521, 3.66256, 8.01326, 4.52237, 6.94845, 0.59203,
+             5.60207, 2.59969, 7.80068, 7.32192, 0.61612, 5.25223, 6.61894, 3.31925};
+  glm::mat4 glm2 = glm::transpose(glm::mat4(5.03589, 6.78238, 7.17521, 3.66256, 8.01326, 4.52237, 6.94845, 0.59203,
+                                            5.60207, 2.59969, 7.80068, 7.32192, 0.61612, 5.25223, 6.61894, 3.31925));
+
+  Maths::Vector4 v1{9.85868, 1.70382, 6.27017, 6.29855};
+  glm::vec4 glmv1 = glm::vec4(9.85868f, 1.70382f, 6.27017f, 6.29855f);
+  Maths::Vector4 v2 = m1 * v1;
+  glm::vec4 glmv2 = glm1 * glmv1;
+  TEST_ASSERT_EQUAL(v2, "own", glmv2, "glm", "Matrix-vector multiplication does not give the correct result!")
 
   Matrix4 m3 = m1 * m2;
   glm::mat4 glm3 = glm1 * glm2;
@@ -140,8 +162,8 @@ void TransformTests() {
       glm::lookAt(glm::vec3(2.65826, 2.44898, 0.85060), glm::vec3(7.51053, 15.33626, 10.05824), glm::vec3(0, 0, 1));
   TEST_ASSERT_EQUAL(l, "own", glm, "glm", "LookAt matrix is incorrect!")
 
-  auto p = Transformations::Perspective(0.01, 1000.0, 45.0, 16.0 / 9.0);
-  auto glmp = glm::perspective(glm::radians(45.0), 16.0 / 9.0, 0.01, 1000.0);
+  auto p = Transformations::Perspective(0.01f, 1000.0f, 45.0f, 16.0f / 9.0f);
+  auto glmp = glm::perspective(glm::radians(45.0f), 16.0f / 9.0f, 0.01f, 1000.0f);
   glmp[1] *= -1; // OpenGL and Vulkan are of two minds regarding the y axis orientation
   TEST_ASSERT_EQUAL(p, "own", glmp, "glm", "Perspective matrix is incorrect!")
 }

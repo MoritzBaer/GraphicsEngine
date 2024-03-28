@@ -9,6 +9,7 @@ namespace Engine::Util {
 Graphics::Mesh ParseOBJ(char const *charStream);
 
 Core::Entity ParseEntity(char const *&charStream);
+
 std::vector<Core::Entity> ParseEntityArray(char const *&charStream);
 
 std::vector<float> ParseFloatArray(char const *&charStream);

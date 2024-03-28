@@ -1,10 +1,9 @@
 #pragma once
 
 #include "Matrix.h"
-#include "Util/Serializable.h"
 
 namespace Engine::Maths {
-class Quaternion : public Util::Serializable {
+class Quaternion {
 public:
   float w, x, y, z;
   Quaternion(float w, float x, float y, float z) : w(w), x(x), y(y), z(z) {}
@@ -37,7 +36,8 @@ public:
   inline static Quaternion FromEulerAngles(Vector3 const &eulerAngles);
   inline Matrix3 RotationMatrix() const;
 
-  inline void Serialize(std::stringstream &targetStream) const override {
+  // Quaternion must not inherit Serializable because otherwise its pointers would be offset (which is bad with ImGUI)
+  inline void Serialize(std::stringstream &targetStream) const {
     targetStream << "{w: " << w << ", x: " << x << ", y: " << y << ", z: " << z << "}";
   }
 };

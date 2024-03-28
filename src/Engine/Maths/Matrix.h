@@ -1,8 +1,9 @@
 #pragma once
 
-#include "Util/Serializable.h" // TODO: remove
+#include <array>
 #include <cmath>
 #include <initializer_list>
+#include <sstream>
 #include <stdint.h>
 
 #define PI 3.14159265359
@@ -31,18 +32,28 @@ using Vector2 = Vector<2>;
 using Vector3 = Vector<3>;
 using Vector4 = Vector<4>;
 
-// Saved in row form (n x m means m columns, n rows)
+// Saved in column form (n x m means m columns, n rows)
+// TODO: save data column-wise
 template <uint8_t n, uint8_t m, typename T> struct MatrixT {
+private:
+  inline void ConvertToColumnForm();
+  MatrixT(bool rowWise, std::array<T, n * m> const &values) : data(values) {
+    if (rowWise)
+      ConvertToColumnForm();
+  }
+  template <typename... _T, typename std::enable_if<sizeof...(_T) == n * m, int>::type = 0>
+  MatrixT(bool rowWise, _T... values) : data({static_cast<T>(values)...}) {
+    if (rowWise) // TODO: Figure out how to use other constructor
+      ConvertToColumnForm();
+  }
+
 public:
-  MatrixT<n, m, T>(T const values[n * m]) {
-    for (int row = 0; row < n; row++) {
-      for (int col = 0; col < m; col++) {
-        data[row * m + col] = values[row * m + col];
-      }
-    }
-  };
-  MatrixT<n, m, T>(std::initializer_list<T> values);
-  MatrixT<n, m, T>() : data() {}
+  // Public constructors always expect data in row form
+  MatrixT(std::array<T, n * m> const &values) : MatrixT(true, values) {}
+  // Public constructors always expect data in row form
+  template <typename... _T, typename std::enable_if<sizeof...(_T) == n * m, int>::type = 0>
+  MatrixT(_T... values) : MatrixT(true, values...) {}
+  MatrixT() : data() {}
 
   inline bool operator==(MatrixT<n, m, T> const &other) const;
   inline bool operator!=(MatrixT<n, m, T> const &other) const { return !(*this == other); };
@@ -300,7 +311,7 @@ private:
       parent.data[index4] /= value;
     }
     inline operator MatrixT<4, 1, T>() const {
-      return MatrixT<4, 1, T>({parent.data[index1], parent.data[index2], parent.data[index3], parent.data[index4]});
+      return MatrixT<4, 1, T>(parent.data[index1], parent.data[index2], parent.data[index3], parent.data[index4]);
     }
   };
 
@@ -387,7 +398,7 @@ private:
   inline void ColOp(uint8_t col1, uint8_t col2, T factor);
   inline void ColSwap(uint8_t col1, uint8_t col2);
   inline void RowSwap(uint8_t row1, uint8_t row2);
-  T data[n * m];
+  std::array<T, n * m> data;
 
   // Needed for access of private members of other instance in matrix multiplication
   template <uint8_t n, uint8_t l, typename T> friend class MatrixT;
@@ -453,7 +464,7 @@ template <uint8_t n, uint8_t m, typename T>
 inline MatrixT<n, n, T> MatrixT<n, m, T>::Identity()
   requires(m == n)
 {
-  T values[n * n] = {0};
+  std::array<T, n * m> values = {0};
   for (int diag = 0; diag < n; diag++) {
     values[diag * n + diag] = 1;
   }
@@ -512,33 +523,18 @@ template <uint8_t n, uint8_t m, typename T> inline void MatrixT<n, m, T>::RowSwa
   }
 }
 
-template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T>::MatrixT(std::initializer_list<T> values) {
-  int size = values.size();
-  if (n * m < size)
-    size = n * m;
-  auto arg = values.begin();
-  for (int i = 0; i < size; i++) {
-    this->data[i] = *arg;
-    arg++;
-  }
-  for (int i = size; i < n * m; i++) {
-    this->data[i] = 0;
-  }
-}
-
 template <uint8_t n, uint8_t m, typename T>
 template <uint8_t l>
 inline MatrixT<n, l, T> MatrixT<n, m, T>::operator*(MatrixT<m, l, T> const &other) const {
-  T newVals[n * l];
-  for (int resRow = 0; resRow < n; resRow++) {
-    for (int resCol = 0; resCol < l; resCol++) {
-      newVals[resRow * l + resCol] = 0;
+  std::array<T, n * l> newVals{};
+  for (int resCol = 0; resCol < l; resCol++) {
+    for (int resRow = 0; resRow < n; resRow++) {
       for (int i = 0; i < m; i++) {
-        newVals[resRow * l + resCol] += data[resRow * m + i] * other.data[i * l + resCol];
+        newVals[resCol * n + resRow] += data[i * n + resRow] * other.data[resCol * m + i];
       }
     }
   }
-  return MatrixT<n, l, T>(newVals);
+  return MatrixT<n, l, T>(false, newVals);
 }
 
 template <uint8_t n, uint8_t m, typename T>
@@ -554,7 +550,7 @@ inline bool MatrixT<n, m, T>::operator==(MatrixT<n, m, T> const &other) const {
 
 template <uint8_t n, uint8_t m, typename T>
 inline MatrixT<n, m, T> MatrixT<n, m, T>::operator+(MatrixT<n, m, T> const &other) const {
-  T newVals[n * m];
+  std::array<T, n * m> newVals;
   for (int i = 0; i < n * m; i++) {
     newVals[i] = data[i] + other[i];
   }
@@ -563,7 +559,7 @@ inline MatrixT<n, m, T> MatrixT<n, m, T>::operator+(MatrixT<n, m, T> const &othe
 
 template <uint8_t n, uint8_t m, typename T>
 inline MatrixT<n, m, T> MatrixT<n, m, T>::operator-(MatrixT<n, m, T> const &other) const {
-  T newVals[n * m];
+  std::array<T, n * m> newVals;
   for (int i = 0; i < n * m; i++) {
     newVals[i] = data[i] - other[i];
   }
@@ -571,7 +567,7 @@ inline MatrixT<n, m, T> MatrixT<n, m, T>::operator-(MatrixT<n, m, T> const &othe
 }
 
 template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> MatrixT<n, m, T>::operator+(T value) const {
-  T newVals[n * m];
+  std::array<T, n * m> newVals;
   for (int i = 0; i < n * m; i++) {
     newVals[i] = data[i] + value;
   }
@@ -579,7 +575,7 @@ template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> MatrixT<n, m
 }
 
 template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> MatrixT<n, m, T>::operator-(T value) const {
-  T newVals[n * m];
+  std::array<T, n * m> newVals;
   for (int i = 0; i < n * m; i++) {
     newVals[i] = data[i] - value;
   }
@@ -639,7 +635,7 @@ template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> &MatrixT<n, 
 }
 
 template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> MatrixT<n, m, T>::operator*(T value) const {
-  T newVals[n * m];
+  std::array<T, n * m> newVals;
   for (int i = 0; i < n * m; i++) {
     newVals[i] = data[i] * value;
   }
@@ -647,7 +643,7 @@ template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> MatrixT<n, m
 }
 
 template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> MatrixT<n, m, T>::operator/(T value) const {
-  T newVals[n * m];
+  std::array<T, n * m> newVals;
   for (int i = 0; i < n * m; i++) {
     newVals[i] = data[i] / value;
   }
@@ -655,13 +651,23 @@ template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> MatrixT<n, m
 }
 
 template <uint8_t n, uint8_t m, typename T> inline MatrixT<m, n, T> MatrixT<n, m, T>::Transposed() const {
-  T newVals[m * n];
+  std::array<T, n * m> newVals;
   for (int row = 0; row < n; row++) {
     for (int col = 0; col < m; col++) {
       newVals[col * n + row] = data[row * m + col];
     }
   }
   return MatrixT<m, n, T>(newVals);
+}
+
+template <uint8_t n, uint8_t m, typename T> inline void MatrixT<n, m, T>::ConvertToColumnForm() {
+  std::array<T, n * m> transposedData;
+  for (int row = 0; row < n; row++) {
+    for (int col = 0; col < m; col++) {
+      transposedData[col * n + row] = data[row * m + col]; // values are row-wise but data is column-wise
+    }
+  }
+  data = transposedData;
 }
 
 } // namespace Engine::Maths

@@ -235,6 +235,11 @@ Graphics::Mesh AssetManager::LoadMeshFromOBJ(char const *meshName) {
   _RETURN_ASSET(meshName, loadedMeshes, Util::ParseOBJ(meshData.data()))
 }
 
+Graphics::AllocatedMesh *AssetManager::LoadMesh(char const *meshName) {
+  Graphics::Mesh mesh = LoadMeshFromOBJ(meshName);
+  return new Graphics::AllocatedMeshT(mesh); // TODO: Decide if it would be better to store this in a map as well
+}
+
 Graphics::Pipeline *ParsePipeline(char const *pipelineData) {
   // Dummy implementation // TODO: implement properly
   Graphics::Shader vertexShader = AssetManager::LoadShader("coloured_triangle_mesh.vert", Graphics::ShaderType::VERTEX);
@@ -276,7 +281,10 @@ Graphics::Material *AssetManager::LoadMaterial(char const *materialName) {
   // auto materialData = Util::FileIO::ReadFile(filePath);
   char const *materialData = "dummy";
   //_INSERT_ASSET_IF_NEW(materialName, loadedMaterials, ParseMAT(materialData.data()))
-  _INSERT_ASSET_IF_NEW(materialName, loadedMaterials, ParseMAT(materialData))
+  bool isNew = instance->loadedMaterials.find(materialName) == instance->loadedMaterials.end();
+  if (isNew) {
+    instance->loadedMaterials.insert({materialName, ParseMAT(materialData)});
+  }
   Graphics::Material const *loadedMaterial = instance->loadedMaterials[materialName];
   return new Graphics::TestMaterial(loadedMaterial);
 }
@@ -291,16 +299,13 @@ Graphics::Pipeline const *AssetManager::LoadPipeline(char const *pipelineName) {
 }
 
 Core::Entity AssetManager::LoadPrefab(char const *prefabName) {
-  // TODO: Read prefab json to get all properties
-  Core::Entity prefab = ENGINE_NEW_ENTITY();
-  prefab.AddComponent<Graphics::Transform>()->scale = Vector3{0.5, 0.5, 1};
-  prefab.AddComponent<Graphics::MeshRenderer>()->SetMesh(LoadMeshFromOBJ(prefabName));
-  prefab.GetComponent<Graphics::MeshRenderer>()->material = LoadMaterial(prefabName);
-  prefab.AddComponent<Editor::Display>()->label = "monke";
+  MAKE_FILE_PATH(prefabName, PREFAB_PATH);
 
+  auto prefabData = Util::FileIO::ReadFile(filePath);
+  const char *dataString = prefabData.data();
+  auto e = Util::ParseEntity(dataString);
   Core::SceneHierarchy::BuildHierarchy();
-
-  return prefab;
+  return e;
 }
 
 } // namespace Engine
