@@ -52,7 +52,14 @@ class Renderer {
 
   Maths::Dimension2 windowDimension;
   bool renderBufferInitialized;
-  Image<2> renderBuffer;
+  struct : public Destroyable {
+    Image<2> colourImage;
+    Image<2> depthImage;
+    inline void Destroy() const {
+      colourImage.Destroy();
+      depthImage.Destroy();
+    }
+  } renderBuffer;
   DescriptorAllocator descriptorAllocator;
   VkDescriptorSet renderBufferDescriptors;
   VkDescriptorSetLayout renderBufferDescriptorLayout;

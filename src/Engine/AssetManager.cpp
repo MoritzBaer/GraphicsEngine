@@ -62,6 +62,8 @@ public:
   inline PipelineBuilder &SetColourAttachmentFormat(VkFormat const &format);
   inline PipelineBuilder &SetDepthFormat(VkFormat const &format);
   inline PipelineBuilder &DisableDepthTest();
+  inline PipelineBuilder &DisableDepthWriting();
+  inline PipelineBuilder &SetDepthCompareOperation(VkCompareOp const &compareOp);
 
   VkPipeline BuildPipeline() const;
   void BuildPipeline(VkPipeline *pipeline) const;
@@ -153,6 +155,16 @@ inline PipelineBuilder &PipelineBuilder::DisableDepthTest() {
   depthStencil.depthCompareOp = VK_COMPARE_OP_NEVER;
   depthStencil.depthBoundsTestEnable = VK_FALSE;
   depthStencil.stencilTestEnable = VK_FALSE;
+  return *this;
+}
+
+inline PipelineBuilder &PipelineBuilder::DisableDepthWriting() {
+  depthStencil.depthWriteEnable = VK_FALSE;
+  return *this;
+}
+
+inline PipelineBuilder &PipelineBuilder::SetDepthCompareOperation(VkCompareOp const &compareOp) {
+  depthStencil.depthCompareOp = compareOp;
   return *this;
 }
 
@@ -264,8 +276,8 @@ Graphics::Pipeline *ParsePipeline(char const *pipelineData) {
                             .SetInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
                             .SetPolygonMode(VK_POLYGON_MODE_FILL)
                             .SetColourAttachmentFormat(VK_FORMAT_R16G16B16A16_SFLOAT)
-                            .SetDepthFormat(VK_FORMAT_UNDEFINED)
-                            .DisableDepthTest()
+                            .SetDepthFormat(VK_FORMAT_D32_SFLOAT)
+                            .SetDepthCompareOperation(VK_COMPARE_OP_LESS_OR_EQUAL)
                             .BuildPipeline();
 
   return new Graphics::Pipeline(layout, pipeline);

@@ -72,6 +72,10 @@ void Engine::RunMainLoop() {
     Time::Update();
     if (render) {
       auto renderersWithTransforms = Core::ECS::FilterEntities<Graphics::MeshRenderer, Graphics::Transform>();
+      for (auto const &[_, transform] : renderersWithTransforms) {
+        transform->rotation = Maths::Transformations::RotateAroundAxis(Maths::Vector3(0, 1, 0), Time::time * 0.2f);
+        transform->position.y() = std::sin(Time::time) * 0.1f;
+      }
       std::vector<Graphics::MeshRenderer const *> meshRenderers(renderersWithTransforms.size());
       std::transform(renderersWithTransforms.begin(), renderersWithTransforms.end(), meshRenderers.begin(),
                      [](auto const &t) { return std::get<0>(t); });
