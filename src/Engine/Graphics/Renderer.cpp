@@ -361,27 +361,27 @@ void Renderer::ImmediateSubmit(Command *command) {
 }
 
 void Renderer::GetImGUISection() {
-  if (ImGui::Begin("Background effects")) {
-    if (ImGui::BeginCombo("Choose an effect", backgroundEffects[currentBackgroundEffect].name.c_str())) {
-      for (int i = 0; i < backgroundEffects.size(); i++) {
-        bool isSelected = currentBackgroundEffect == i;
-        if (ImGui::Selectable(backgroundEffects[i].name.c_str(), isSelected)) {
-          currentBackgroundEffect = i;
-        }
-        if (isSelected) {
-          ImGui::SetItemDefaultFocus();
-        }
+  ImGui::BeginGroup();
+  ImGui::Text("Background effects");
+  if (ImGui::BeginCombo("Choose an effect", backgroundEffects[currentBackgroundEffect].name.c_str())) {
+    for (int i = 0; i < backgroundEffects.size(); i++) {
+      bool isSelected = currentBackgroundEffect == i;
+      if (ImGui::Selectable(backgroundEffects[i].name.c_str(), isSelected)) {
+        currentBackgroundEffect = i;
       }
-
-      ImGui::EndCombo();
+      if (isSelected) {
+        ImGui::SetItemDefaultFocus();
+      }
     }
-    ImGui::InputFloat4("data1", (float *)&backgroundEffects[currentBackgroundEffect].constants.data1);
-    ImGui::InputFloat4("data2", (float *)&backgroundEffects[currentBackgroundEffect].constants.data2);
-    ImGui::InputFloat4("data3", (float *)&backgroundEffects[currentBackgroundEffect].constants.data3);
-    ImGui::InputFloat4("data4", (float *)&backgroundEffects[currentBackgroundEffect].constants.data4);
 
-    ImGui::End();
+    ImGui::EndCombo();
   }
+  ImGui::InputFloat4("data1", (float *)&backgroundEffects[currentBackgroundEffect].constants.data1);
+  ImGui::InputFloat4("data2", (float *)&backgroundEffects[currentBackgroundEffect].constants.data2);
+  ImGui::InputFloat4("data3", (float *)&backgroundEffects[currentBackgroundEffect].constants.data3);
+  ImGui::InputFloat4("data4", (float *)&backgroundEffects[currentBackgroundEffect].constants.data4);
+
+  ImGui::EndGroup();
 }
 
 void Renderer::FrameResources::Create() {

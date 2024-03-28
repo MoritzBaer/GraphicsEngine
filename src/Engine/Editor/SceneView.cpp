@@ -25,19 +25,20 @@ void DrawNode(Core::SceneHierarchy::TreeNode const &node) {
 
 void SceneView::Draw() const {
   int entity = 0;
-  ImGui::Begin("Scene");
+  if (ImGui::Begin("Scene")) {
 
-  for (auto const &node : Core::SceneHierarchy::RootEntities) {
-    if (entity == 1) {
-      for (auto ed : entityDetailViews) {
-        ed->SetEntity(node.entity);
+    for (auto const &node : Core::SceneHierarchy::RootEntities) {
+      if (entity == 1) {
+        for (auto ed : entityDetailViews) {
+          ed->SetEntity(node.entity);
+        }
       }
+      entity++;
+      DrawNode(node);
     }
-    entity++;
-    DrawNode(node);
-  }
 
-  ImGui::End();
+    ImGui::End();
+  }
 }
 
 } // namespace Engine::Editor

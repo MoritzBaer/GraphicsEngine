@@ -98,9 +98,8 @@ void ImGUIManager::BeginFrame() {
   ImGui::NewFrame();
 
   if (ImGui::Begin("Debug GUI")) {
-    Renderer::GetImGUISection();
     ImGui::Text("FPS: %.1f", 1.0f / Time::deltaTime);
-
+    Renderer::GetImGUISection();
     ImGui::End();
   }
 
