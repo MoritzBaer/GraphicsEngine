@@ -113,8 +113,9 @@ void ImGUIManager::BeginFrame() {
 void ImGUIManager::RegisterView(ImGUIView const *view) { instance->views.push_back(view); }
 
 void ImGUIManager::ImGUIDrawCommand::QueueExecution(VkCommandBuffer const &queue) const {
-  VkRenderingAttachmentInfo colourAttachment = vkinit::ColourAttachmentInfo(targetView);
-  VkRenderingInfo renderInfo = vkinit::RenderingInfo(colourAttachment, targetExtent);
+  auto colourInfo = targetImage.BindAsColourAttachment();
+  VkExtent2D extent = {targetImage.GetExtent().x(), targetImage.GetExtent().y()};
+  VkRenderingInfo renderInfo = vkinit::RenderingInfo(colourInfo, extent);
 
   vkCmdBeginRendering(queue, &renderInfo);
 

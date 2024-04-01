@@ -321,6 +321,10 @@ private:
 public:
   inline Row operator[](uint8_t row) { return Row(*this, row); };
 
+  // TODO: Allow value retrieval on const vectors?
+  inline T x() const { return data[X]; }
+  inline T y() const { return data[Y]; }
+  inline T z() const { return data[Z]; }
   Entry x()
     requires(m == 1)
   {
@@ -337,27 +341,6 @@ public:
     return Entry(*this, Z);
   }
   Entry w()
-    requires(m == 1 && n >= 4)
-  {
-    return Entry(*this, W);
-  }
-
-  const Entry &x() const
-    requires(m == 1)
-  {
-    return Entry(*this, X);
-  }
-  const Entry &y() const
-    requires(m == 1 && n >= 2)
-  {
-    return Entry(*this, Y);
-  }
-  const Entry &z() const
-    requires(m == 1 && n >= 3)
-  {
-    return Entry(*this, Z);
-  }
-  const Entry &w() const
     requires(m == 1 && n >= 4)
   {
     return Entry(*this, W);

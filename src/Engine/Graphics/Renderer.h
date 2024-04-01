@@ -45,16 +45,15 @@ class Renderer {
   VkSwapchainKHR swapchain;
   VkFormat swapchainFormat;
   VkExtent2D swapchainExtent;
-  std::vector<VkImage> swapchainImages;
-  std::vector<VkImageView> swapchainImageViews;
+  std::vector<Image<2>> swapchainImages;
   std::array<FrameResources, MAX_FRAME_OVERLAP> frameResources;
   uint32_t currentFrame = 0;
 
   Maths::Dimension2 windowDimension;
   bool renderBufferInitialized;
   struct : public Destroyable {
-    Image<2> colourImage;
-    Image<2> depthImage;
+    AllocatedImage<2> colourImage;
+    AllocatedImage<2> depthImage;
     inline void Destroy() const {
       colourImage.Destroy();
       depthImage.Destroy();
@@ -69,7 +68,7 @@ class Renderer {
   void InitPipelines();
   void InitBackgroundPipeline();
 
-  void Draw(Camera const *camera, std::span<MeshRenderer const *> const &objectsToDraw) const;
+  void Draw(Camera const *camera, std::span<MeshRenderer const *> const &objectsToDraw);
   void RecreateRenderBuffer();
 
   inline FrameResources const &CurrentResources() const { return frameResources[currentFrame % MAX_FRAME_OVERLAP]; }
@@ -78,8 +77,6 @@ public:
   // Signature is likely to change (for example a list of render objects will have to be passed somehow)
   static inline void DrawFrame(Camera const *camera, std::span<MeshRenderer const *> const &objectsToDraw) {
     instance->Draw(camera, objectsToDraw);
-    instance->frameResources[instance->currentFrame % MAX_FRAME_OVERLAP].deletionQueue.Flush();
-    instance->currentFrame++;
   }
 
   static inline void SetWindowSize(Maths::Dimension2 newSize) {
