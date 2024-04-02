@@ -63,20 +63,24 @@ public:
 
   inline MatrixT<n, m, T> operator+(MatrixT<n, m, T> const &other) const;
   inline MatrixT<n, m, T> operator-(MatrixT<n, m, T> const &other) const;
-  inline MatrixT<n, m, T> operator+(T value) const;
-  inline MatrixT<n, m, T> operator-(T value) const;
-  inline friend MatrixT<n, m, T> operator+(T value, MatrixT<n, m, T> const &matrix) { return matrix + value; }
+  template <typename T2> inline MatrixT<n, m, T> operator+(T2 const &value) const;
+  template <typename T2> inline MatrixT<n, m, T> operator-(T2 const &value) const;
+  template <typename T2> inline friend MatrixT<n, m, T> operator+(T2 const &value, MatrixT<n, m, T> const &matrix) {
+    return matrix + value;
+  }
   inline MatrixT<n, m, T> &operator+=(MatrixT<n, m, T> const &other);
-  inline MatrixT<n, m, T> &operator+=(T value);
+  template <typename T2> inline MatrixT<n, m, T> &operator+=(T2 const &value);
   inline MatrixT<n, m, T> &operator-=(MatrixT<n, m, T> const &other);
-  inline MatrixT<n, m, T> &operator-=(T value);
+  template <typename T2> inline MatrixT<n, m, T> &operator-=(T2 const &value);
   template <uint8_t l> inline MatrixT<n, l, T> operator*(MatrixT<m, l, T> const &other) const;
-  inline MatrixT<n, m, T> operator*(T value) const;
-  inline MatrixT<n, m, T> operator/(T value) const;
-  inline friend MatrixT<n, m, T> operator*(T value, MatrixT<n, m, T> const &matrix) { return matrix * value; }
+  template <typename T2> inline MatrixT<n, m, T> operator*(T2 const &value) const;
+  template <typename T2> inline MatrixT<n, m, T> operator/(T2 const &value) const;
+  template <typename T2> inline friend MatrixT<n, m, T> operator*(T2 const &value, MatrixT<n, m, T> const &matrix) {
+    return matrix * value;
+  }
   inline MatrixT<n, m, T> &operator*=(MatrixT<n, m, T> const &other);
-  inline MatrixT<n, m, T> &operator*=(T value);
-  inline MatrixT<n, m, T> &operator/=(T value);
+  template <typename T2> inline MatrixT<n, m, T> &operator*=(T2 const &value);
+  template <typename T2> inline MatrixT<n, m, T> &operator/=(T2 const &value);
   inline MatrixT<m, n, T> Transposed() const;
   inline MatrixT<n, n, T> Inverse() const
     requires(m == n)
@@ -162,16 +166,16 @@ private:
 
   public:
     Entry(MatrixT<n, 1, T> &v, uint8_t i) : parent(v), index(i) {}
-    inline T &operator=(T value) { return parent.data[index] = value; }
-    inline T &operator+=(T value) { return parent.data[index] += value; }
-    inline T &operator-=(T value) { return parent.data[index] -= value; }
-    inline T &operator*=(T value) { return parent.data[index] *= value; }
-    inline T &operator/=(T value) { return parent.data[index] /= value; }
+    inline T &operator=(T const &value) { return parent.data[index] = value; }
+    template <typename T2> inline T &operator+=(T2 const &value) { return parent.data[index] += value; }
+    template <typename T2> inline T &operator-=(T2 const &value) { return parent.data[index] -= value; }
+    template <typename T2> inline T &operator*=(T2 const &value) { return parent.data[index] *= value; }
+    template <typename T2> inline T &operator/=(T2 const &value) { return parent.data[index] /= value; }
     inline operator T() const { return parent.data[index]; }
-    inline T operator+(T value) const { return parent.data[index] + value; }
-    inline T operator-(T value) const { return parent.data[index] - value; }
-    inline T operator*(T value) const { return parent.data[index] * value; }
-    inline T operator/(T value) const { return parent.data[index] / value; }
+    template <typename T2> inline T operator+(T2 const &value) const { return parent.data[index] + value; }
+    template <typename T2> inline T operator-(T2 const &value) const { return parent.data[index] - value; }
+    template <typename T2> inline T operator*(T2 const &value) const { return parent.data[index] * value; }
+    template <typename T2> inline T operator/(T2 const &value) const { return parent.data[index] / value; }
   };
 
   class EntryPair {
@@ -189,7 +193,7 @@ private:
       parent.data[index1] += values[X];
       parent.data[index2] += values[Y];
     }
-    inline void operator+=(T value) {
+    template <typename T2> inline void operator+=(T2 const &value) {
       parent.data[index1] += value;
       parent.data[index2] += value;
     }
@@ -197,15 +201,15 @@ private:
       parent.data[index1] -= values[X];
       parent.data[index2] -= values[Y];
     }
-    inline void operator-=(T value) {
+    template <typename T2> inline void operator-=(T2 const &value) {
       parent.data[index1] += value;
       parent.data[index2] -= value;
     }
-    inline void operator*=(T value) {
+    template <typename T2> inline void operator*=(T2 const &value) {
       parent.data[index1] *= value;
       parent.data[index2] *= value;
     }
-    inline void operator/=(T value) {
+    template <typename T2> inline void operator/=(T2 const &value) {
       parent.data[index1] /= value;
       parent.data[index2] /= value;
     }
@@ -231,7 +235,7 @@ private:
       parent.data[index2] += values[Y];
       parent.data[index3] += values[Z];
     }
-    inline void operator+=(T value) {
+    template <typename T2> inline void operator+=(T2 const &value) {
       parent.data[index1] += value;
       parent.data[index2] += value;
       parent.data[index3] += value;
@@ -241,17 +245,17 @@ private:
       parent.data[index2] -= values[Y];
       parent.data[index3] -= values[Z];
     }
-    inline void operator-=(T value) {
+    template <typename T2> inline void operator-=(T2 const &value) {
       parent.data[index1] += value;
       parent.data[index2] -= value;
       parent.data[index3] -= value;
     }
-    inline void operator*=(T value) {
+    template <typename T2> inline void operator*=(T2 const &value) {
       parent.data[index1] *= value;
       parent.data[index2] *= value;
       parent.data[index3] *= value;
     }
-    inline void operator/=(T value) {
+    template <typename T2> inline void operator/=(T2 const &value) {
       parent.data[index1] /= value;
       parent.data[index2] /= value;
       parent.data[index3] /= value;
@@ -283,7 +287,7 @@ private:
       parent.data[index3] += values[Z];
       parent.data[index4] += values[W];
     }
-    inline void operator+=(T value) {
+    template <typename T2> inline void operator+=(T2 const &value) {
       parent.data[index1] += value;
       parent.data[index2] += value;
       parent.data[index3] += value;
@@ -295,19 +299,19 @@ private:
       parent.data[index3] -= values[Z];
       parent.data[index4] -= values[W];
     }
-    inline void operator-=(T value) {
+    template <typename T2> inline void operator-=(T2 const &value) {
       parent.data[index1] += value;
       parent.data[index2] -= value;
       parent.data[index3] -= value;
       parent.data[index4] -= value;
     }
-    inline void operator*=(T value) {
+    template <typename T2> inline void operator*=(T2 const &value) {
       parent.data[index1] *= value;
       parent.data[index2] *= value;
       parent.data[index3] *= value;
       parent.data[index4] *= value;
     }
-    inline void operator/=(T value) {
+    template <typename T2> inline void operator/=(T2 const &value) {
       parent.data[index1] /= value;
       parent.data[index2] /= value;
       parent.data[index3] /= value;
@@ -553,7 +557,9 @@ inline MatrixT<n, m, T> MatrixT<n, m, T>::operator-(MatrixT<n, m, T> const &othe
   return MatrixT<n, m, T>(newVals);
 }
 
-template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> MatrixT<n, m, T>::operator+(T value) const {
+template <uint8_t n, uint8_t m, typename T>
+template <typename T2>
+inline MatrixT<n, m, T> MatrixT<n, m, T>::operator+(T2 const &value) const {
   std::array<T, n * m> newVals;
   for (int i = 0; i < n * m; i++) {
     newVals[i] = data[i] + value;
@@ -561,7 +567,9 @@ template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> MatrixT<n, m
   return MatrixT<n, m, T>(newVals);
 }
 
-template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> MatrixT<n, m, T>::operator-(T value) const {
+template <uint8_t n, uint8_t m, typename T>
+template <typename T2>
+inline MatrixT<n, m, T> MatrixT<n, m, T>::operator-(T2 const &value) const {
   std::array<T, n * m> newVals;
   for (int i = 0; i < n * m; i++) {
     newVals[i] = data[i] - value;
@@ -577,7 +585,9 @@ inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator+=(MatrixT<n, m, T> const &ot
   return *this;
 }
 
-template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator+=(T value) {
+template <uint8_t n, uint8_t m, typename T>
+template <typename T2>
+inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator+=(T2 const &value) {
   for (int i = 0; i < n * m; i++) {
     data[i] += value;
   }
@@ -592,7 +602,9 @@ inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator-=(MatrixT<n, m, T> const &ot
   return *this;
 }
 
-template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator-=(T value) {
+template <uint8_t n, uint8_t m, typename T>
+template <typename T2>
+inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator-=(T2 const &value) {
   for (int i = 0; i < n * m; i++) {
     data[i] -= value;
   }
@@ -607,21 +619,27 @@ inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator*=(MatrixT<n, m, T> const &ot
   return *this;
 }
 
-template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator*=(T value) {
+template <uint8_t n, uint8_t m, typename T>
+template <typename T2>
+inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator*=(T2 const &value) {
   for (int i = 0; i < n * m; i++) {
     data[i] *= value;
   }
   return *this;
 }
 
-template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator/=(T value) {
+template <uint8_t n, uint8_t m, typename T>
+template <typename T2>
+inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator/=(T2 const &value) {
   for (int i = 0; i < n * m; i++) {
     data[i] /= value;
   }
   return *this;
 }
 
-template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> MatrixT<n, m, T>::operator*(T value) const {
+template <uint8_t n, uint8_t m, typename T>
+template <typename T2>
+inline MatrixT<n, m, T> MatrixT<n, m, T>::operator*(T2 const &value) const {
   std::array<T, n * m> newVals;
   for (int i = 0; i < n * m; i++) {
     newVals[i] = data[i] * value;
@@ -629,7 +647,9 @@ template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> MatrixT<n, m
   return MatrixT<n, m, T>(newVals);
 }
 
-template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> MatrixT<n, m, T>::operator/(T value) const {
+template <uint8_t n, uint8_t m, typename T>
+template <typename T2>
+inline MatrixT<n, m, T> MatrixT<n, m, T>::operator/(T2 const &value) const {
   std::array<T, n * m> newVals;
   for (int i = 0; i < n * m; i++) {
     newVals[i] = data[i] / value;

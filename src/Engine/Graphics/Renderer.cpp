@@ -108,7 +108,10 @@ void Renderer::Init(Maths::Dimension2 windowSize) {
   InstanceManager::GetGraphicsQueue(&instance->graphicsQueue);
   InstanceManager::GetPresentQueue(&instance->presentQueue);
   instance->windowDimension = windowSize;
+  instance->renderBufferInitialized = false;
   instance->CreateSwapchain();
+  instance->RecreateRenderBuffer();
+  mainDeletionQueue.Push(&instance->renderBuffer);
   for (int i = 0; i < MAX_FRAME_OVERLAP; i++) {
     mainDeletionQueue.Push(&instance->frameResources[i]);
   }
@@ -125,13 +128,10 @@ Renderer::~Renderer() {
     InstanceManager::DestroyPipeline(effect.pipeline);
   }
   InstanceManager::DestroyPipelineLayout(backgroundEffects[0].pipelineLayout);
+  DestroySwapchain();
   descriptorAllocator.ClearDescriptors();
   descriptorAllocator.DestroyPool();
   InstanceManager::DestroyDescriptorSetLayout(renderBufferDescriptorLayout);
-  for (auto image : swapchainImages) {
-    image.Destroy();
-  }
-  InstanceManager::DestroySwapchain(swapchain);
 }
 
 VkSurfaceFormatKHR ChooseSwapchainSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats) {
@@ -169,7 +169,6 @@ VkExtent2D ChooseSwapchainExtent(const VkSurfaceCapabilitiesKHR &capabilities, M
 
 void Renderer::CreateSwapchain() {
   PROFILE_FUNCTION()
-  renderBufferInitialized = false;
 
   SwapchainSupportDetails details = InstanceManager::GetSwapchainSupport();
 
@@ -194,9 +193,13 @@ void Renderer::CreateSwapchain() {
     swapchainImages[i].Create(scImgs[i], {.width = extent.width, .height = extent.height, .depth = 1},
                               surfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, VK_SAMPLE_COUNT_1_BIT);
   }
+}
 
-  RecreateRenderBuffer();
-  mainDeletionQueue.Push(&renderBuffer);
+void Renderer::DestroySwapchain() {
+  for (auto image : swapchainImages) {
+    image.Destroy();
+  }
+  InstanceManager::DestroySwapchain(swapchain);
 }
 
 void Renderer::Draw(Camera const *camera, std::span<MeshRenderer const *> const &objectsToDraw) {
@@ -209,8 +212,14 @@ void Renderer::Draw(Camera const *camera, std::span<MeshRenderer const *> const 
     InstanceManager::WaitForFences(&frameResources[resourceIndex].renderFence);
     InstanceManager::ResetFences(&frameResources[resourceIndex].renderFence);
   }
-  uint32_t swapchainImageIndex =
-      InstanceManager::GetNextSwapchainImageIndex(swapchain, frameResources[resourceIndex].swapchainSemaphore);
+  VkResult swapchainImageAcqusitionResult;
+  uint32_t swapchainImageIndex = InstanceManager::GetNextSwapchainImageIndex(
+      swapchainImageAcqusitionResult, swapchain, frameResources[resourceIndex].swapchainSemaphore);
+  if (swapchainImageAcqusitionResult == VK_ERROR_OUT_OF_DATE_KHR ||
+      swapchainImageAcqusitionResult == VK_SUBOPTIMAL_KHR) {
+    RecreateSwapchain();
+    return;
+  }
   {
     PROFILE_SCOPE("Generate commands")
 
@@ -224,7 +233,12 @@ void Renderer::Draw(Camera const *camera, std::span<MeshRenderer const *> const 
     auto transitionBufferToRenderTarget = renderBuffer.colourImage.Transition(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     auto transitionBufferToDepthStencil =
         renderBuffer.depthImage.Transition(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-    auto drawMeshes = MultimeshDrawCommand(renderBuffer.colourImage, renderBuffer.depthImage, windowDimension,
+
+    Dimension2 scaledDrawDimension = Dimension2(std::min(windowDimension.x(), renderBufferDimension.x()),
+                                                std::min(windowDimension.y(), renderBufferDimension.y())) *
+                                     renderScale;
+
+    auto drawMeshes = MultimeshDrawCommand(renderBuffer.colourImage, renderBuffer.depthImage, scaledDrawDimension,
                                            camera->viewProjection, objectsToDraw);
 
     // Commands for copying render to swapchain
@@ -380,6 +394,8 @@ void Renderer::GetImGUISection() {
   ImGui::InputFloat4("data2", (float *)&backgroundEffects[currentBackgroundEffect].constants.data2);
   ImGui::InputFloat4("data3", (float *)&backgroundEffects[currentBackgroundEffect].constants.data3);
   ImGui::InputFloat4("data4", (float *)&backgroundEffects[currentBackgroundEffect].constants.data4);
+
+  ImGui::SliderFloat("Render scale", &instance->renderScale, 0.1f, 1.0f, "%.3f");
 
   ImGui::EndGroup();
 }

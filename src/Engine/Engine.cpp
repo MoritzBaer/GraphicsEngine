@@ -53,6 +53,7 @@ void Engine::Init(const char *applicationName) {
     mainWindow->SetCloseCallback([]() { Quit(); });
     mainWindow->SetMinimizeCallback([]() { render = false; });
     mainWindow->SetRestoreCallback([]() { render = true; });
+    mainWindow->SetResizeCallback(Graphics::Renderer::SetWindowSize);
 
     EventManager::Init();
     Graphics::InstanceManager::Init(applicationName, mainWindow);

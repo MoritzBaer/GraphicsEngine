@@ -29,6 +29,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityF
   switch (messageSeverity) {
   case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
     Debug::Logging::PrintError("Validation", pCallbackData->pMessage);
+    __debugbreak();
     break;
   case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
     Debug::Logging::PrintWarning("Validation", pCallbackData->pMessage);
@@ -516,12 +517,19 @@ void InstanceManager::WaitForFences(VkFence const *fences, uint32_t fenceCount, 
 void InstanceManager::ResetFences(VkFence const *fences, uint32_t fenceCount){
     VULKAN_ASSERT(vkResetFences(instance->graphicsHandler, fenceCount, fences), "Failed to reset fences!")}
 
-uint32_t InstanceManager::GetNextSwapchainImageIndex(VkSwapchainKHR const &swapchain, VkSemaphore const &semaphore,
-                                                     VkFence const &fence, uint32_t timeout) {
+uint32_t InstanceManager::GetNextSwapchainImageIndex(VkResult &acquisitionResult, VkSwapchainKHR const &swapchain,
+                                                     VkSemaphore const &semaphore, VkFence const &fence,
+                                                     uint32_t timeout) {
   PROFILE_FUNCTION()
   uint32_t index;
-  VULKAN_ASSERT(vkAcquireNextImageKHR(instance->graphicsHandler, swapchain, timeout, semaphore, fence, &index),
-                "Failed to acquire swapchain image!");
+  acquisitionResult = vkAcquireNextImageKHR(instance->graphicsHandler, swapchain, timeout, semaphore, fence, &index);
+  if (acquisitionResult == VK_ERROR_OUT_OF_DATE_KHR) {
+    ENGINE_WARNING("Swapchain is out of date!")
+  } else if (acquisitionResult == VK_SUBOPTIMAL_KHR) {
+    ENGINE_WARNING("Swapchain is suboptimal!")
+  } else if (acquisitionResult != VK_SUCCESS) {
+    ENGINE_ERROR("Failed to acquire swapchain image!")
+  }
   return index;
 }
 

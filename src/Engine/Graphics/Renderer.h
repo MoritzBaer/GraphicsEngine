@@ -59,11 +59,14 @@ class Renderer {
       depthImage.Destroy();
     }
   } renderBuffer;
+  Maths::Dimension2 renderBufferDimension{1600, 900};
+  float renderScale = 1.0f;
   DescriptorAllocator descriptorAllocator;
   VkDescriptorSet renderBufferDescriptors;
   VkDescriptorSetLayout renderBufferDescriptorLayout;
 
   void CreateSwapchain();
+  void DestroySwapchain();
   void InitDescriptors();
   void InitPipelines();
   void InitBackgroundPipeline();
@@ -79,9 +82,15 @@ public:
     instance->Draw(camera, objectsToDraw);
   }
 
+  static inline void RecreateSwapchain() {
+    InstanceManager::WaitUntilDeviceIdle();
+    instance->DestroySwapchain();
+    instance->CreateSwapchain();
+  }
+
   static inline void SetWindowSize(Maths::Dimension2 newSize) {
     instance->windowDimension = newSize;
-    instance->RecreateRenderBuffer();
+    RecreateSwapchain();
   }
 
   static void ImmediateSubmit(Command *command);
