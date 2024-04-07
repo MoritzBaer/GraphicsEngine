@@ -493,13 +493,13 @@ void InstanceManager::CreateGraphicsPipelines(std::vector<VkGraphicsPipelineCrea
 }
 
 void InstanceManager::AllocateCommandBuffers(VkCommandBufferAllocateInfo const *allocInfo,
-                                             VkCommandBuffer *commandBuffers) {
-  VULKAN_ASSERT(vkAllocateCommandBuffers(instance->graphicsHandler, allocInfo, commandBuffers),
-                "Failed to allocate command buffers!")
-}
+                                             VkCommandBuffer *commandBuffers){
+    VULKAN_ASSERT(vkAllocateCommandBuffers(instance->graphicsHandler, allocInfo, commandBuffers),
+                  "Failed to allocate command buffers!")}
 
-void InstanceManager::AllocateDescriptorSets(std::vector<VkDescriptorSetLayout> const &layouts,
-                                             VkDescriptorPool const &descriptorPool, VkDescriptorSet *descriptorSets) {
+VkResult InstanceManager::AllocateDescriptorSets(std::vector<VkDescriptorSetLayout> const &layouts,
+                                                 VkDescriptorPool const &descriptorPool,
+                                                 VkDescriptorSet *descriptorSets) {
   VkDescriptorSetAllocateInfo allocationInfo{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
                                              .descriptorPool = descriptorPool,
                                              .descriptorSetCount = static_cast<uint32_t>(layouts.size()),
@@ -507,6 +507,7 @@ void InstanceManager::AllocateDescriptorSets(std::vector<VkDescriptorSetLayout> 
 
   VULKAN_ASSERT(vkAllocateDescriptorSets(instance->graphicsHandler, &allocationInfo, descriptorSets),
                 "Failed to allocate descriptor sets!")
+  return result509;
 }
 
 void InstanceManager::WaitForFences(VkFence const *fences, uint32_t fenceCount, bool waitForAll, uint32_t timeout) {

@@ -18,15 +18,16 @@ class MeshRenderer;
 class Renderer {
   _SINGLETON(Renderer, Maths::Dimension2 windowSize)
 
-  struct FrameResources : public Initializable {
+  struct FrameResources {
     CommandQueue commandQueue;
     DeletionQueue deletionQueue;
     VkSemaphore swapchainSemaphore;
     VkSemaphore renderSemaphore;
     VkFence renderFence;
+    DescriptorAllocator descriptorAllocator;
 
     void Create();
-    void Destroy() const;
+    void Destroy();
   };
 
   struct ImmediateSubmitResources : public Initializable {

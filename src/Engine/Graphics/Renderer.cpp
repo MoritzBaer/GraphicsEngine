@@ -113,7 +113,7 @@ void Renderer::Init(Maths::Dimension2 windowSize) {
   instance->RecreateRenderBuffer();
   mainDeletionQueue.Push(&instance->renderBuffer);
   for (int i = 0; i < MAX_FRAME_OVERLAP; i++) {
-    mainDeletionQueue.Push(&instance->frameResources[i]);
+    instance->frameResources[i].Create();
   }
   mainDeletionQueue.Push(&instance->immediateResources);
   instance->InitDescriptors();
@@ -128,9 +128,12 @@ Renderer::~Renderer() {
     InstanceManager::DestroyPipeline(effect.pipeline);
   }
   InstanceManager::DestroyPipelineLayout(backgroundEffects[0].pipelineLayout);
+  for (auto &res : frameResources) {
+    res.Destroy();
+  }
   DestroySwapchain();
   descriptorAllocator.ClearDescriptors();
-  descriptorAllocator.DestroyPool();
+  descriptorAllocator.DestroyPools();
   InstanceManager::DestroyDescriptorSetLayout(renderBufferDescriptorLayout);
 }
 
@@ -203,7 +206,6 @@ void Renderer::DestroySwapchain() {
 }
 
 void Renderer::Draw(Camera const *camera, std::span<MeshRenderer const *> const &objectsToDraw) {
-  // TODO: Change the way commands work to make order explicit (Image::Transition instead of current way)
   PROFILE_FUNCTION()
   uint32_t resourceIndex = currentFrame % MAX_FRAME_OVERLAP;
   VkCommandBufferSubmitInfo commandBufferSubmitInfo{};
@@ -220,6 +222,7 @@ void Renderer::Draw(Camera const *camera, std::span<MeshRenderer const *> const 
     RecreateSwapchain();
     return;
   }
+  frameResources[resourceIndex].descriptorAllocator.ClearDescriptors();
   {
     PROFILE_SCOPE("Generate commands")
 
@@ -315,23 +318,16 @@ void Renderer::InitDescriptors() {
   PROFILE_FUNCTION()
   std::vector<DescriptorAllocator::PoolSizeRatio> ratios{{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1}};
 
-  descriptorAllocator.InitPool(10, ratios);
+  descriptorAllocator.InitPools(10, ratios);
 
   DescriptorLayoutBuilder builder{};
   builder.AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
   renderBufferDescriptorLayout = builder.Build(VK_SHADER_STAGE_COMPUTE_BIT);
   renderBufferDescriptors = descriptorAllocator.Allocate(renderBufferDescriptorLayout);
 
-  VkDescriptorImageInfo imageInfo = renderBuffer.colourImage.BindInDescriptor(VK_IMAGE_LAYOUT_GENERAL);
-
-  VkWriteDescriptorSet write{.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                             .dstSet = renderBufferDescriptors,
-                             .dstBinding = 0,
-                             .descriptorCount = 1,
-                             .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-                             .pImageInfo = &imageInfo};
-
-  InstanceManager::UpdateDescriptorSets(write);
+  DescriptorWriter writer{};
+  writer.WriteImage(0, renderBuffer.colourImage, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+  writer.UpdateSet(renderBufferDescriptors);
 }
 
 void Renderer::InitPipelines() { InitBackgroundPipeline(); }
@@ -412,14 +408,23 @@ void Renderer::FrameResources::Create() {
 
   commandQueue.Create();
   deletionQueue.Create();
+
+  std::vector<DescriptorAllocator::PoolSizeRatio> frame_sizes = {
+      {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 3},
+      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3},
+      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3},
+      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
+  };
+  descriptorAllocator.InitPools(10, frame_sizes);
 }
 
-void Renderer::FrameResources::Destroy() const {
+void Renderer::FrameResources::Destroy() {
   deletionQueue.Destroy();
   commandQueue.Destroy();
   InstanceManager::DestroySemaphore(swapchainSemaphore);
   InstanceManager::DestroySemaphore(renderSemaphore);
   InstanceManager::DestroyFence(renderFence);
+  descriptorAllocator.DestroyPools();
 }
 
 void Renderer::ImmediateSubmitResources::Create() {

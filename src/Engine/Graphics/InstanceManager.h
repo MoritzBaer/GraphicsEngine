@@ -106,11 +106,11 @@ public:
 
   // Allocate vulkan memory
   static void AllocateCommandBuffers(VkCommandBufferAllocateInfo const *allocInfo, VkCommandBuffer *commandBuffers);
-  static void AllocateDescriptorSets(std::vector<VkDescriptorSetLayout> const &layouts,
+  static VkResult AllocateDescriptorSets(std::vector<VkDescriptorSetLayout> const &layouts,
                                      VkDescriptorPool const &descriptorPool, VkDescriptorSet *descriptorSets);
-  static inline void AllocateDescriptorSets(VkDescriptorSetLayout const &layout, VkDescriptorPool const &descriptorPool,
+  static inline VkResult AllocateDescriptorSets(VkDescriptorSetLayout const &layout, VkDescriptorPool const &descriptorPool,
                                             VkDescriptorSet *descriptorSet) {
-    AllocateDescriptorSets(std::vector<VkDescriptorSetLayout>{layout}, descriptorPool, descriptorSet);
+    return AllocateDescriptorSets(std::vector<VkDescriptorSetLayout>{layout}, descriptorPool, descriptorSet);
   }
 
   // Free vulkan memory
