@@ -91,14 +91,16 @@ class MultimeshDrawCommand : public Command {
   Image<2> const &drawImage;
   Image<2> const &depthImage;
   Maths::Dimension2 renderAreaSize;
+  Maths::Dimension2 renderAreaOffset;
   Maths::Matrix4 viewProjection;
   std::span<MeshRenderer const *> singleMeshes;
 
 public:
   MultimeshDrawCommand(Image<2> const &drawImage, Image<2> const &depthImage, Maths::Dimension2 const &renderAreaSize,
-                       Maths::Matrix4 const &viewProjection, std::span<MeshRenderer const *> const &meshes)
+                       Maths::Dimension2 const &renderAreaOffset, Maths::Matrix4 const &viewProjection,
+                       std::span<MeshRenderer const *> const &meshes)
       : drawImage(drawImage), depthImage(depthImage), singleMeshes(meshes), viewProjection(viewProjection),
-        renderAreaSize(renderAreaSize) {}
+        renderAreaSize(renderAreaSize), renderAreaOffset(renderAreaOffset) {}
   void QueueExecution(VkCommandBuffer const &) const;
 };
 
@@ -241,8 +243,9 @@ void Renderer::Draw(Camera const *camera, std::span<MeshRenderer const *> const 
                                                 std::min(windowDimension.y(), renderBufferDimension.y())) *
                                      renderScale;
 
-    auto drawMeshes = MultimeshDrawCommand(renderBuffer.colourImage, renderBuffer.depthImage, scaledDrawDimension,
-                                           camera->viewProjection, objectsToDraw);
+    auto drawMeshes =
+        MultimeshDrawCommand(renderBuffer.colourImage, renderBuffer.depthImage, scaledDrawDimension,
+                             (1.0 - renderScale) * 0.5 * renderBufferDimension, camera->viewProjection, objectsToDraw);
 
     // Commands for copying render to swapchain
     auto transitionBufferToTransferSrc = renderBuffer.colourImage.Transition(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
@@ -486,16 +489,18 @@ void MultimeshDrawCommand::QueueExecution(VkCommandBuffer const &queue) const {
   VkRenderingAttachmentInfo depthAttachmentInfo = depthImage.BindAsDepthAttachment();
 
   VkExtent2D drawExtent{renderAreaSize.x(), renderAreaSize.y()};
+  VkOffset2D drawOffset{renderAreaOffset.x(), renderAreaOffset.y()};
   VkRenderingInfo renderingInfo = vkinit::RenderingInfo(colourAttachmentInfo, depthAttachmentInfo, drawExtent);
 
-  VkViewport viewport{.x = 0,
-                      .y = 0,
+  VkViewport viewport{.x = static_cast<float>(drawOffset.x),
+                      .y = static_cast<float>(drawOffset.y),
                       .width = static_cast<float>(drawExtent.width),
                       .height = static_cast<float>(drawExtent.height),
                       .minDepth = 0.0f,
                       .maxDepth = 1.0f};
 
-  VkRect2D scissor{.offset = {0, 0}, .extent = drawExtent};
+  VkRect2D scissor{.offset = {2 * drawOffset.x, 2 * drawOffset.y},
+                   .extent = {drawExtent.width * 20, drawExtent.height * 20}};
 
   vkCmdSetViewport(queue, 0, 1, &viewport);
   vkCmdSetScissor(queue, 0, 1, &scissor);
