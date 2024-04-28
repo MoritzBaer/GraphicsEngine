@@ -73,6 +73,7 @@ public:
   static inline void CreateGraphicsPipeline(VkGraphicsPipelineCreateInfo const &createInfo, VkPipeline *pipeline) {
     CreateGraphicsPipelines({createInfo}, pipeline);
   }
+  static void CreateSampler(VkSamplerCreateInfo const *createInfo, VkSampler *sampler);
 
   // Destroy vulkan objects
   static inline void DestroySwapchain(VkSwapchainKHR const &swapchain) {
@@ -103,13 +104,17 @@ public:
   static inline void DestroyPipeline(VkPipeline const &pipeline) {
     vkDestroyPipeline(instance->graphicsHandler, pipeline, nullptr);
   }
+  static inline void DestroySampler(VkSampler const &sampler) {
+    vkDestroySampler(instance->graphicsHandler, sampler, nullptr);
+  }
 
   // Allocate vulkan memory
   static void AllocateCommandBuffers(VkCommandBufferAllocateInfo const *allocInfo, VkCommandBuffer *commandBuffers);
   static VkResult AllocateDescriptorSets(std::vector<VkDescriptorSetLayout> const &layouts,
-                                     VkDescriptorPool const &descriptorPool, VkDescriptorSet *descriptorSets);
-  static inline VkResult AllocateDescriptorSets(VkDescriptorSetLayout const &layout, VkDescriptorPool const &descriptorPool,
-                                            VkDescriptorSet *descriptorSet) {
+                                         VkDescriptorPool const &descriptorPool, VkDescriptorSet *descriptorSets);
+  static inline VkResult AllocateDescriptorSets(VkDescriptorSetLayout const &layout,
+                                                VkDescriptorPool const &descriptorPool,
+                                                VkDescriptorSet *descriptorSet) {
     return AllocateDescriptorSets(std::vector<VkDescriptorSetLayout>{layout}, descriptorPool, descriptorSet);
   }
 

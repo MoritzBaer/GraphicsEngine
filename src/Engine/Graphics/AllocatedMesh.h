@@ -4,6 +4,7 @@
 
 #include "Buffer.h"
 #include "CommandQueue.h"
+#include "GPUMemoryManager.h"
 #include "Renderer.h"
 #include "UniformAggregate.h"
 #include "Util/DeletionQueue.h"
@@ -55,8 +56,9 @@ template <typename T_GPU> class UnstageMeshCommand : public Command {
 
 public:
   UnstageMeshCommand(Buffer<uint8_t> stagingBuffer, Buffer<T_GPU> vertexBuffer, Buffer<uint32_t> indexBuffer)
-      : vertices(stagingBuffer.CopyTo(vertexBuffer, vertexBuffer.PhysicalSize())),
-        indices(stagingBuffer.CopyTo(indexBuffer, indexBuffer.PhysicalSize(), vertexBuffer.PhysicalSize())) {}
+      : vertices(GPUMemoryManager::CopyBufferToBuffer(stagingBuffer, vertexBuffer, vertexBuffer.PhysicalSize())),
+        indices(GPUMemoryManager::CopyBufferToBuffer(stagingBuffer, indexBuffer, indexBuffer.PhysicalSize(),
+                                                     vertexBuffer.PhysicalSize())) {}
   inline void QueueExecution(VkCommandBuffer const &queue) const {
     vertices.QueueExecution(queue);
     indices.QueueExecution(queue);
@@ -65,6 +67,7 @@ public:
 
 template <typename T_CPU, typename T_GPU> inline void AllocatedMeshT<T_CPU, T_GPU>::Upload() {
   indexBuffer.Create(mesh.indices.size(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                     // TODO: Replace with VMA_MEMORY_USAGE_AUTO + flags
                      VMA_MEMORY_USAGE_GPU_ONLY);
   vertexBuffer.Create(mesh.vertices.size(),
                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |

@@ -2,6 +2,7 @@
 
 #include "Camera.h"
 #include "CommandQueue.h"
+#include "DescriptorHandling.h"
 #include "Image.h"
 #include "Maths/Dimension.h"
 #include "Shader.h"
@@ -65,6 +66,7 @@ class Renderer {
   DescriptorAllocator descriptorAllocator;
   VkDescriptorSet renderBufferDescriptors;
   VkDescriptorSetLayout renderBufferDescriptorLayout;
+  VkDescriptorSetLayout singleTextureDescriptorLayout;
 
   void CreateSwapchain();
   void DestroySwapchain();

@@ -492,6 +492,10 @@ void InstanceManager::CreateGraphicsPipelines(std::vector<VkGraphicsPipelineCrea
                 "Failed to create graphics pipelines!")
 }
 
+void InstanceManager::CreateSampler(VkSamplerCreateInfo const *createInfo, VkSampler *sampler) {
+  VULKAN_ASSERT(vkCreateSampler(instance->graphicsHandler, createInfo, nullptr, sampler), "Failed to create sampler!")
+}
+
 void InstanceManager::AllocateCommandBuffers(VkCommandBufferAllocateInfo const *allocInfo,
                                              VkCommandBuffer *commandBuffers){
     VULKAN_ASSERT(vkAllocateCommandBuffers(instance->graphicsHandler, allocInfo, commandBuffers),
@@ -505,9 +509,15 @@ VkResult InstanceManager::AllocateDescriptorSets(std::vector<VkDescriptorSetLayo
                                              .descriptorSetCount = static_cast<uint32_t>(layouts.size()),
                                              .pSetLayouts = layouts.data()};
 
-  VULKAN_ASSERT(vkAllocateDescriptorSets(instance->graphicsHandler, &allocationInfo, descriptorSets),
-                "Failed to allocate descriptor sets!")
-  return result509;
+  VkResult allocationResult = vkAllocateDescriptorSets(instance->graphicsHandler, &allocationInfo, descriptorSets);
+  if (allocationResult == VK_ERROR_OUT_OF_POOL_MEMORY) {
+    ENGINE_WARNING("Descriptor pool is out of memory!")
+  } else if (allocationResult == VK_ERROR_FRAGMENTED_POOL) {
+    ENGINE_WARNING("Descriptor pool is too fragmented!")
+  } else if (allocationResult != VK_SUCCESS) {
+    ENGINE_ERROR("Failed to allocate descriptor sets!")
+  }
+  return allocationResult;
 }
 
 void InstanceManager::WaitForFences(VkFence const *fences, uint32_t fenceCount, bool waitForAll, uint32_t timeout) {

@@ -10,12 +10,7 @@
 namespace Engine::Graphics {
 class ShaderCompiler;
 
-enum class ShaderType {
-  VERTEX = shaderc_vertex_shader,
-  GEOMETRY = shaderc_geometry_shader,
-  FRAGMENT = shaderc_fragment_shader,
-  COMPUTE = shaderc_compute_shader
-};
+enum class ShaderType { VERTEX, FRAGMENT, COMPUTE, GEOMETRY, NUMBER_OF_TYPES };
 
 class Shader : public Destroyable {
 private:
@@ -44,74 +39,34 @@ public:
   };
 };
 
-enum class DescriptorType {
+inline shaderc_shader_kind ConvertToShaderKind(ShaderType const &type) {
+  switch (type) {
+  case ShaderType::COMPUTE:
+    return shaderc_compute_shader;
+  case ShaderType::VERTEX:
+    return shaderc_vertex_shader;
+  case ShaderType::GEOMETRY:
+    return shaderc_geometry_shader;
+  case ShaderType::FRAGMENT:
+    return shaderc_fragment_shader;
+  default:
+    return static_cast<shaderc_shader_kind>(-1);
+  }
+}
 
-};
-
-class DescriptorLayoutBuilder {
-  std::vector<VkDescriptorSetLayoutBinding> bindings{};
-
-public:
-  void AddBinding(uint32_t binding, VkDescriptorType type);
-  void Clear();
-  VkDescriptorSetLayout Build(VkShaderStageFlags shaderStages);
-};
-
-class DescriptorAllocator {
-
-public:
-  struct PoolSizeRatio {
-    VkDescriptorType type;
-    float ratio;
-  };
-
-  void InitPools(uint32_t initialSets, std::span<PoolSizeRatio> poolRatios);
-  void ClearDescriptors();
-  void DestroyPools();
-
-  VkDescriptorSet Allocate(VkDescriptorSetLayout layout);
-
-private:
-  VkDescriptorPool GetPool();
-  VkDescriptorPool CreatePool(uint32_t maxSets, std::span<PoolSizeRatio> poolRatios);
-
-  std::vector<PoolSizeRatio> poolRatios;
-  std::vector<VkDescriptorPool> fullPools;
-  std::vector<VkDescriptorPool> readyPools;
-  uint32_t setsPerPool;
-};
-
-class DescriptorWriter {
-  std::deque<VkDescriptorImageInfo> imageInfos;
-  std::deque<VkDescriptorBufferInfo> bufferInfos;
-  std::vector<VkWriteDescriptorSet> writes;
-
-public:
-  template <uint8_t N>
-  // Image must be passed as a pointer to allow subclasses substituting
-  void WriteImage(uint32_t binding, Image<N> const &image, VkImageLayout layout, VkDescriptorType type);
-  // TODO: Refactor to use Buffer
-  void WriteBuffer(uint32_t binding, VkBuffer buffer, size_t size, size_t offset, VkDescriptorType type);
-  void Clear();
-  void UpdateSet(VkDescriptorSet set);
-};
-
-template <uint8_t N>
-void DescriptorWriter::WriteImage(uint32_t binding, Image<N> const &image, VkImageLayout layout,
-                                  VkDescriptorType type) {
-
-  VkDescriptorImageInfo const &imageInfo = imageInfos.emplace_back(image.BindInDescriptor(layout));
-
-  VkWriteDescriptorSet write{
-      .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-      .dstSet = VK_NULL_HANDLE,
-      .dstBinding = binding,
-      .descriptorCount = 1,
-      .descriptorType = type,
-      .pImageInfo = &imageInfo,
-  };
-
-  writes.push_back(write);
+inline VkShaderStageFlagBits ConvertToShaderStage(ShaderType const &type) {
+  switch (type) {
+  case ShaderType::COMPUTE:
+    return VK_SHADER_STAGE_COMPUTE_BIT;
+  case ShaderType::VERTEX:
+    return VK_SHADER_STAGE_VERTEX_BIT;
+  case ShaderType::GEOMETRY:
+    return VK_SHADER_STAGE_GEOMETRY_BIT;
+  case ShaderType::FRAGMENT:
+    return VK_SHADER_STAGE_FRAGMENT_BIT;
+  default:
+    return static_cast<VkShaderStageFlagBits>(-1);
+  }
 }
 
 } // namespace Engine::Graphics

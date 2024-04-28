@@ -21,6 +21,8 @@ protected:
   static const VkImageType IMAGE_TYPE;
   static const VkImageViewType VIEW_TYPE;
 
+  friend class GPUMemoryManager;
+
 public:
   inline void Create(VkImage const &image, VkExtent3D const &extent, VkFormat const &format,
                      VkImageAspectFlags aspectMask, uint32_t mipLevels, uint32_t arrayLayers,
@@ -33,7 +35,7 @@ public:
   inline VkRenderingAttachmentInfo BindAsDepthAttachment(VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
                                                          VkClearDepthStencilValue const &clearValue = {
                                                              .depth = 1.0f}) const;
-  inline VkDescriptorImageInfo BindInDescriptor(VkImageLayout layout) const;
+  inline virtual VkDescriptorImageInfo BindInDescriptor(VkImageLayout layout) const;
 
   inline Maths::Dimension<Dimension> GetExtent() const;
 
@@ -169,7 +171,10 @@ Image<Dimension>::BindAsDepthAttachment(VkAttachmentLoadOp loadOp, VkClearDepthS
 
 template <uint8_t Dimension>
 inline VkDescriptorImageInfo Image<Dimension>::BindInDescriptor(VkImageLayout layout) const {
-  return {.imageView = imageView, .imageLayout = layout};
+  return {
+      .imageView = imageView,
+      .imageLayout = layout,
+  };
 }
 
 template <> inline Maths::Dimension<1> Image<1>::GetExtent() const { return Maths::Dimension<1>(imageExtent.width); }

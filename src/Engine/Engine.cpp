@@ -60,6 +60,8 @@ void Engine::Init(const char *applicationName) {
     Graphics::Renderer::Init(mainWindow->GetCanvasSize());
     Graphics::ImGUIManager::Init(mainWindow);
 
+    AssetManager::InitStandins();
+
     Time::Update();
   }
   WRITE_PROFILE_SESSION("Init")

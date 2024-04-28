@@ -89,6 +89,8 @@ public:
   }
   MatrixT<n, n, T> &Invert()
     requires(m == n);
+  inline T maxEntry() const { return *std::max_element(std::begin(data), std::end(data)); }
+  inline T minEntry() const { return *std::min_element(std::begin(data), std::end(data)); }
 
   inline static MatrixT<n, n, T> Identity()
     requires(m == n);
