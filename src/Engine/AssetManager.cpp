@@ -49,7 +49,10 @@ class PipelineBuilder {
   VkPipelineRenderingCreateInfo renderInfo;
   VkFormat colourAttachmentformat;
 
+  inline void SetBlendFactors(VkBlendFactor const &srcFactor, VkBlendFactor const &dstFactor);
+
 public:
+  enum class BlendMode { ALPHA, ADDITIVE };
   PipelineBuilder &Reset();
 
   PipelineBuilder() { Reset(); }
@@ -62,10 +65,25 @@ public:
   inline PipelineBuilder &SetColourAttachmentFormat(VkFormat const &format);
   inline PipelineBuilder &SetDepthFormat(VkFormat const &format);
   inline PipelineBuilder &DisableDepthTest();
+  inline PipelineBuilder &DisableDepthWriting();
+  inline PipelineBuilder &SetDepthCompareOperation(VkCompareOp const &compareOp);
+  inline PipelineBuilder &EnableBlending(BlendMode const &mode);
 
   VkPipeline BuildPipeline() const;
   void BuildPipeline(VkPipeline *pipeline) const;
 };
+
+inline void PipelineBuilder::SetBlendFactors(VkBlendFactor const &srcFactor, VkBlendFactor const &dstFactor) {
+  colourBlendAttachment.colorWriteMask =
+      VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+  colourBlendAttachment.blendEnable = VK_TRUE;
+  colourBlendAttachment.srcColorBlendFactor = srcFactor;
+  colourBlendAttachment.dstColorBlendFactor = dstFactor;
+  colourBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+  colourBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+  colourBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+  colourBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+}
 
 PipelineBuilder &PipelineBuilder::Reset() {
   inputAssembly = {.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
@@ -153,6 +171,28 @@ inline PipelineBuilder &PipelineBuilder::DisableDepthTest() {
   depthStencil.depthCompareOp = VK_COMPARE_OP_NEVER;
   depthStencil.depthBoundsTestEnable = VK_FALSE;
   depthStencil.stencilTestEnable = VK_FALSE;
+  return *this;
+}
+
+inline PipelineBuilder &PipelineBuilder::DisableDepthWriting() {
+  depthStencil.depthWriteEnable = VK_FALSE;
+  return *this;
+}
+
+inline PipelineBuilder &PipelineBuilder::SetDepthCompareOperation(VkCompareOp const &compareOp) {
+  depthStencil.depthCompareOp = compareOp;
+  return *this;
+}
+
+inline PipelineBuilder &PipelineBuilder::EnableBlending(BlendMode const &mode) {
+  switch (mode) {
+  case BlendMode::ALPHA:
+    SetBlendFactors(VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA);
+    break;
+  case BlendMode::ADDITIVE:
+    SetBlendFactors(VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_DST_ALPHA);
+    break;
+  }
   return *this;
 }
 
@@ -264,8 +304,9 @@ Graphics::Pipeline *ParsePipeline(char const *pipelineData) {
                             .SetInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
                             .SetPolygonMode(VK_POLYGON_MODE_FILL)
                             .SetColourAttachmentFormat(VK_FORMAT_R16G16B16A16_SFLOAT)
-                            .SetDepthFormat(VK_FORMAT_UNDEFINED)
-                            .DisableDepthTest()
+                            .SetDepthFormat(VK_FORMAT_D32_SFLOAT)
+                            .SetDepthCompareOperation(VK_COMPARE_OP_LESS_OR_EQUAL)
+                            .EnableBlending(PipelineBuilder::BlendMode::ALPHA)
                             .BuildPipeline();
 
   return new Graphics::Pipeline(layout, pipeline);

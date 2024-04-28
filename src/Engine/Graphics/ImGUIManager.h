@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CommandQueue.h"
+#include "Image.h"
 #include "Util/Macros.h"
 #include "Window.h"
 
@@ -20,15 +21,13 @@ public:
   static void RegisterView(ImGUIView const *view);
 
   static class ImGUIDrawCommand : public Command {
-    VkImageView targetView;
-    VkExtent2D targetExtent;
+    Image<2> const &targetImage;
 
   public:
-    ImGUIDrawCommand(VkImageView const &targetView, VkExtent2D const &targetExtent)
-        : targetView(targetView), targetExtent(targetExtent) {}
+    ImGUIDrawCommand(Image<2> const &targetImage) : targetImage(targetImage) {}
     void QueueExecution(VkCommandBuffer const &queue) const;
-  } DrawFrameCommand(VkImageView const &targetView, VkExtent2D const &targetExtent) {
-    return ImGUIDrawCommand(targetView, targetExtent);
+  } DrawFrameCommand(Image<2> const &targetImage) {
+    return ImGUIDrawCommand(targetImage);
   }
 };
 

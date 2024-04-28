@@ -33,7 +33,7 @@ int main() {
 
   // TODO: Remove (dummy scene for testing)
 
-  Engine::AssetManager::LoadPrefab("cube.pfb");
+  Engine::AssetManager::LoadPrefab("suzanne.pfb");
 
   // auto monke2 = dummyEntity();
   // auto monke21 = dummyEntity();

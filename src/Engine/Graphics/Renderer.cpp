@@ -27,7 +27,7 @@ std::vector<ComputeEffect<ComputePushConstants>> backgroundEffects = {
                                         .constants{.data1 = {1, 0, 0, 1}, .data2 = {0, 0, 1, 1}}},
     ComputeEffect<ComputePushConstants>{.name = "sky", .constants{.data1 = {0.02f, 0, 0.05f, 0.99f}}},
 };
-uint8_t currentBackgroundEffect = 0;
+uint8_t currentBackgroundEffect = 1;
 
 namespace vkinit {
 inline VkFenceCreateInfo FenceCreateInfo(VkFenceCreateFlags flags = VK_FENCE_CREATE_SIGNALED_BIT) {
@@ -76,25 +76,29 @@ inline BlitImageCommand CopyFullImage(VkImage source, VkImage destination, VkExt
 
 class DrawGeometryCommand : public Command {
   VkImageView drawImageView;
+  VkImageView depthImageView;
   VkExtent2D drawExtent;
   VkPipeline graphicsPipeline;
   // TODO: Add geometry data as well
 public:
-  DrawGeometryCommand(VkImageView const &view, VkExtent2D const &extent, VkPipeline const &graphicsPipeline)
-      : drawImageView(view), drawExtent(extent), graphicsPipeline(graphicsPipeline) {}
+  DrawGeometryCommand(VkImageView const &view, VkExtent2D const &extent, VkImageView const &depthView,
+                      VkPipeline const &graphicsPipeline)
+      : drawImageView(view), depthImageView(depthView), drawExtent(extent), graphicsPipeline(graphicsPipeline) {}
   void QueueExecution(VkCommandBuffer const &) const;
 };
 
 class MultimeshDrawCommand : public Command {
-  VkImageView drawImageView;
-  VkExtent2D drawExtent;
+  Image<2> const &drawImage;
+  Image<2> const &depthImage;
+  Maths::Dimension2 renderAreaSize;
   Maths::Matrix4 viewProjection;
   std::span<MeshRenderer const *> singleMeshes;
 
 public:
-  MultimeshDrawCommand(VkImageView const &view, VkExtent2D const &extent, Maths::Matrix4 const &viewProjection,
-                       std::span<MeshRenderer const *> const &meshes)
-      : drawImageView(view), drawExtent(extent), singleMeshes(meshes), viewProjection(viewProjection) {}
+  MultimeshDrawCommand(Image<2> const &drawImage, Image<2> const &depthImage, Maths::Dimension2 const &renderAreaSize,
+                       Maths::Matrix4 const &viewProjection, std::span<MeshRenderer const *> const &meshes)
+      : drawImage(drawImage), depthImage(depthImage), singleMeshes(meshes), viewProjection(viewProjection),
+        renderAreaSize(renderAreaSize) {}
   void QueueExecution(VkCommandBuffer const &) const;
 };
 
@@ -104,9 +108,12 @@ void Renderer::Init(Maths::Dimension2 windowSize) {
   InstanceManager::GetGraphicsQueue(&instance->graphicsQueue);
   InstanceManager::GetPresentQueue(&instance->presentQueue);
   instance->windowDimension = windowSize;
+  instance->renderBufferInitialized = false;
   instance->CreateSwapchain();
+  instance->RecreateRenderBuffer();
+  mainDeletionQueue.Push(&instance->renderBuffer);
   for (int i = 0; i < MAX_FRAME_OVERLAP; i++) {
-    mainDeletionQueue.Push(&instance->frameResources[i]);
+    instance->frameResources[i].Create();
   }
   mainDeletionQueue.Push(&instance->immediateResources);
   instance->InitDescriptors();
@@ -121,13 +128,13 @@ Renderer::~Renderer() {
     InstanceManager::DestroyPipeline(effect.pipeline);
   }
   InstanceManager::DestroyPipelineLayout(backgroundEffects[0].pipelineLayout);
-  descriptorAllocator.ClearDescriptors();
-  descriptorAllocator.DestroyPool();
-  InstanceManager::DestroyDescriptorSetLayout(renderBufferDescriptorLayout);
-  for (auto view : swapchainImageViews) {
-    InstanceManager::DestroyImageView(view);
+  for (auto &res : frameResources) {
+    res.Destroy();
   }
-  InstanceManager::DestroySwapchain(swapchain);
+  DestroySwapchain();
+  descriptorAllocator.ClearDescriptors();
+  descriptorAllocator.DestroyPools();
+  InstanceManager::DestroyDescriptorSetLayout(renderBufferDescriptorLayout);
 }
 
 VkSurfaceFormatKHR ChooseSwapchainSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats) {
@@ -165,7 +172,6 @@ VkExtent2D ChooseSwapchainExtent(const VkSurfaceCapabilitiesKHR &capabilities, M
 
 void Renderer::CreateSwapchain() {
   PROFILE_FUNCTION()
-  renderBufferInitialized = false;
 
   SwapchainSupportDetails details = InstanceManager::GetSwapchainSupport();
 
@@ -181,35 +187,25 @@ void Renderer::CreateSwapchain() {
   swapchainExtent = extent;
   swapchainFormat = surfaceFormat.format;
 
-  InstanceManager::GetSwapchainImages(swapchain, swapchainImages);
+  std::vector<VkImage> scImgs;
+  InstanceManager::GetSwapchainImages(swapchain, scImgs);
+  swapchainImages.resize(scImgs.size());
 
   // Create image views
-  swapchainImageViews.resize(swapchainImages.size());
-  for (int i = 0; i < swapchainImageViews.size(); i++) {
-    VkImageViewCreateInfo imageViewInfo{.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-                                        .image = swapchainImages[i],
-                                        .viewType = VK_IMAGE_VIEW_TYPE_2D,
-                                        .format = swapchainFormat,
-                                        .components{
-                                            .r = VK_COMPONENT_SWIZZLE_IDENTITY,
-                                            .g = VK_COMPONENT_SWIZZLE_IDENTITY,
-                                            .b = VK_COMPONENT_SWIZZLE_IDENTITY,
-                                            .a = VK_COMPONENT_SWIZZLE_IDENTITY,
-                                        },
-                                        .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                                                          .baseMipLevel = 0,
-                                                          .levelCount = 1,
-                                                          .baseArrayLayer = 0,
-                                                          .layerCount = 1}};
-
-    InstanceManager::CreateImageView(&imageViewInfo, swapchainImageViews.data() + i);
+  for (int i = 0; i < swapchainImages.size(); i++) {
+    swapchainImages[i].Create(scImgs[i], {.width = extent.width, .height = extent.height, .depth = 1},
+                              surfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, VK_SAMPLE_COUNT_1_BIT);
   }
-
-  RecreateRenderBuffer();
-  mainDeletionQueue.Push(&renderBuffer);
 }
 
-void Renderer::Draw(Camera const *camera, std::span<MeshRenderer const *> const &objectsToDraw) const {
+void Renderer::DestroySwapchain() {
+  for (auto image : swapchainImages) {
+    image.Destroy();
+  }
+  InstanceManager::DestroySwapchain(swapchain);
+}
+
+void Renderer::Draw(Camera const *camera, std::span<MeshRenderer const *> const &objectsToDraw) {
   PROFILE_FUNCTION()
   uint32_t resourceIndex = currentFrame % MAX_FRAME_OVERLAP;
   VkCommandBufferSubmitInfo commandBufferSubmitInfo{};
@@ -218,43 +214,59 @@ void Renderer::Draw(Camera const *camera, std::span<MeshRenderer const *> const 
     InstanceManager::WaitForFences(&frameResources[resourceIndex].renderFence);
     InstanceManager::ResetFences(&frameResources[resourceIndex].renderFence);
   }
-  uint32_t swapchainImageIndex =
-      InstanceManager::GetNextSwapchainImageIndex(swapchain, frameResources[resourceIndex].swapchainSemaphore);
+  VkResult swapchainImageAcqusitionResult;
+  uint32_t swapchainImageIndex = InstanceManager::GetNextSwapchainImageIndex(
+      swapchainImageAcqusitionResult, swapchain, frameResources[resourceIndex].swapchainSemaphore);
+  if (swapchainImageAcqusitionResult == VK_ERROR_OUT_OF_DATE_KHR ||
+      swapchainImageAcqusitionResult == VK_SUBOPTIMAL_KHR) {
+    RecreateSwapchain();
+    return;
+  }
+  frameResources[resourceIndex].descriptorAllocator.ClearDescriptors();
   {
     PROFILE_SCOPE("Generate commands")
 
-    auto transitionBufferToWriteable =
-        vkutil::TransitionImageCommand(renderBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-
+    // Commands for drawing background
+    auto transitionBufferToWriteable = renderBuffer.colourImage.Transition(VK_IMAGE_LAYOUT_GENERAL);
     auto computeRun = ExecuteComputePipelineCommand<ComputePushConstants>(
         backgroundEffects[currentBackgroundEffect], VK_PIPELINE_BIND_POINT_COMPUTE, renderBufferDescriptors,
         std::ceil<uint32_t>(windowDimension[X] / 16u), std::ceil<uint32_t>(windowDimension[Y] / 16u), 1);
-    auto transitionBufferToTransferSrc = vkutil::TransitionImageCommand(
-        renderBuffer.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-    auto transitionPresenterToTransferDst = vkutil::TransitionImageCommand(
-        swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    auto copyBufferToPresenter =
-        vkutil::CopyFullImage(renderBuffer.image, swapchainImages[resourceIndex], renderBuffer.imageExtent,
-                              {swapchainExtent.width, swapchainExtent.height, 1});
-    auto transitionPresenterToPresent = vkutil::TransitionImageCommand(
-        swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-    auto renderImGUI = ImGUIManager::DrawFrameCommand(swapchainImageViews[resourceIndex], swapchainExtent);
-    auto transitionPresenterToColourAttachment = vkutil::TransitionImageCommand(
-        swapchainImages[resourceIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    auto transitionBufferToRenderTarget = vkutil::TransitionImageCommand(renderBuffer.image, VK_IMAGE_LAYOUT_GENERAL,
-                                                                         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    auto drawMeshes = MultimeshDrawCommand(
-        renderBuffer.imageView, {.width = renderBuffer.imageExtent.width, .height = renderBuffer.imageExtent.height},
-        camera->viewProjection, objectsToDraw);
+
+    // Commands for drawing geometry
+    auto transitionBufferToRenderTarget = renderBuffer.colourImage.Transition(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    auto transitionBufferToDepthStencil =
+        renderBuffer.depthImage.Transition(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+    Dimension2 scaledDrawDimension = Dimension2(std::min(windowDimension.x(), renderBufferDimension.x()),
+                                                std::min(windowDimension.y(), renderBufferDimension.y())) *
+                                     renderScale;
+
+    auto drawMeshes = MultimeshDrawCommand(renderBuffer.colourImage, renderBuffer.depthImage, scaledDrawDimension,
+                                           camera->viewProjection, objectsToDraw);
+
+    // Commands for copying render to swapchain
+    auto transitionBufferToTransferSrc = renderBuffer.colourImage.Transition(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    auto transitionPresenterToTransferDst =
+        swapchainImages[swapchainImageIndex].Transition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    auto copyBufferToPresenter = renderBuffer.colourImage.BlitTo(swapchainImages[swapchainImageIndex]);
+
+    // Commands for rendering ImGUI
+    auto renderImGUI = ImGUIManager::DrawFrameCommand(swapchainImages[swapchainImageIndex]);
+    auto transitionPresenterToColourAttachment =
+        swapchainImages[swapchainImageIndex].Transition(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    // Command for presenting
+    auto transitionPresenterToPresent =
+        swapchainImages[swapchainImageIndex].Transition(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
     commandBufferSubmitInfo = frameResources[resourceIndex].commandQueue.EnqueueCommandSequence(
         {// Draw background
          &transitionBufferToWriteable, &computeRun,
 
          // Draw geometry
-         &transitionBufferToRenderTarget, &drawMeshes,
+         &transitionBufferToRenderTarget, &transitionBufferToDepthStencil, &drawMeshes,
 
-         // Copy background to swapchain
+         // Copy render to swapchain
          &transitionBufferToTransferSrc, &transitionPresenterToTransferDst, &copyBufferToPresenter,
 
          // Render ImGui directly to swapchain
@@ -283,6 +295,9 @@ void Renderer::Draw(Camera const *camera, std::span<MeshRenderer const *> const 
                                .pImageIndices = &swapchainImageIndex};
 
   VULKAN_ASSERT(vkQueuePresentKHR(presentQueue, &presentInfo), "Failed to present image!")
+
+  instance->frameResources[instance->currentFrame % MAX_FRAME_OVERLAP].deletionQueue.Flush();
+  instance->currentFrame++;
 }
 
 void Renderer::RecreateRenderBuffer() {
@@ -291,33 +306,28 @@ void Renderer::RecreateRenderBuffer() {
   if (renderBufferInitialized) {
     renderBuffer.Destroy();
   }
-  renderBuffer.Create(VK_FORMAT_R16G16B16A16_SFLOAT, renderBufferExtent,
-                      VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT |
-                          VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                      VK_IMAGE_ASPECT_COLOR_BIT);
+  renderBuffer.colourImage.Create(VK_FORMAT_R16G16B16A16_SFLOAT, renderBufferExtent,
+                                  VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                                      VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                                  VK_IMAGE_ASPECT_COLOR_BIT);
+  renderBuffer.depthImage.Create(VK_FORMAT_D32_SFLOAT, renderBufferExtent, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                                 VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
 void Renderer::InitDescriptors() {
   PROFILE_FUNCTION()
   std::vector<DescriptorAllocator::PoolSizeRatio> ratios{{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1}};
 
-  descriptorAllocator.InitPool(10, ratios);
+  descriptorAllocator.InitPools(10, ratios);
 
   DescriptorLayoutBuilder builder{};
   builder.AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
   renderBufferDescriptorLayout = builder.Build(VK_SHADER_STAGE_COMPUTE_BIT);
   renderBufferDescriptors = descriptorAllocator.Allocate(renderBufferDescriptorLayout);
 
-  VkDescriptorImageInfo imageInfo{.imageView = renderBuffer.imageView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
-
-  VkWriteDescriptorSet write{.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                             .dstSet = renderBufferDescriptors,
-                             .dstBinding = 0,
-                             .descriptorCount = 1,
-                             .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-                             .pImageInfo = &imageInfo};
-
-  InstanceManager::UpdateDescriptorSets(write);
+  DescriptorWriter writer{};
+  writer.WriteImage(0, renderBuffer.colourImage, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+  writer.UpdateSet(renderBufferDescriptors);
 }
 
 void Renderer::InitPipelines() { InitBackgroundPipeline(); }
@@ -381,6 +391,8 @@ void Renderer::GetImGUISection() {
   ImGui::InputFloat4("data3", (float *)&backgroundEffects[currentBackgroundEffect].constants.data3);
   ImGui::InputFloat4("data4", (float *)&backgroundEffects[currentBackgroundEffect].constants.data4);
 
+  ImGui::SliderFloat("Render scale", &instance->renderScale, 0.1f, 1.0f, "%.3f");
+
   ImGui::EndGroup();
 }
 
@@ -396,14 +408,23 @@ void Renderer::FrameResources::Create() {
 
   commandQueue.Create();
   deletionQueue.Create();
+
+  std::vector<DescriptorAllocator::PoolSizeRatio> frame_sizes = {
+      {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 3},
+      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3},
+      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3},
+      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
+  };
+  descriptorAllocator.InitPools(10, frame_sizes);
 }
 
-void Renderer::FrameResources::Destroy() const {
+void Renderer::FrameResources::Destroy() {
   deletionQueue.Destroy();
   commandQueue.Destroy();
   InstanceManager::DestroySemaphore(swapchainSemaphore);
   InstanceManager::DestroySemaphore(renderSemaphore);
   InstanceManager::DestroyFence(renderFence);
+  descriptorAllocator.DestroyPools();
 }
 
 void Renderer::ImmediateSubmitResources::Create() {
@@ -419,7 +440,8 @@ void Renderer::ImmediateSubmitResources::Destroy() const {
 
 void DrawGeometryCommand::QueueExecution(VkCommandBuffer const &queue) const {
   VkRenderingAttachmentInfo colourAttachmentInfo = vkinit::ColourAttachmentInfo(drawImageView);
-  VkRenderingInfo renderingInfo = vkinit::RenderingInfo(colourAttachmentInfo, drawExtent);
+  VkRenderingAttachmentInfo depthAttachmentInfo = vkinit::DepthAttachmentInfo(depthImageView);
+  VkRenderingInfo renderingInfo = vkinit::RenderingInfo(colourAttachmentInfo, depthAttachmentInfo, drawExtent);
 
   VkViewport viewport{.x = 0,
                       .y = 0,
@@ -460,8 +482,11 @@ void DrawSingleMesh(VkCommandBuffer const &commandBuffer, MeshRenderer const *re
 }
 
 void MultimeshDrawCommand::QueueExecution(VkCommandBuffer const &queue) const {
-  VkRenderingAttachmentInfo colourAttachmentInfo = vkinit::ColourAttachmentInfo(drawImageView);
-  VkRenderingInfo renderingInfo = vkinit::RenderingInfo(colourAttachmentInfo, drawExtent);
+  VkRenderingAttachmentInfo colourAttachmentInfo = drawImage.BindAsColourAttachment();
+  VkRenderingAttachmentInfo depthAttachmentInfo = depthImage.BindAsDepthAttachment();
+
+  VkExtent2D drawExtent{renderAreaSize.x(), renderAreaSize.y()};
+  VkRenderingInfo renderingInfo = vkinit::RenderingInfo(colourAttachmentInfo, depthAttachmentInfo, drawExtent);
 
   VkViewport viewport{.x = 0,
                       .y = 0,

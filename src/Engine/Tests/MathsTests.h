@@ -112,20 +112,25 @@ void VectorTests() {
 
 // TODO: Transpose glm constructor inputs
 void MatrixTests() {
-  TEST_SCOPE("matrix")
+  TEST_SCOPE("matrix") {
+    MatrixNM<2, 3> A = MatrixNM<2, 3>(1, 2, 3, 3, 2, 1);
+    Matrix3 B{4, 1, 0, 0, 3, 0, 2, 1, 2};
 
-  MatrixNM<2, 3> A = MatrixNM<2, 3>(1, 2, 3, 3, 2, 1);
-  Matrix3 B{4, 1, 0, 0, 3, 0, 2, 1, 2};
+    MatrixNM<2, 3> C{10, 10, 6, 14, 10, 2};
+    MatrixNM<2, 3> D = A * B;
+    TEST_ASSERT_EQUAL(D, "own", C, "expected", "Matrix multiplication does not give the correct result!")
 
-  MatrixNM<2, 3> C{10, 10, 6, 14, 10, 2};
-  MatrixNM<2, 3> D = A * B;
-  TEST_ASSERT_EQUAL(D, "own", C, "expected", "Matrix multiplication does not give the correct result!")
+    Matrix4 M{1, 3, 2, 4, 0, 1, 1, 3, 2, 0, 0, 2, 1, 2, 4, 1};
+    Vector4 x{4, 2, 3, 0};
+    Vector4 y = (M * 2.5f) * (x * 2.5f);
+    Vector4 y_ = Vector4{10, 14, 10, 28} * (2.5f * 2.5f);
+    TEST_ASSERT_EQUAL(y, "own", y_, "expected", "Matrix-vector multiplication does not give the correct result!")
+  }
 
-  Matrix4 M{1, 3, 2, 4, 0, 1, 1, 3, 2, 0, 0, 2, 1, 2, 4, 1};
-  Vector4 x{4, 2, 3, 0};
-  Vector4 y = (M * 2.5f) * (x * 2.5f);
-  Vector4 y_ = Vector4{10, 14, 10, 28} * (2.5f * 2.5f);
-  TEST_ASSERT_EQUAL(y, "own", y_, "expected", "Matrix-vector multiplication does not give the correct result!")
+  Matrix2 M = Matrix2(1, 1, 2, 3);
+  Matrix2 M_Inv = M.Inverse();
+  Matrix2 M_Exp = Matrix2(3, -1, -2, 1);
+  TEST_ASSERT_EQUAL(M_Inv, "own", M_Exp, "expected", "Matrix inversion does not give the correct result!")
 
   // GLM has their constructors in column-major order, so we need to transpose the matrix
   Matrix4 m1 = Matrix4(8.96836, 2.10230, 1.89949, 4.60040, 8.39039, 5.83538, 7.79529, 6.32591, 4.75992, 5.49344,
@@ -148,6 +153,17 @@ void MatrixTests() {
   Matrix4 m3 = m1 * m2;
   glm::mat4 glm3 = glm1 * glm2;
   TEST_ASSERT_EQUAL(m3, "own", glm3, "glm", "Matrix multiplication does not give the correct result!")
+
+  Matrix4 m4 = Matrix4(6.01589, 0.79945, 3.03696, 7.89833, 2.89674, 6.73960, 5.22906, 1.90390, 4.23525, 3.65487,
+                       7.92008, 6.07612, 0.21322, 7.01907, 0.17421, 7.19930);
+  Matrix4 m_Inverse = m4.Inverse();
+  Matrix4 m_Expected =
+      Matrix4(0.22590520535147221064, 0.21439106151673295909, -0.22566118257648591511, -0.11408172710246326558,
+              -0.0048146176943861615186, 0.15176869603639391364, -0.099435098775642683715, 0.0490679109584360566,
+              -0.11926301806954870517, -0.067545549318803498536, 0.21735238026807963992, -0.034736779955989534575,
+              0.00088945329587463363156, -0.15268435171168592384, 0.098369624539275549675, 0.095282166115857150355);
+
+  TEST_ASSERT_EQUAL(m_Inverse, "own", m_Expected, "expected", "Matrix inversion does not give the correct result!");
 }
 
 void TransformTests() {

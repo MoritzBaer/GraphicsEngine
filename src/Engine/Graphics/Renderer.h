@@ -18,15 +18,16 @@ class MeshRenderer;
 class Renderer {
   _SINGLETON(Renderer, Maths::Dimension2 windowSize)
 
-  struct FrameResources : public Initializable {
+  struct FrameResources {
     CommandQueue commandQueue;
     DeletionQueue deletionQueue;
     VkSemaphore swapchainSemaphore;
     VkSemaphore renderSemaphore;
     VkFence renderFence;
+    DescriptorAllocator descriptorAllocator;
 
     void Create();
-    void Destroy() const;
+    void Destroy();
   };
 
   struct ImmediateSubmitResources : public Initializable {
@@ -45,24 +46,33 @@ class Renderer {
   VkSwapchainKHR swapchain;
   VkFormat swapchainFormat;
   VkExtent2D swapchainExtent;
-  std::vector<VkImage> swapchainImages;
-  std::vector<VkImageView> swapchainImageViews;
+  std::vector<Image<2>> swapchainImages;
   std::array<FrameResources, MAX_FRAME_OVERLAP> frameResources;
   uint32_t currentFrame = 0;
 
   Maths::Dimension2 windowDimension;
   bool renderBufferInitialized;
-  Image<2> renderBuffer;
+  struct : public Destroyable {
+    AllocatedImage<2> colourImage;
+    AllocatedImage<2> depthImage;
+    inline void Destroy() const {
+      colourImage.Destroy();
+      depthImage.Destroy();
+    }
+  } renderBuffer;
+  Maths::Dimension2 renderBufferDimension{1600, 900};
+  float renderScale = 1.0f;
   DescriptorAllocator descriptorAllocator;
   VkDescriptorSet renderBufferDescriptors;
   VkDescriptorSetLayout renderBufferDescriptorLayout;
 
   void CreateSwapchain();
+  void DestroySwapchain();
   void InitDescriptors();
   void InitPipelines();
   void InitBackgroundPipeline();
 
-  void Draw(Camera const *camera, std::span<MeshRenderer const *> const &objectsToDraw) const;
+  void Draw(Camera const *camera, std::span<MeshRenderer const *> const &objectsToDraw);
   void RecreateRenderBuffer();
 
   inline FrameResources const &CurrentResources() const { return frameResources[currentFrame % MAX_FRAME_OVERLAP]; }
@@ -71,13 +81,17 @@ public:
   // Signature is likely to change (for example a list of render objects will have to be passed somehow)
   static inline void DrawFrame(Camera const *camera, std::span<MeshRenderer const *> const &objectsToDraw) {
     instance->Draw(camera, objectsToDraw);
-    instance->frameResources[instance->currentFrame % MAX_FRAME_OVERLAP].deletionQueue.Flush();
-    instance->currentFrame++;
+  }
+
+  static inline void RecreateSwapchain() {
+    InstanceManager::WaitUntilDeviceIdle();
+    instance->DestroySwapchain();
+    instance->CreateSwapchain();
   }
 
   static inline void SetWindowSize(Maths::Dimension2 newSize) {
     instance->windowDimension = newSize;
-    instance->RecreateRenderBuffer();
+    RecreateSwapchain();
   }
 
   static void ImmediateSubmit(Command *command);
