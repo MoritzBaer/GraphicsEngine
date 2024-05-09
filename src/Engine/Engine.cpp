@@ -96,13 +96,13 @@ void Engine::Cleanup() {
     PROFILE_FUNCTION()
     Graphics::InstanceManager::WaitUntilDeviceIdle();
     Core::ECS::Cleanup();
+    AssetManager::Cleanup();
     mainDeletionQueue.Flush();
     Graphics::ImGUIManager::Cleanup();
     Graphics::Renderer::Cleanup();
     Graphics::InstanceManager::Cleanup();
     EventManager::Cleanup();
     WindowManager::Cleanup();
-    AssetManager::Cleanup();
     Graphics::ShaderCompiler::Cleanup();
 
     mainDeletionQueue.Destroy();

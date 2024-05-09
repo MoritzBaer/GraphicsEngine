@@ -81,7 +81,8 @@
         "stack": "cpp",
         "deque": "cpp",
         "ranges": "cpp",
-        "strstream": "cpp"
+        "strstream": "cpp",
+        "hash_set": "cpp"
     },
     "cmake.configureSettings": {
         "CMAKE_BUILD_TYPE": "${buildType}",

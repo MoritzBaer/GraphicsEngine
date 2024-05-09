@@ -470,14 +470,6 @@ void DrawSingleMesh(VkCommandBuffer const &commandBuffer, DescriptorAllocator &d
                     MeshRenderer const *renderInfo, Maths::Matrix4 const &viewProjection) {
   // Bind material pipelines
   VkDescriptorSet descriptorSet = descriptorAllocator.Allocate(renderInfo->material->GetDescriptorSetLayout());
-  std::vector<uint32_t> errorTextureData(16 * 16, 0xFF00FFFF);
-  for (int x = 0; x < 16; x++) {
-    for (int y = x % 2; y < 16; y += 2) {
-      errorTextureData[x * 16 + y] = 0x000000FF;
-    }
-  }
-  auto texture = Graphics::Texture2D({16, 16}, errorTextureData.data(), VK_FILTER_NEAREST, VK_FILTER_NEAREST);
-  texture.UpdateDescriptors(descriptorSet);
   renderInfo->material->Bind(commandBuffer, descriptorSet);
 
   // Upload uniform data
