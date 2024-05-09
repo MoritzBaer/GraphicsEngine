@@ -478,7 +478,7 @@ void DrawSingleMesh(VkCommandBuffer const &commandBuffer, DescriptorAllocator &d
   }
   auto texture = Graphics::Texture2D({16, 16}, errorTextureData.data(), VK_FILTER_NEAREST, VK_FILTER_NEAREST);
   texture.UpdateDescriptors(descriptorSet);
-  // renderInfo->material->Bind(commandBuffer, descriptorSet);
+  renderInfo->material->Bind(commandBuffer, descriptorSet);
 
   // Upload uniform data
   // TODO: Fix ambiguous multiplication

@@ -84,7 +84,8 @@
         "strstream": "cpp"
     },
     "cmake.configureSettings": {
-        "CMAKE_BUILD_TYPE": "${buildType}"
+        "CMAKE_BUILD_TYPE": "${buildType}",
+        "symbolSearchPath": "C:/VulkanSDK-Debug/*/Bin"
     },
     "[c]": {
         "editor.wordBasedSuggestions": "off",

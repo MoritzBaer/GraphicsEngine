@@ -149,7 +149,9 @@ PipelineBuilder &PipelineBuilder::AddPushConstant(size_t size, size_t offset, Sh
 Pipeline *PipelineBuilder::Build() {
   std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
   for (uint32_t i = 0; i < static_cast<uint32_t>(ShaderType::NUMBER_OF_TYPES); i++) {
-    descriptorSetLayouts.push_back(layoutBuilders[i].Build(ConvertToShaderStage(static_cast<ShaderType>(i))));
+    if (layoutBuilders[i].HasBindings()) {
+      descriptorSetLayouts.push_back(layoutBuilders[i].Build(ConvertToShaderStage(static_cast<ShaderType>(i))));
+    }
   }
 
   VkPipelineLayout pipelineLayout;

@@ -18,6 +18,7 @@ class DescriptorLayoutBuilder {
 
 public:
   inline DescriptorLayoutBuilder &AddBinding(uint32_t binding, VkDescriptorType type);
+  inline bool HasBindings() const { return !bindings.empty(); }
   inline void Clear();
   inline VkDescriptorSetLayout Build(VkShaderStageFlags shaderStages);
 };

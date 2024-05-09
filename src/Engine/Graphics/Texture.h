@@ -24,12 +24,6 @@ public:
                  VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT) {
     Create(dimension, magFilter, minFilter, format, mipped, msaaSamples);
   }
-  /*
-  inline VkDescriptorImageInfo BindInDescriptor(VkImageLayout layout) const override {
-    VkDescriptorImageInfo res = Image<D>::BindInDescriptor(layout);
-    res.sampler = sampler;
-    return res;
-  }*/
 
   template <typename T>
   inline Texture(Maths::Dimension<D> dimension, T const *data, VkFilter magFilter = VK_FILTER_LINEAR,
@@ -41,6 +35,8 @@ public:
   // I have no idea what happens if the given dimension doesn't match the image's extent
   template <typename T> inline void SetPixels(T const *data, Maths::Dimension<D> dimension);
   template <typename T> inline void SetPixels(T const *data) { SetPixels(data, Image<D>::GetExtent()); }
+
+  inline VkDescriptorImageInfo BindInDescriptor(VkImageLayout layout) const override;
 
   inline void UpdateDescriptors(VkDescriptorSet const &descriptorSet,
                                 VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) const;
@@ -65,6 +61,12 @@ inline void Texture<D>::Create(Maths::Dimension<D> dimension, VkFilter magFilter
       .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO, .magFilter = magFilter, .minFilter = minFilter};
 
   InstanceManager::CreateSampler(&samplerInfo, &sampler);
+}
+
+template <uint8_t D> inline VkDescriptorImageInfo Texture<D>::BindInDescriptor(VkImageLayout layout) const {
+  auto res = AllocatedImage<D>::BindInDescriptor(layout);
+  res.sampler = sampler;
+  return res;
 }
 
 template <uint8_t D>
@@ -97,7 +99,9 @@ inline void Texture<D>::SetPixels(T const *data, Maths::Dimension<D> dimension) 
                         VMA_MEMORY_USAGE_CPU_TO_GPU};
 
   auto copy = GPUMemoryManager::CopyBufferToImage(pixelBuffer, *this, dimension);
-  Renderer::ImmediateSubmit(&copy);
+  auto transition = Image<D>::Transition(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+  CompositeCommand copyAndTransition{&copy, &transition};
+  Renderer::ImmediateSubmit(&copyAndTransition);
 
   pixelBuffer.Destroy();
 }

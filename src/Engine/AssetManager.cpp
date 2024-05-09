@@ -40,7 +40,7 @@ namespace Engine {
 
 AssetManager::AssetManager()
     : loadedShaders(), loadedMaterials(), loadedMeshes(), loadedPipelines(), loadedTextures() {}
-AssetManager::~AssetManager() {}
+AssetManager::~AssetManager() { loadedTextures["missing"].Destroy(); }
 void AssetManager::Init() { instance = new AssetManager(); }
 void AssetManager::Cleanup() { delete instance; }
 
@@ -76,10 +76,10 @@ Graphics::Shader AssetManager::LoadShaderWithInferredType(char const *shaderName
 void AssetManager::InitStandins() {
 
   // Load error texture
-  std::vector<uint32_t> errorTextureData(16 * 16, 0xFF00FFFF);
+  std::vector<uint32_t> errorTextureData(16 * 16, 0xFFFF00FF);
   for (int x = 0; x < 16; x++) {
     for (int y = x % 2; y < 16; y += 2) {
-      errorTextureData[x * 16 + y] = 0x000000FF;
+      errorTextureData[x * 16 + y] = 0xFF000000;
     }
   }
   instance->loadedTextures.insert(
