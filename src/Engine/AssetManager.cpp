@@ -40,7 +40,7 @@ namespace Engine {
 
 AssetManager::AssetManager()
     : loadedShaders(), loadedMaterials(), loadedMeshes(), loadedPipelines(), loadedTextures() {}
-AssetManager::~AssetManager() { loadedTextures["missing"].Destroy(); }
+AssetManager::~AssetManager() {}
 void AssetManager::Init() { instance = new AssetManager(); }
 void AssetManager::Cleanup() { delete instance; }
 
@@ -84,6 +84,7 @@ void AssetManager::InitStandins() {
   }
   instance->loadedTextures.insert(
       {"missing", Graphics::Texture2D({16, 16}, errorTextureData.data(), VK_FILTER_NEAREST, VK_FILTER_NEAREST)});
+  mainDeletionQueue.Push(&instance->loadedTextures["missing"]);
 }
 
 Graphics::Mesh AssetManager::LoadMeshFromOBJ(char const *meshName) {

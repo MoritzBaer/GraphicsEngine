@@ -39,7 +39,7 @@ public:
 
   inline Maths::Dimension<Dimension> GetExtent() const;
 
-  void Destroy() const;
+  virtual void Destroy() const override;
 };
 
 template <uint8_t Dimension> class AllocatedImage : public Image<Dimension> {
@@ -53,7 +53,7 @@ public:
   inline void Create(VkFormat format, VkExtent3D extent, VkImageUsageFlags usage, VkImageAspectFlags aspectMask,
                      uint32_t mipLevels = 1, uint32_t arrayLayers = 1,
                      VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT);
-  inline void Destroy() const;
+  inline virtual void Destroy() const override;
 };
 
 using Image1 = Image<1>;

@@ -6,7 +6,7 @@
 #include "VulkanUtil.h"
 
 namespace Engine::Graphics {
-template <uint8_t D> class Texture : AllocatedImage<D> {
+template <uint8_t D> class Texture : public AllocatedImage<D> {
   VkSampler sampler;
 
 public:
@@ -41,7 +41,7 @@ public:
   inline void UpdateDescriptors(VkDescriptorSet const &descriptorSet,
                                 VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) const;
 
-  inline void Destroy();
+  inline virtual void Destroy() const override;
 };
 
 using Texture1D = Texture<1>;
@@ -76,7 +76,7 @@ inline void Texture<D>::UpdateDescriptors(VkDescriptorSet const &descriptorSet, 
   writer.UpdateSet(descriptorSet);
 }
 
-template <uint8_t D> inline void Texture<D>::Destroy() {
+template <uint8_t D> inline void Texture<D>::Destroy() const {
   InstanceManager::DestroySampler(sampler);
   AllocatedImage<D>::Destroy();
 }

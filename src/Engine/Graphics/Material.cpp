@@ -7,6 +7,9 @@ namespace Engine::Graphics {
 void Engine::Graphics::Pipeline::Destroy() const {
   InstanceManager::DestroyPipeline(pipeline);
   InstanceManager::DestroyPipelineLayout(layout);
+  for (auto layout : descriptorLayouts) {
+    InstanceManager::DestroyDescriptorSetLayout(layout);
+  }
 }
 
 void PipelineBuilder::SetBlendFactors(VkBlendFactor const &srcFactor, VkBlendFactor const &dstFactor) {
