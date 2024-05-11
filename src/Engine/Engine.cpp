@@ -60,6 +60,8 @@ void Engine::Init(const char *applicationName) {
     Graphics::Renderer::Init(mainWindow->GetCanvasSize());
     Graphics::ImGUIManager::Init(mainWindow);
 
+    AssetManager::InitStandins();
+
     Time::Update();
   }
   WRITE_PROFILE_SESSION("Init")
@@ -99,8 +101,8 @@ void Engine::Cleanup() {
     Graphics::Renderer::Cleanup();
     Graphics::InstanceManager::Cleanup();
     EventManager::Cleanup();
-    WindowManager::Cleanup();
     AssetManager::Cleanup();
+    WindowManager::Cleanup();
     Graphics::ShaderCompiler::Cleanup();
 
     mainDeletionQueue.Destroy();

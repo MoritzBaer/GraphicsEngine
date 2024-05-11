@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Maths/Dimension.h"
 #include "vulkan/vulkan.h"
 #include <vector>
 
@@ -83,4 +84,28 @@ inline VkRenderingAttachmentInfo DepthAttachmentInfo(VkImageView const &imageVie
 
 } // namespace Engine::Graphics::vkinit
 
-namespace Engine::Graphics::vkutil {} // namespace Engine::Graphics::vkutil
+namespace Engine::Graphics::vkutil {
+template <uint8_t D> inline VkExtent3D DimensionToExtent(Maths::Dimension<D> dimension);
+template <uint8_t D> inline VkOffset3D DimensionToOffset(Maths::Dimension<D> dimension);
+
+template <> inline VkExtent3D DimensionToExtent(Maths::Dimension<1> dimension) {
+  return VkExtent3D{dimension.x(), 1, 1};
+}
+template <> inline VkExtent3D DimensionToExtent(Maths::Dimension<2> dimension) {
+  return VkExtent3D{dimension.x(), dimension.y(), 1};
+}
+template <> inline VkExtent3D DimensionToExtent(Maths::Dimension<3> dimension) {
+  return VkExtent3D{dimension.x(), dimension.y(), dimension.z()};
+}
+
+template <> inline VkOffset3D DimensionToOffset(Maths::Dimension<1> dimension) {
+  return VkOffset3D{static_cast<int32_t>(dimension.x()), 0, 0};
+}
+template <> inline VkOffset3D DimensionToOffset(Maths::Dimension<2> dimension) {
+  return VkOffset3D{static_cast<int32_t>(dimension.x()), static_cast<int32_t>(dimension.y()), 0};
+}
+template <> inline VkOffset3D DimensionToOffset(Maths::Dimension<3> dimension) {
+  return VkOffset3D{static_cast<int32_t>(dimension.x()), static_cast<int32_t>(dimension.y()),
+                    static_cast<int32_t>(dimension.z())};
+}
+} // namespace Engine::Graphics::vkutil

@@ -57,8 +57,10 @@ macro(make_app NAME ENTRY_POINT)
     # To keep assets in the same place as the binaries
     if(CMAKE_BUILD_TYPE MATCHES Debug)
         add_custom_command(TARGET ${NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res ${CMAKE_BINARY_DIR}/Debug/res)
+        add_custom_command(TARGET ${NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/debug-symbols ${CMAKE_BINARY_DIR}/Debug)
     else()
         add_custom_command(TARGET ${NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/res ${CMAKE_BINARY_DIR}/Release/res)
+        add_custom_command(TARGET ${NAME} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/res//VkLayer_khronos_validation.pdb ${CMAKE_BINARY_DIR}/Release)
     endif()
 endmacro()
 

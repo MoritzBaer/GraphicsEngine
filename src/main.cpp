@@ -5,6 +5,7 @@
 #include "Engine/Core/SceneHierarchy.h"
 #include "Engine/Editor/Display.h"
 #include "Engine/Editor/EntityDetails.h"
+#include "Engine/Graphics/Texture.h"
 #include "Util/Deserializers/DisplayParser.h"
 #include "Util/Deserializers/MeshRendererParser.h"
 #include "Util/Deserializers/TransformParser.h"

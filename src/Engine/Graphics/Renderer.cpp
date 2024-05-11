@@ -93,14 +93,15 @@ class MultimeshDrawCommand : public Command {
   Maths::Dimension2 renderAreaSize;
   Maths::Dimension2 renderAreaOffset;
   Maths::Matrix4 viewProjection;
+  DescriptorAllocator &descriptorAllocator;
   std::span<MeshRenderer const *> singleMeshes;
 
 public:
-  MultimeshDrawCommand(Image<2> const &drawImage, Image<2> const &depthImage, Maths::Dimension2 const &renderAreaSize,
-                       Maths::Dimension2 const &renderAreaOffset, Maths::Matrix4 const &viewProjection,
+  MultimeshDrawCommand(Image<2> const &drawImage, Image<2> const &depthImage, DescriptorAllocator &descriptorAllocator,
+                       Maths::Dimension2 const &renderAreaSize, Maths::Matrix4 const &viewProjection,
                        std::span<MeshRenderer const *> const &meshes)
       : drawImage(drawImage), depthImage(depthImage), singleMeshes(meshes), viewProjection(viewProjection),
-        renderAreaSize(renderAreaSize), renderAreaOffset(renderAreaOffset) {}
+        renderAreaSize(renderAreaSize), descriptorAllocator(descriptorAllocator) {}
   void QueueExecution(VkCommandBuffer const &) const;
 };
 
@@ -210,6 +211,7 @@ void Renderer::DestroySwapchain() {
 void Renderer::Draw(Camera const *camera, std::span<MeshRenderer const *> const &objectsToDraw) {
   PROFILE_FUNCTION()
   uint32_t resourceIndex = currentFrame % MAX_FRAME_OVERLAP;
+
   VkCommandBufferSubmitInfo commandBufferSubmitInfo{};
   {
     PROFILE_SCOPE("Waiting for previous frame to finish rendering")
@@ -243,9 +245,9 @@ void Renderer::Draw(Camera const *camera, std::span<MeshRenderer const *> const 
                                                 std::min(windowDimension.y(), renderBufferDimension.y())) *
                                      renderScale;
 
-    auto drawMeshes =
-        MultimeshDrawCommand(renderBuffer.colourImage, renderBuffer.depthImage, scaledDrawDimension,
-                             (1.0 - renderScale) * 0.5 * renderBufferDimension, camera->viewProjection, objectsToDraw);
+    auto drawMeshes = MultimeshDrawCommand(renderBuffer.colourImage, renderBuffer.depthImage,
+                                           frameResources[resourceIndex].descriptorAllocator, scaledDrawDimension,
+                                           camera->viewProjection, objectsToDraw);
 
     // Commands for copying render to swapchain
     auto transitionBufferToTransferSrc = renderBuffer.colourImage.Transition(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
@@ -326,6 +328,7 @@ void Renderer::InitDescriptors() {
   DescriptorLayoutBuilder builder{};
   builder.AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
   renderBufferDescriptorLayout = builder.Build(VK_SHADER_STAGE_COMPUTE_BIT);
+
   renderBufferDescriptors = descriptorAllocator.Allocate(renderBufferDescriptorLayout);
 
   DescriptorWriter writer{};
@@ -464,13 +467,14 @@ void DrawGeometryCommand::QueueExecution(VkCommandBuffer const &queue) const {
   vkCmdEndRendering(queue);
 }
 
-void DrawSingleMesh(VkCommandBuffer const &commandBuffer, MeshRenderer const *renderInfo,
-                    Maths::Matrix4 const &viewProjection) {
+void DrawSingleMesh(VkCommandBuffer const &commandBuffer, DescriptorAllocator &descriptorAllocator,
+                    MeshRenderer const *renderInfo, Maths::Matrix4 const &viewProjection) {
   // Bind material pipelines
-  auto usedPipeline = renderInfo->material->GetPipeline();
-  usedPipeline->Bind(commandBuffer);
+  VkDescriptorSet descriptorSet = descriptorAllocator.Allocate(renderInfo->material->GetDescriptorSetLayout());
+  renderInfo->material->Bind(commandBuffer, descriptorSet);
 
   // Upload uniform data
+  // TODO: Fix ambiguous multiplication
   Maths::Matrix4 mvp = viewProjection * renderInfo->entity.GetComponent<Transform>()->ModelToWorldMatrix();
 
   UniformAggregate data{};
@@ -478,7 +482,8 @@ void DrawSingleMesh(VkCommandBuffer const &commandBuffer, MeshRenderer const *re
   renderInfo->mesh->AppendData(data);
   renderInfo->material->AppendData(data);
 
-  vkCmdPushConstants(commandBuffer, usedPipeline->Layout(), VK_SHADER_STAGE_VERTEX_BIT, 0, data.Size(), data.Data());
+  vkCmdPushConstants(commandBuffer, renderInfo->material->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0,
+                     data.Size(), data.Data());
 
   // Draw mesh
   renderInfo->mesh->BindAndDraw(commandBuffer);
@@ -508,7 +513,7 @@ void MultimeshDrawCommand::QueueExecution(VkCommandBuffer const &queue) const {
   vkCmdBeginRendering(queue, &renderingInfo);
 
   for (auto mesh : singleMeshes) {
-    DrawSingleMesh(queue, mesh, viewProjection);
+    DrawSingleMesh(queue, descriptorAllocator, mesh, viewProjection);
   }
 
   vkCmdEndRendering(queue);

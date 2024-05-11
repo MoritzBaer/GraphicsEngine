@@ -24,6 +24,18 @@ public:
                                                    VkCommandBufferUsageFlags flags = 0) const;
 };
 
+class CompositeCommand : public Command {
+  std::vector<Command const *> commands;
+
+public:
+  CompositeCommand(std::initializer_list<Command const *> const &commands) : commands(commands) {}
+  void QueueExecution(VkCommandBuffer const &queue) const {
+    for (Command const *command : commands) {
+      command->QueueExecution(queue);
+    }
+  }
+};
+
 class PipelineBarrierCommand : public Command {
   std::vector<VkImageMemoryBarrier2> imageMemoryBarriers;
 
