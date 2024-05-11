@@ -494,7 +494,7 @@ void MultimeshDrawCommand::QueueExecution(VkCommandBuffer const &queue) const {
   VkRenderingAttachmentInfo depthAttachmentInfo = depthImage.BindAsDepthAttachment();
 
   VkExtent2D drawExtent{renderAreaSize.x(), renderAreaSize.y()};
-  VkOffset2D drawOffset{renderAreaOffset.x(), renderAreaOffset.y()};
+  VkOffset2D drawOffset{static_cast<int32_t>(renderAreaOffset.x()), static_cast<int32_t>(renderAreaOffset.y())};
   VkRenderingInfo renderingInfo = vkinit::RenderingInfo(colourAttachmentInfo, depthAttachmentInfo, drawExtent);
 
   VkViewport viewport{.x = static_cast<float>(drawOffset.x),
