@@ -47,6 +47,9 @@ void Engine::Init(const char *applicationName) {
     mainCam = Core::Entity(Core::ECS::CreateEntity());
     mainCam.AddComponent<Graphics::Camera>();
     mainCam.AddComponent<Editor::Display>()->AssignLabel("Main camera");
+    auto camTransform = mainCam.AddComponent<Graphics::Transform>();
+    camTransform->position = {0, 0, 5};
+    camTransform->LookAt({0, 0, 0});
 
     WindowManager::Init();
     mainWindow = WindowManager::CreateWindow(1600, 900, applicationName);
@@ -86,7 +89,8 @@ void Engine::RunMainLoop() {
       std::transform(renderersWithTransforms.begin(), renderersWithTransforms.end(), meshRenderers.begin(),
                      [](auto const &t) { return std::get<0>(t); });
       Graphics::ImGUIManager::BeginFrame();
-      Graphics::Renderer::DrawFrame(mainCam.GetComponent<Graphics::Camera>(), meshRenderers);
+      Graphics::Renderer::DrawFrame(mainCam.GetComponent<Graphics::Camera>(),
+                                    {Maths::Vector3(0, -1, 0.5).Normalized(), {1, 1, 1}}, meshRenderers);
     } else {
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }

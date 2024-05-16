@@ -11,7 +11,7 @@ public:
   virtual void QueueExecution(VkCommandBuffer const &queue) const = 0;
 };
 
-class CommandQueue : public Destroyable {
+class CommandQueue : public ConstDestroyable {
 private:
   VkCommandPool commandPool;
   VkCommandBuffer mainBuffer;

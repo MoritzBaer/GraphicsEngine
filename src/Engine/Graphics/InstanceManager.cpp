@@ -498,7 +498,7 @@ void InstanceManager::CreateSampler(VkSamplerCreateInfo const *createInfo, VkSam
 
 void InstanceManager::AllocateCommandBuffers(VkCommandBufferAllocateInfo const *allocInfo,
                                              VkCommandBuffer *commandBuffers){
-    VULKAN_ASSERT(vkAllocateCommandBuffers(instance->graphicsHandler, allocInfo, commandBuffers),
+    VULKAN_ASSERT(vkAllocateCommandBuffers(instance -> graphicsHandler, allocInfo, commandBuffers),
                   "Failed to allocate command buffers!")}
 
 VkResult InstanceManager::AllocateDescriptorSets(std::vector<VkDescriptorSetLayout> const &layouts,
@@ -526,7 +526,7 @@ void InstanceManager::WaitForFences(VkFence const *fences, uint32_t fenceCount, 
 }
 
 void InstanceManager::ResetFences(VkFence const *fences, uint32_t fenceCount){
-    VULKAN_ASSERT(vkResetFences(instance->graphicsHandler, fenceCount, fences), "Failed to reset fences!")}
+    VULKAN_ASSERT(vkResetFences(instance -> graphicsHandler, fenceCount, fences), "Failed to reset fences!")}
 
 uint32_t InstanceManager::GetNextSwapchainImageIndex(VkResult &acquisitionResult, VkSwapchainKHR const &swapchain,
                                                      VkSemaphore const &semaphore, VkFence const &fence,

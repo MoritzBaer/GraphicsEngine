@@ -12,7 +12,7 @@
 #include <vector>
 
 namespace Engine::Graphics {
-class AllocatedMesh : public Destroyable {
+class AllocatedMesh : public ConstDestroyable {
 protected:
   Buffer<uint32_t> indexBuffer;
   VkDeviceAddress vertexBufferAddress;
@@ -27,7 +27,7 @@ public:
     indexBuffer.BindAsIndexBuffer(commandBuffer);
     vkCmdDrawIndexed(commandBuffer, indexBuffer.Size(), 1, 0, 0, 0);
   }
-  inline void AppendData(UniformAggregate &aggregate) const { aggregate.PushData(&vertexBufferAddress); }
+  inline void AppendData(PushConstantsAggregate &aggregate) const { aggregate.PushData(&vertexBufferAddress); }
 };
 
 // T_GPU must have a constructor taking a T_CPU const &

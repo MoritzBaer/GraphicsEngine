@@ -12,7 +12,7 @@ class ShaderCompiler;
 
 enum class ShaderType { VERTEX, FRAGMENT, COMPUTE, GEOMETRY, NUMBER_OF_TYPES };
 
-class Shader : public Destroyable {
+class Shader : public ConstDestroyable {
 private:
   friend class ShaderCompiler;
 
@@ -31,11 +31,11 @@ class ShaderCompiler {
   shaderc::CompileOptions options;
   // TODO: Write includer
 
-  Shader _CompileShaderCode(std::vector<char> const &shaderCode, ShaderType type);
+  Shader _CompileShaderCode(const char *shaderName, std::vector<char> const &shaderCode, ShaderType type);
 
 public:
-  static inline Shader CompileShaderCode(std::vector<char> const &shaderCode, ShaderType type) {
-    return instance->_CompileShaderCode(shaderCode, type);
+  static inline Shader CompileShaderCode(const char *shaderName, std::vector<char> const &shaderCode, ShaderType type) {
+    return instance->_CompileShaderCode(shaderName, shaderCode, type);
   };
 };
 

@@ -7,7 +7,7 @@
 const uint32_t INITIAL_QUEUE_CAPACITIES = 16;
 
 void Engine::DeletionQueue::ChangeBaseMemory() {
-  Destroyable const **newQueue = static_cast<Destroyable const **>(malloc(queueCapacity * sizeof(Destroyable *)));
+  Destroyable **newQueue = static_cast<Destroyable **>(malloc(queueCapacity * sizeof(Destroyable *)));
   memcpy(newQueue, queue, queueSize * sizeof(void *));
   free(queue);
   queue = newQueue;
@@ -16,7 +16,7 @@ void Engine::DeletionQueue::ChangeBaseMemory() {
 void Engine::DeletionQueue::Create() {
   queueCapacity = INITIAL_QUEUE_CAPACITIES;
   queueSize = 0;
-  queue = static_cast<Destroyable const **>(malloc(queueCapacity * sizeof(Destroyable *)));
+  queue = static_cast<Destroyable **>(malloc(queueCapacity * sizeof(Destroyable *)));
 }
 
 void Engine::DeletionQueue::Destroy() const {
@@ -33,7 +33,7 @@ void Engine::DeletionQueue::Push(Initializable *object, bool preInitialized) {
   Push(static_cast<Destroyable *>(object));
 }
 
-void Engine::DeletionQueue::Push(Destroyable const *object) {
+void Engine::DeletionQueue::Push(Destroyable *object) {
   queue[queueSize++] = object;
   if (queueSize == queueCapacity) {
     queueCapacity *= 2;

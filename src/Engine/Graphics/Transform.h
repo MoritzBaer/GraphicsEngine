@@ -24,6 +24,11 @@ ENGINE_COMPONENT_DECLARATION(Transform), public Util::Serializable, public Edito
   inline void SetParent(Transform * newParent, bool recalculateTransform = true);
   inline void SetParent(Core::Entity const &newParent, bool recalculateTransform = true);
 
+  inline void LookAt(Vector3 const &target, Vector3 const &up) { rotation = Quaternion::LookAt(position, target, up); }
+  // TODO: Use Transform::Up()
+  inline void LookAt(Vector3 const &target) { LookAt(target, {0, 1, 0}); }
+  inline void Translate(Vector3 const &translation) { position += translation; }
+
   inline Matrix4 ModelToParentMatrix() const;
   inline Matrix4 ParentToModelMatrix() const { return ModelToParentMatrix().Inverse(); }
   inline Matrix4 ModelToWorldMatrix() const;
@@ -39,8 +44,7 @@ ENGINE_COMPONENT_DECLARATION(Transform), public Util::Serializable, public Edito
   }
 
   inline void Serialize(std::stringstream & targetStream) const override {
-    targetStream << "Transform: { "
-                 << "position: ";
+    targetStream << "Transform: { " << "position: ";
     position.Serialize(targetStream);
     targetStream << ", rotation: ";
     rotation.Serialize(targetStream);

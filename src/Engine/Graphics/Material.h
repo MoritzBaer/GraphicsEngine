@@ -1,6 +1,8 @@
 #pragma once
 
+#include "Buffer.h"
 #include "DescriptorHandling.h"
+#include "DrawData.h"
 #include "Shader.h"
 #include "UniformAggregate.h"
 #include "Util/DeletionQueue.h"
@@ -9,7 +11,7 @@
 
 namespace Engine::Graphics {
 
-class Pipeline : public Destroyable {
+class Pipeline : public ConstDestroyable {
   VkPipeline pipeline;
   VkPipelineLayout layout;
   std::vector<VkDescriptorSetLayout> descriptorLayouts;
@@ -23,9 +25,7 @@ public:
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
   }
   inline VkPipelineLayout Layout() const { return layout; }
-  inline VkDescriptorSetLayout DescriptorLayout() const {
-    return descriptorLayouts[0];
-  } // TODO: Figure out how to do this better
+  inline VkDescriptorSetLayout DescriptorLayout(uint8_t set) const { return descriptorLayouts[set]; }
   void Destroy() const;
 };
 
@@ -36,12 +36,13 @@ protected:
 public:
   Material(Material const *other) : pipeline(other->pipeline) {}
   Material(Pipeline const *pipeline) : pipeline(pipeline) {}
-  virtual void AppendData(UniformAggregate &aggregate) const = 0;
-  virtual void Bind(VkCommandBuffer const &commandBuffer, VkDescriptorSet const &descriptorSet) const {
+  virtual void AppendData(PushConstantsAggregate &aggregate) const = 0;
+  virtual void Bind(VkCommandBuffer const &commandBuffer, DescriptorAllocator &descriptorAllocator,
+                    Buffer<DrawData> const &drawDataBuffer) const {
     pipeline->Bind(commandBuffer);
   }
   VkPipelineLayout GetPipelineLayout() const { return pipeline->Layout(); }
-  VkDescriptorSetLayout GetDescriptorSetLayout() const { return pipeline->DescriptorLayout(); }
+  VkDescriptorSetLayout GetDescriptorSetLayout(uint8_t set) const { return pipeline->DescriptorLayout(set); }
 };
 
 class PipelineBuilder {
@@ -60,6 +61,7 @@ class PipelineBuilder {
   std::vector<VkPushConstantRange> pushConstantRanges;
 
   std::vector<DescriptorLayoutBuilder> layoutBuilders;
+  std::vector<VkShaderStageFlags> descriptorSetStages;
 
   inline void SetBlendFactors(VkBlendFactor const &srcFactor, VkBlendFactor const &dstFactor);
 
@@ -67,10 +69,7 @@ public:
   enum class BlendMode { ALPHA, ADDITIVE };
   PipelineBuilder &Reset();
 
-  PipelineBuilder() : layoutBuilders() {
-    layoutBuilders.resize(static_cast<size_t>(ShaderType::NUMBER_OF_TYPES));
-    Reset();
-  }
+  PipelineBuilder() : layoutBuilders(4), descriptorSetStages(4) { Reset(); }
 
   PipelineBuilder &SetShaderStages(Graphics::Shader const &vertexShader, Graphics::Shader const &fragmentShader);
   PipelineBuilder &SetInputTopology(VkPrimitiveTopology const &topology);
@@ -82,10 +81,17 @@ public:
   PipelineBuilder &DisableDepthWriting();
   PipelineBuilder &SetDepthCompareOperation(VkCompareOp const &compareOp);
   PipelineBuilder &EnableBlending(BlendMode const &mode);
-  PipelineBuilder &AddDescriptorBinding(uint32_t binding, VkDescriptorType descriptorType, ShaderType shaderType);
+  PipelineBuilder &AddDescriptorBinding(uint32_t set, uint32_t binding, VkDescriptorType descriptorType);
   PipelineBuilder &AddPushConstant(size_t size, size_t offset, ShaderType shaderType);
+  template <typename... ShaderTypes> PipelineBuilder &BindSetInShaders(uint8_t set, ShaderTypes... shaderTypes);
 
   Pipeline *Build();
 };
+
+template <typename... ShaderTypes>
+inline PipelineBuilder &PipelineBuilder::BindSetInShaders(uint8_t set, ShaderTypes... shaderTypes) {
+  descriptorSetStages[set] = descriptorSetStages[set] | (ConvertToShaderStage(shaderTypes) | ...);
+  return *this;
+}
 
 } // namespace Engine::Graphics

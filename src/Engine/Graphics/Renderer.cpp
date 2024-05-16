@@ -92,15 +92,15 @@ class MultimeshDrawCommand : public Command {
   Image<2> const &depthImage;
   Maths::Dimension2 renderAreaSize;
   Maths::Dimension2 renderAreaOffset;
-  Maths::Matrix4 viewProjection;
   DescriptorAllocator &descriptorAllocator;
+  Buffer<DrawData> uniformBuffer;
   std::span<MeshRenderer const *> singleMeshes;
 
 public:
   MultimeshDrawCommand(Image<2> const &drawImage, Image<2> const &depthImage, DescriptorAllocator &descriptorAllocator,
-                       Maths::Dimension2 const &renderAreaSize, Maths::Matrix4 const &viewProjection,
+                       Maths::Dimension2 const &renderAreaSize, Buffer<DrawData> const &uniformBuffer,
                        std::span<MeshRenderer const *> const &meshes)
-      : drawImage(drawImage), depthImage(depthImage), singleMeshes(meshes), viewProjection(viewProjection),
+      : drawImage(drawImage), depthImage(depthImage), singleMeshes(meshes), uniformBuffer(uniformBuffer),
         renderAreaSize(renderAreaSize), descriptorAllocator(descriptorAllocator) {}
   void QueueExecution(VkCommandBuffer const &) const;
 };
@@ -116,7 +116,7 @@ void Renderer::Init(Maths::Dimension2 windowSize) {
   instance->RecreateRenderBuffer();
   mainDeletionQueue.Push(&instance->renderBuffer);
   for (int i = 0; i < MAX_FRAME_OVERLAP; i++) {
-    instance->frameResources[i].Create();
+    mainDeletionQueue.Push(instance->frameResources[i]);
   }
   mainDeletionQueue.Push(&instance->immediateResources);
   instance->InitDescriptors();
@@ -131,9 +131,6 @@ Renderer::~Renderer() {
     InstanceManager::DestroyPipeline(effect.pipeline);
   }
   InstanceManager::DestroyPipelineLayout(backgroundEffects[0].pipelineLayout);
-  for (auto &res : frameResources) {
-    res.Destroy();
-  }
   DestroySwapchain();
   descriptorAllocator.ClearDescriptors();
   descriptorAllocator.DestroyPools();
@@ -208,7 +205,8 @@ void Renderer::DestroySwapchain() {
   InstanceManager::DestroySwapchain(swapchain);
 }
 
-void Renderer::Draw(Camera const *camera, std::span<MeshRenderer const *> const &objectsToDraw) {
+void Renderer::Draw(Camera const *camera, SceneData const &sceneData,
+                    std::span<MeshRenderer const *> const &objectsToDraw) {
   PROFILE_FUNCTION()
   uint32_t resourceIndex = currentFrame % MAX_FRAME_OVERLAP;
 
@@ -245,9 +243,16 @@ void Renderer::Draw(Camera const *camera, std::span<MeshRenderer const *> const 
                                                 std::min(windowDimension.y(), renderBufferDimension.y())) *
                                      renderScale;
 
+    Maths::Matrix4 view = camera->entity.GetComponent<Transform>()->WorldToModelMatrix();
+    Maths::Matrix4 projection = camera->projection;
+
+    DrawData uniformData{
+        .view = view, .projection = projection, .viewProjection = projection * view, .sceneData = sceneData};
+
+    frameResources[resourceIndex].uniformBuffer.SetData(uniformData);
     auto drawMeshes = MultimeshDrawCommand(renderBuffer.colourImage, renderBuffer.depthImage,
                                            frameResources[resourceIndex].descriptorAllocator, scaledDrawDimension,
-                                           camera->viewProjection, objectsToDraw);
+                                           frameResources[resourceIndex].uniformBuffer, objectsToDraw);
 
     // Commands for copying render to swapchain
     auto transitionBufferToTransferSrc = renderBuffer.colourImage.Transition(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
@@ -422,6 +427,7 @@ void Renderer::FrameResources::Create() {
       {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
   };
   descriptorAllocator.InitPools(10, frame_sizes);
+  uniformBuffer.Create(1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 }
 
 void Renderer::FrameResources::Destroy() {
@@ -431,6 +437,7 @@ void Renderer::FrameResources::Destroy() {
   InstanceManager::DestroySemaphore(renderSemaphore);
   InstanceManager::DestroyFence(renderFence);
   descriptorAllocator.DestroyPools();
+  uniformBuffer.Destroy();
 }
 
 void Renderer::ImmediateSubmitResources::Create() {
@@ -468,17 +475,16 @@ void DrawGeometryCommand::QueueExecution(VkCommandBuffer const &queue) const {
 }
 
 void DrawSingleMesh(VkCommandBuffer const &commandBuffer, DescriptorAllocator &descriptorAllocator,
-                    MeshRenderer const *renderInfo, Maths::Matrix4 const &viewProjection) {
+                    Buffer<DrawData> const &uniformBuffer, MeshRenderer const *renderInfo) {
+
   // Bind material pipelines
-  VkDescriptorSet descriptorSet = descriptorAllocator.Allocate(renderInfo->material->GetDescriptorSetLayout());
-  renderInfo->material->Bind(commandBuffer, descriptorSet);
+  VkDescriptorSet descriptorSet = descriptorAllocator.Allocate(renderInfo->material->GetDescriptorSetLayout(1));
+  renderInfo->material->Bind(commandBuffer, descriptorAllocator, uniformBuffer);
 
   // Upload uniform data
-  // TODO: Fix ambiguous multiplication
-  Maths::Matrix4 mvp = viewProjection * renderInfo->entity.GetComponent<Transform>()->ModelToWorldMatrix();
-
-  UniformAggregate data{};
-  data.PushData(&mvp);
+  Maths::Matrix4 model = renderInfo->entity.GetComponent<Transform>()->ModelToWorldMatrix();
+  PushConstantsAggregate data{};
+  data.PushData(&model);
   renderInfo->mesh->AppendData(data);
   renderInfo->material->AppendData(data);
 
@@ -513,7 +519,7 @@ void MultimeshDrawCommand::QueueExecution(VkCommandBuffer const &queue) const {
   vkCmdBeginRendering(queue, &renderingInfo);
 
   for (auto mesh : singleMeshes) {
-    DrawSingleMesh(queue, descriptorAllocator, mesh, viewProjection);
+    DrawSingleMesh(queue, descriptorAllocator, uniformBuffer, mesh);
   }
 
   vkCmdEndRendering(queue);

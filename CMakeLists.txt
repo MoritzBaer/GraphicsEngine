@@ -26,10 +26,9 @@ include_directories("dependencies/GLM/")
 include_directories(${Vulkan_INCLUDE_DIR})
 
 include_directories("src/external/imgui")
+include_directories("src/external/stb")
 include_directories("src/Engine")
 include_directories("src/Editor")
-
-file(GLOB ImGUIFiles "src/external/imgui/*.h" "src/external/imgui/*.cpp")
 
 file(GLOB_RECURSE SourceFiles
     "src/Engine/*.h"

@@ -124,7 +124,7 @@ PipelineBuilder &PipelineBuilder::SetDepthCompareOperation(VkCompareOp const &co
 PipelineBuilder &PipelineBuilder::EnableBlending(BlendMode const &mode) {
   switch (mode) {
   case BlendMode::ALPHA:
-    SetBlendFactors(VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA);
+    SetBlendFactors(VK_BLEND_FACTOR_DST_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA);
     break;
   case BlendMode::ADDITIVE:
     SetBlendFactors(VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_DST_ALPHA);
@@ -133,10 +133,14 @@ PipelineBuilder &PipelineBuilder::EnableBlending(BlendMode const &mode) {
   return *this;
 }
 
-PipelineBuilder &PipelineBuilder::AddDescriptorBinding(uint32_t binding, VkDescriptorType descriptorType,
-                                                       ShaderType shaderType) {
+PipelineBuilder &PipelineBuilder::AddDescriptorBinding(uint32_t set, uint32_t binding,
+                                                       VkDescriptorType descriptorType) {
   // TODO: Allow multiple shader stages
-  layoutBuilders[static_cast<size_t>(shaderType)].AddBinding(binding, descriptorType);
+  if (set >= layoutBuilders.size()) {
+    layoutBuilders.resize(set + 1);
+    descriptorSetStages.resize(set + 1);
+  }
+  layoutBuilders[set].AddBinding(binding, descriptorType);
   return *this;
 }
 
@@ -151,9 +155,9 @@ PipelineBuilder &PipelineBuilder::AddPushConstant(size_t size, size_t offset, Sh
 
 Pipeline *PipelineBuilder::Build() {
   std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
-  for (uint32_t i = 0; i < static_cast<uint32_t>(ShaderType::NUMBER_OF_TYPES); i++) {
+  for (uint32_t i = 0; i < layoutBuilders.size(); i++) {
     if (layoutBuilders[i].HasBindings()) {
-      descriptorSetLayouts.push_back(layoutBuilders[i].Build(ConvertToShaderStage(static_cast<ShaderType>(i))));
+      descriptorSetLayouts.push_back(layoutBuilders[i].Build(descriptorSetStages[i]));
     }
   }
 
