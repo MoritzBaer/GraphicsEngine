@@ -10,6 +10,7 @@ layout(set = SCENEDATA_SET, binding = SCENEDATA_BINDING) uniform SceneData {
     mat4 view;
     mat4 projection;
     mat4 viewProjection;
+    vec3 cameraPos;
     vec3 lightDir;
     vec3 lightColour;
  } sceneData;

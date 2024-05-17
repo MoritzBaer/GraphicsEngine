@@ -5,8 +5,9 @@
 namespace Engine::Graphics {
 
 struct SceneData {
-  Maths::Vector3 lightDirection;
-  Maths::Vector3 lightColour;
+  alignas(16) Maths::Vector3 cameraPosition;
+  alignas(16) Maths::Vector3 lightDirection;
+  alignas(16) Maths::Vector3 lightColour;
 };
 
 struct DrawData {

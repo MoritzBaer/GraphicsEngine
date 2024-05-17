@@ -90,7 +90,10 @@ void Engine::RunMainLoop() {
                      [](auto const &t) { return std::get<0>(t); });
       Graphics::ImGUIManager::BeginFrame();
       Graphics::Renderer::DrawFrame(mainCam.GetComponent<Graphics::Camera>(),
-                                    {Maths::Vector3(0, -1, 0.5).Normalized(), {1, 1, 1}}, meshRenderers);
+                                    {mainCam.GetComponent<Graphics::Transform>()->position,
+                                     Maths::Vector3(0, -1, -1.5).Normalized(),
+                                     {1.2f, 0.8f, 0.6f}},
+                                    meshRenderers);
     } else {
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }

@@ -33,10 +33,12 @@ void main() {
         vec4 worldPos = pushConstants.model * vec4(vertex.position, 1.0);
         outWorldPos = worldPos.xyz;
         outUV = vec2(vertex.uv_x, 1.0 - vertex.uv_y);
+
+        mat4 normalTransform = transpose(inverse(pushConstants.model));
         
-        vec3 T = vec3(1, 0, 0);
-        vec3 B = vec3(0, 1, 0);
-        vec3 N = vec3(0, 0, 1);
+        vec3 N = normalize((normalTransform * vec4(vertex.normal, 0)).xyz);
+        vec3 T = normalize((N != vec3(1, 0, 0)) ? cross(vec3(1, 0, 0), N) : cross(vec3(0, 1, 0), N));
+        vec3 B = normalize(cross(N, T));
         
         outTBN = mat3(T, B, N);
         

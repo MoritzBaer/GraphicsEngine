@@ -247,7 +247,11 @@ void Renderer::Draw(Camera const *camera, SceneData const &sceneData,
     Maths::Matrix4 projection = camera->projection;
 
     DrawData uniformData{
-        .view = view, .projection = projection, .viewProjection = projection * view, .sceneData = sceneData};
+        .view = view,
+        .projection = projection,
+        .viewProjection = projection * view,
+        .sceneData = sceneData,
+    };
 
     frameResources[resourceIndex].uniformBuffer.SetData(uniformData);
     auto drawMeshes = MultimeshDrawCommand(renderBuffer.colourImage, renderBuffer.depthImage,
@@ -483,6 +487,7 @@ void DrawSingleMesh(VkCommandBuffer const &commandBuffer, DescriptorAllocator &d
 
   // Upload uniform data
   Maths::Matrix4 model = renderInfo->entity.GetComponent<Transform>()->ModelToWorldMatrix();
+  Maths::Matrix4 normals = renderInfo->entity.GetComponent<Transform>()->ModelToWorldMatrix().Inverse().Transposed();
   PushConstantsAggregate data{};
   data.PushData(&model);
   renderInfo->mesh->AppendData(data);
