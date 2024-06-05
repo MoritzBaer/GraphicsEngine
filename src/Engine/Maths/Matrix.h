@@ -36,8 +36,21 @@ using Vector2 = Vector<2>;
 using Vector3 = Vector<3>;
 using Vector4 = Vector<4>;
 
+template <typename T> constexpr uint8_t alignment(uint8_t n, uint8_t m) {
+  uint8_t numBytes = n * m * sizeof(T);
+  if (numBytes <= 1)
+    return 1;
+  if (numBytes <= 2)
+    return 2;
+  if (numBytes <= 4)
+    return 4;
+  if (numBytes <= 8)
+    return 8;
+  return 16;
+}
+
 // Saved in column form (n x m means m columns, n rows)
-template <uint8_t n, uint8_t m, typename T> struct MatrixT {
+template <uint8_t n, uint8_t m, typename T> struct alignas(alignment<T>(n, m)) MatrixT {
 private:
   inline void ConvertToColumnForm();
   MatrixT(bool rowWise, std::array<T, n * m> const &values) : data(values) {
@@ -63,24 +76,38 @@ public:
 
   inline MatrixT<n, m, T> operator+(MatrixT<n, m, T> const &other) const;
   inline MatrixT<n, m, T> operator-(MatrixT<n, m, T> const &other) const;
-  template <typename T2> inline MatrixT<n, m, T> operator+(T2 const &value) const;
-  template <typename T2> inline MatrixT<n, m, T> operator-(T2 const &value) const;
+  template <typename T2>
+  inline MatrixT<n, m, T> operator+(T2 const &value) const
+    requires(std::is_arithmetic<T2>::value);
+  template <typename T2>
+  inline MatrixT<n, m, T> operator-(T2 const &value) const
+    requires(std::is_arithmetic<T2>::value);
   template <typename T2> inline friend MatrixT<n, m, T> operator+(T2 const &value, MatrixT<n, m, T> const &matrix) {
     return matrix + value;
   }
   inline MatrixT<n, m, T> &operator+=(MatrixT<n, m, T> const &other);
-  template <typename T2> inline MatrixT<n, m, T> &operator+=(T2 const &value);
+  template <typename T2>
+  inline MatrixT<n, m, T> &operator+=(T2 const &value)
+    requires(std::is_arithmetic<T2>::value);
   inline MatrixT<n, m, T> &operator-=(MatrixT<n, m, T> const &other);
   template <typename T2> inline MatrixT<n, m, T> &operator-=(T2 const &value);
   template <uint8_t l> inline MatrixT<n, l, T> operator*(MatrixT<m, l, T> const &other) const;
-  template <typename T2> inline MatrixT<n, m, T> operator*(T2 const &value) const;
-  template <typename T2> inline MatrixT<n, m, T> operator/(T2 const &value) const;
+  template <typename T2>
+  inline MatrixT<n, m, T> operator*(T2 const &value) const
+    requires(std::is_arithmetic<T2>::value);
+  template <typename T2>
+  inline MatrixT<n, m, T> operator/(T2 const &value) const
+    requires(std::is_arithmetic<T2>::value);
   template <typename T2> inline friend MatrixT<n, m, T> operator*(T2 const &value, MatrixT<n, m, T> const &matrix) {
     return matrix * value;
   }
   inline MatrixT<n, m, T> &operator*=(MatrixT<n, m, T> const &other);
-  template <typename T2> inline MatrixT<n, m, T> &operator*=(T2 const &value);
-  template <typename T2> inline MatrixT<n, m, T> &operator/=(T2 const &value);
+  template <typename T2>
+  inline MatrixT<n, m, T> &operator*=(T2 const &value)
+    requires(std::is_arithmetic<T2>::value);
+  template <typename T2>
+  inline MatrixT<n, m, T> &operator/=(T2 const &value)
+    requires(std::is_arithmetic<T2>::value);
   inline MatrixT<m, n, T> Transposed() const;
   inline MatrixT<n, n, T> Inverse() const
     requires(m == n)
@@ -160,6 +187,23 @@ private:
     }
 
     inline T &operator[](uint8_t column) { return parent.data[row * m + column]; }
+  };
+
+  class ConstRow {
+    MatrixT<n, m, T> const &parent;
+    uint8_t row;
+
+  public:
+    ConstRow(MatrixT<n, m, T> const &mat, uint8_t row) : parent(mat), row(row) {}
+
+    inline operator VectorT<m, T>() const {
+      VectorT<m, T> res{};
+      for (uint8_t col = 0; col < m; col++) {
+        res[col] = parent.data[col];
+      }
+    }
+
+    inline T const &operator[](uint8_t column) const { return parent.data[row * m + column]; }
   };
 
   class Entry {
@@ -326,6 +370,7 @@ private:
 
 public:
   inline Row operator[](uint8_t row) { return Row(*this, row); };
+  inline ConstRow operator[](uint8_t row) const { return ConstRow(*this, row); };
 
   // TODO: Allow value retrieval on const vectors?
   inline T x() const { return data[X]; }
@@ -561,7 +606,9 @@ inline MatrixT<n, m, T> MatrixT<n, m, T>::operator-(MatrixT<n, m, T> const &othe
 
 template <uint8_t n, uint8_t m, typename T>
 template <typename T2>
-inline MatrixT<n, m, T> MatrixT<n, m, T>::operator+(T2 const &value) const {
+inline MatrixT<n, m, T> MatrixT<n, m, T>::operator+(T2 const &value) const
+  requires(std::is_arithmetic<T2>::value)
+{
   std::array<T, n * m> newVals;
   for (int i = 0; i < n * m; i++) {
     newVals[i] = data[i] + value;
@@ -571,7 +618,9 @@ inline MatrixT<n, m, T> MatrixT<n, m, T>::operator+(T2 const &value) const {
 
 template <uint8_t n, uint8_t m, typename T>
 template <typename T2>
-inline MatrixT<n, m, T> MatrixT<n, m, T>::operator-(T2 const &value) const {
+inline MatrixT<n, m, T> MatrixT<n, m, T>::operator-(T2 const &value) const
+  requires(std::is_arithmetic<T2>::value)
+{
   std::array<T, n * m> newVals;
   for (int i = 0; i < n * m; i++) {
     newVals[i] = data[i] - value;
@@ -589,7 +638,9 @@ inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator+=(MatrixT<n, m, T> const &ot
 
 template <uint8_t n, uint8_t m, typename T>
 template <typename T2>
-inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator+=(T2 const &value) {
+inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator+=(T2 const &value)
+  requires(std::is_arithmetic<T2>::value)
+{
   for (int i = 0; i < n * m; i++) {
     data[i] += value;
   }
@@ -623,7 +674,9 @@ inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator*=(MatrixT<n, m, T> const &ot
 
 template <uint8_t n, uint8_t m, typename T>
 template <typename T2>
-inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator*=(T2 const &value) {
+inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator*=(T2 const &value)
+  requires(std::is_arithmetic<T2>::value)
+{
   for (int i = 0; i < n * m; i++) {
     data[i] *= value;
   }
@@ -632,7 +685,9 @@ inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator*=(T2 const &value) {
 
 template <uint8_t n, uint8_t m, typename T>
 template <typename T2>
-inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator/=(T2 const &value) {
+inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator/=(T2 const &value)
+  requires(std::is_arithmetic<T2>::value)
+{
   for (int i = 0; i < n * m; i++) {
     data[i] /= value;
   }
@@ -641,7 +696,9 @@ inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator/=(T2 const &value) {
 
 template <uint8_t n, uint8_t m, typename T>
 template <typename T2>
-inline MatrixT<n, m, T> MatrixT<n, m, T>::operator*(T2 const &value) const {
+inline MatrixT<n, m, T> MatrixT<n, m, T>::operator*(T2 const &value) const
+  requires(std::is_arithmetic<T2>::value)
+{
   std::array<T, n * m> newVals;
   for (int i = 0; i < n * m; i++) {
     newVals[i] = data[i] * value;
@@ -651,7 +708,9 @@ inline MatrixT<n, m, T> MatrixT<n, m, T>::operator*(T2 const &value) const {
 
 template <uint8_t n, uint8_t m, typename T>
 template <typename T2>
-inline MatrixT<n, m, T> MatrixT<n, m, T>::operator/(T2 const &value) const {
+inline MatrixT<n, m, T> MatrixT<n, m, T>::operator/(T2 const &value) const
+  requires(std::is_arithmetic<T2>::value)
+{
   std::array<T, n * m> newVals;
   for (int i = 0; i < n * m; i++) {
     newVals[i] = data[i] / value;

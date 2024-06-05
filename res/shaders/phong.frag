@@ -20,10 +20,10 @@ void main() {
     vec3 normal = normalize(normalizedTBN * texture(bump, uv).xyz);
 
     vec3 albedo = texture(albedo, uv).xyz;
-    vec3 diffuse = albedo * max(dot(normal, -sceneData.lightDir), 0.0) * sceneData.lightColour;
+    vec3 diffuse = albedo * max(dot(normal, sceneData.lightDir), 0.0) * sceneData.lightColour;
     vec3 specular = sceneData.lightColour * pow(max(dot(normal, halfway), 0.0), 32.0);
     vec3 ambient = 0.03 * albedo * sceneData.lightColour;
 
     vec3 colour = diffuse + specular + ambient;
-    fragColour = vec4(colour,1.0);
+    fragColour = vec4(0.5 * (TBN[2] + 1), 1.0);
 }

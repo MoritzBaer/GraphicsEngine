@@ -20,7 +20,7 @@ int main() {
   Engine::Util::RegisterComponentParser("MeshRenderer", Engine::Util::Deserializers::ParseMeshRenderer);
   Engine::Util::RegisterComponentParser("Display", Engine::Util::Deserializers::ParseDisplay);
 
-  Engine::AssetManager::LoadPrefab("generator.pfb");
+  Engine::AssetManager::LoadPrefab("cube.pfb");
 
   Engine::Editor::SceneView sceneView{};
   Engine::Editor::EntityDetails entityDetailView{sceneView};

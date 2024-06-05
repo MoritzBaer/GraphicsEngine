@@ -132,6 +132,15 @@ void MatrixTests() {
   Matrix2 M_Exp = Matrix2(3, -1, -2, 1);
   TEST_ASSERT_EQUAL(M_Inv, "own", M_Exp, "expected", "Matrix inversion does not give the correct result!")
 
+  {
+    Matrix3 M = Matrix3(1, 2, 3, 4, 5, 6, 7, 8, 9);
+    glm::mat3 glmM = glm::mat3(1, 4, 7, 2, 5, 8, 3, 6, 9);
+    TEST_ASSERT_EQUAL(M, "own", glmM, "glm", "Matrix representation does not match for 3x3 matrices!")
+
+    Matrix3 const &m = M;
+    float m_12 = m[1][2];
+  }
+
   // GLM has their constructors in column-major order, so we need to transpose the matrix
   Matrix4 m1 = Matrix4(8.96836, 2.10230, 1.89949, 4.60040, 8.39039, 5.83538, 7.79529, 6.32591, 4.75992, 5.49344,
                        0.39212, 0.78537, 6.66451, 8.18015, 3.31983, 4.87304);
