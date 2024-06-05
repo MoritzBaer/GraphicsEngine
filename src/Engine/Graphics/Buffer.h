@@ -2,6 +2,7 @@
 
 #include "CommandQueue.h"
 #include "Debug/Logging.h"
+#include "DescriptorHandling.h"
 #include "InstanceManager.h"
 #include "MemoryAllocator.h"
 #include "Util/DeletionQueue.h"
@@ -13,7 +14,7 @@ namespace Engine::Graphics {
 
 class GPUMemoryManager;
 
-template <typename T> class Buffer : public Destroyable {
+template <typename T> class Buffer : public ConstDestroyable {
   VkBuffer buffer;
   VmaAllocation allocation;
   VmaAllocationInfo info;
@@ -34,6 +35,7 @@ public:
     Create(size, usage, memoryUsage);
     SetData(data, size);
   }
+  Buffer(T const &data, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) : Buffer(&data, 1, usage, memoryUsage) {}
 
   inline VkDeviceAddress GetDeviceAddresss() const {
     VkBufferDeviceAddressInfo deviceAdressInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = buffer};
@@ -48,7 +50,14 @@ public:
   inline void SetData(T const *data, size_t numberOfEntries) const {
     memcpy(info.pMappedData, data, numberOfEntries * sizeof(T));
   }
+  inline void SetData(T const &data) const { SetData(&data, 1); }
   inline void SetData(std::vector<T> const &data) const { SetData(data.data(), data.size()); }
+
+  inline void UpdateDescriptor(VkDescriptorSet descriptorSet, uint32_t binding) const {
+    DescriptorWriter writer{};
+    writer.WriteBuffer(binding, buffer, PhysicalSize(), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+    writer.UpdateSet(descriptorSet);
+  }
 
   inline void BindAsIndexBuffer(VkCommandBuffer const &commandBuffer) const
     requires(std::integral<T>)

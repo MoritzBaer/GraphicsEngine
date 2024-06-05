@@ -10,7 +10,7 @@
 namespace Engine::Graphics {
 
 // Image is not responsible for image object creation and therefore also doesn't destroy it
-template <uint8_t Dimension> class Image : public Destroyable {
+template <uint8_t Dimension> class Image : public ConstDestroyable {
 protected:
   VkImage image;
   VkImageView imageView;

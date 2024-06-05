@@ -1,8 +1,10 @@
 #pragma once
 
+#include "Buffer.h"
 #include "Camera.h"
 #include "CommandQueue.h"
 #include "DescriptorHandling.h"
+#include "DrawData.h"
 #include "Image.h"
 #include "Maths/Dimension.h"
 #include "Shader.h"
@@ -19,19 +21,20 @@ class MeshRenderer;
 class Renderer {
   _SINGLETON(Renderer, Maths::Dimension2 windowSize)
 
-  struct FrameResources {
+  struct FrameResources : public Initializable {
     CommandQueue commandQueue;
     DeletionQueue deletionQueue;
     VkSemaphore swapchainSemaphore;
     VkSemaphore renderSemaphore;
     VkFence renderFence;
     DescriptorAllocator descriptorAllocator;
+    Buffer<DrawData> uniformBuffer;
 
-    void Create();
-    void Destroy();
+    void Create() override;
+    void Destroy() override;
   };
 
-  struct ImmediateSubmitResources : public Initializable {
+  struct ImmediateSubmitResources : public ConstInitializable {
     CommandQueue commandQueue;
     VkFence fence;
 
@@ -53,7 +56,7 @@ class Renderer {
 
   Maths::Dimension2 windowDimension;
   bool renderBufferInitialized;
-  struct : public Destroyable {
+  struct : public ConstDestroyable {
     AllocatedImage<2> colourImage;
     AllocatedImage<2> depthImage;
     inline void Destroy() const {
@@ -74,15 +77,16 @@ class Renderer {
   void InitPipelines();
   void InitBackgroundPipeline();
 
-  void Draw(Camera const *camera, std::span<MeshRenderer const *> const &objectsToDraw);
+  void Draw(Camera const *camera, SceneData const &sceneData, std::span<MeshRenderer const *> const &objectsToDraw);
   void RecreateRenderBuffer();
 
   inline FrameResources const &CurrentResources() const { return frameResources[currentFrame % MAX_FRAME_OVERLAP]; }
 
 public:
   // Signature is likely to change (for example a list of render objects will have to be passed somehow)
-  static inline void DrawFrame(Camera const *camera, std::span<MeshRenderer const *> const &objectsToDraw) {
-    instance->Draw(camera, objectsToDraw);
+  static inline void DrawFrame(Camera const *camera, SceneData const &sceneData,
+                               std::span<MeshRenderer const *> const &objectsToDraw) {
+    instance->Draw(camera, sceneData, objectsToDraw);
   }
 
   static inline void RecreateSwapchain() {

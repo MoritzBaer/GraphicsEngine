@@ -38,7 +38,7 @@ public:
 
   inline VkDescriptorImageInfo BindInDescriptor(VkImageLayout layout) const override;
 
-  inline void UpdateDescriptors(VkDescriptorSet const &descriptorSet,
+  inline void UpdateDescriptors(VkDescriptorSet const &descriptorSet, uint8_t binding = 0,
                                 VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) const;
 
   inline virtual void Destroy() const override;
@@ -70,9 +70,10 @@ template <uint8_t D> inline VkDescriptorImageInfo Texture<D>::BindInDescriptor(V
 }
 
 template <uint8_t D>
-inline void Texture<D>::UpdateDescriptors(VkDescriptorSet const &descriptorSet, VkImageLayout layout) const {
+inline void Texture<D>::UpdateDescriptors(VkDescriptorSet const &descriptorSet, uint8_t binding,
+                                          VkImageLayout layout) const {
   DescriptorWriter writer{};
-  writer.WriteImage(0, *this, layout, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+  writer.WriteImage(binding, *this, layout, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
   writer.UpdateSet(descriptorSet);
 }
 

@@ -13,8 +13,8 @@ class AssetManager {
   _SINGLETON(AssetManager)
 
   std::unordered_map<std::string, Graphics::Shader> loadedShaders;
-  std::unordered_map<std::string, Graphics::Pipeline const *> loadedPipelines;
-  std::unordered_map<std::string, Graphics::Material const *> loadedMaterials;
+  std::unordered_map<std::string, Graphics::Pipeline *> loadedPipelines;
+  std::unordered_map<std::string, Graphics::Material *> loadedMaterials;
   std::unordered_map<std::string, Graphics::Mesh> loadedMeshes;
   std::unordered_map<std::string, Graphics::Texture2D> loadedTextures;
 
@@ -31,7 +31,7 @@ public:
   static void InitStandins();
 
   static Graphics::Mesh LoadMeshFromOBJ(char const *meshName);
-  static Graphics::AllocatedMesh *LoadMesh(char const *meshName);
+  static Graphics::AllocatedMesh *LoadMesh(char const *meshName, bool flipUVs = false);
   static Graphics::Material *LoadMaterial(char const *materialName);
   static Graphics::Pipeline const *LoadPipeline(char const *pipelineName);
   static Core::Entity LoadPrefab(char const *prefabName);

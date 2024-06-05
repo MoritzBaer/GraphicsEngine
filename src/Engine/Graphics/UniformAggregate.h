@@ -3,15 +3,15 @@
 #include <cstring>
 
 namespace Engine::Graphics {
-class UniformAggregate {
+class PushConstantsAggregate {
 private:
   void *data;
   size_t size;
 
 public:
-  UniformAggregate() : data(nullptr), size(0) {}
-  ~UniformAggregate() { delete data; }
-  template <typename T> UniformAggregate &PushData(T *data) {
+  PushConstantsAggregate() : data(nullptr), size(0) {}
+  ~PushConstantsAggregate() { delete data; }
+  template <typename T> PushConstantsAggregate &PushData(T *data) {
     char *newData = reinterpret_cast<char *>(malloc(size + sizeof(T)));
     memcpy(newData, this->data, size);
     memcpy(newData + size, data, sizeof(T));

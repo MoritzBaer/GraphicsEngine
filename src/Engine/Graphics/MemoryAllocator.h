@@ -4,7 +4,7 @@
 #include <vector>
 
 namespace Engine::Graphics {
-class MemoryAllocator : public Destroyable {
+class MemoryAllocator : public ConstDestroyable {
 private:
   VmaAllocator allocator;
 #ifndef NDEBUG

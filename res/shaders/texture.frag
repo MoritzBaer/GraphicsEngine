@@ -11,5 +11,6 @@ layout(set = 0, binding = 0) uniform sampler2D displayTexture;
 
 void main() 
 {
-	outFragColor = texture(displayTexture, uv);
+	// TODO: Re-enable alpha eventually
+	outFragColor = vec4(texture(displayTexture, vec2(uv.x, 1 - uv.y)).xyz, 1.0);
 }

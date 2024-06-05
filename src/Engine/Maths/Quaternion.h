@@ -8,7 +8,8 @@ public:
   float w, x, y, z;
   Quaternion(float w, float x, float y, float z) : w(w), x(x), y(y), z(z) {}
   Quaternion(Quaternion const &other) : w(other.w), x(other.x), y(other.y), z(other.z) {}
-  Quaternion(Vector3 const &p) : w(0), x(p[X]), y(p[Y]), z(p[Z]) {} // For rotating p (by calculating r p r*)
+  Quaternion(Vector3 const &p) : w(0), x(p[X]), y(p[Y]), z(p[Z]) {}          // For rotating p (by calculating r p r*)
+  Quaternion(float w, Vector3 const &p) : w(w), x(p[X]), y(p[Y]), z(p[Z]) {} // For rotating p (by calculating r p r*)
   Quaternion() : w(0), x(0), y(0), z(0) {}
 
   static inline Quaternion Identity() { return {1, 0, 0, 0}; }
@@ -30,6 +31,35 @@ public:
   inline Quaternion &operator/=(float theta);
 
   inline Vector3 xyz() const { return {x, y, z}; }
+
+  inline static Quaternion LookAt(Vector3 const &position, Vector3 const &target, Vector3 const &up) {
+    Vector3 F = (target - position).Normalized(); // lookAt
+    Vector3 R = F.Cross(up).Normalized();         // sideaxis
+    Vector3 U = R.Cross(F);                       // rotatedup
+
+    // note that R needed to be re-normalized
+    // since F and worldUp are not necessary perpendicular
+    // so must remove the sin(angle) factor of the cross-product
+    // same not true for U because dot(R, F) = 0
+
+    // adapted source
+    float trace = R.x() + U.y() + F.z();
+    if (trace > 0.0) {
+      float s = 0.5f / sqrt(trace + 1.0);
+      return {0.25f / s, (U.z() - F.y()) * s, (F.x() - R.z()) * s, (R.y() - U.x()) * s};
+    } else {
+      if (R.x() > U.y() && R.x() > F.z()) {
+        float s = 2.0f * sqrt(1.0f + R.x() - U.y() - F.z());
+        return {(U.z() - F.y()) / s, 0.25f * s, (U.x() + R.y()) / s, (F.x() + R.z()) / s};
+      } else if (U.y() > F.z()) {
+        float s = 2.0f * sqrt(1.0f + U.y() - R.x() - F.z());
+        return {(F.x() - R.z()) / s, (U.x() + R.y()) / s, 0.25f * s, (F.y() + U.z()) / s};
+      } else {
+        float s = 2.0f * sqrt(1.0f + F.z() - R.x() - U.y());
+        return {(R.y() - U.x()) / s, (F.x() + R.z()) / s, (F.y() + U.z()) / s, 0.25f * s};
+      }
+    }
+  }
 
   // Conversions
   inline Vector3 EulerAngles() const;

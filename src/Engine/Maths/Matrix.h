@@ -37,7 +37,6 @@ using Vector3 = Vector<3>;
 using Vector4 = Vector<4>;
 
 // Saved in column form (n x m means m columns, n rows)
-// TODO: save data column-wise
 template <uint8_t n, uint8_t m, typename T> struct MatrixT {
 private:
   inline void ConvertToColumnForm();

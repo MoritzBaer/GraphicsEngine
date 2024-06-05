@@ -47,6 +47,9 @@ void Engine::Init(const char *applicationName) {
     mainCam = Core::Entity(Core::ECS::CreateEntity());
     mainCam.AddComponent<Graphics::Camera>();
     mainCam.AddComponent<Editor::Display>()->AssignLabel("Main camera");
+    auto camTransform = mainCam.AddComponent<Graphics::Transform>();
+    camTransform->position = {0, 0, 5};
+    camTransform->LookAt({0, 0, 0});
 
     WindowManager::Init();
     mainWindow = WindowManager::CreateWindow(1600, 900, applicationName);
@@ -76,14 +79,21 @@ void Engine::RunMainLoop() {
     if (render) {
       auto renderersWithTransforms = Core::ECS::FilterEntities<Graphics::MeshRenderer, Graphics::Transform>();
       for (auto const &[_, transform] : renderersWithTransforms) {
-        transform->rotation = Maths::Transformations::RotateAroundAxis(Maths::Vector3(0, 1, 0), Time::time * 0.2f);
-        transform->position.y() = std::sin(Time::time) * 0.1f;
+        transform->rotation =
+            (Maths::Transformations::RotateAroundAxis(Maths::Vector3(0, 1, 0), Time::deltaTime * 0.2f) *
+             transform->rotation)
+                .Normalized();
+        transform->position.y() = std::sin(Time::time) * 0.1f - 1.2f;
       }
       std::vector<Graphics::MeshRenderer const *> meshRenderers(renderersWithTransforms.size());
       std::transform(renderersWithTransforms.begin(), renderersWithTransforms.end(), meshRenderers.begin(),
                      [](auto const &t) { return std::get<0>(t); });
       Graphics::ImGUIManager::BeginFrame();
-      Graphics::Renderer::DrawFrame(mainCam.GetComponent<Graphics::Camera>(), meshRenderers);
+      Graphics::Renderer::DrawFrame(mainCam.GetComponent<Graphics::Camera>(),
+                                    {mainCam.GetComponent<Graphics::Transform>()->position,
+                                     Maths::Vector3(0, -1, -1.5).Normalized(),
+                                     {1.2f, 0.8f, 0.6f}},
+                                    meshRenderers);
     } else {
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
