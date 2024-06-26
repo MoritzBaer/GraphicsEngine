@@ -46,7 +46,7 @@ enum class ObjParsingState {
   READ_FACE
 };
 
-Graphics::Mesh CalculateTangentSpace(Graphics::MeshT<OBJVertex, OBJVertex> const &objMesh) {
+Graphics::Mesh CalculateTangentSpace(Graphics::MeshT<OBJVertex, OBJVertex> &objMesh) {
   PROFILE_FUNCTION()
 
   std::vector<uint16_t> triangleParticipations(objMesh.vertices.size(), 0);
@@ -86,14 +86,14 @@ Graphics::Mesh CalculateTangentSpace(Graphics::MeshT<OBJVertex, OBJVertex> const
   }
 
   Graphics::Mesh result{};
-  result.indices = objMesh.indices;
+  result.indices.swap(objMesh.indices);
   result.vertices.resize(objMesh.vertices.size());
   for (int v = 0; v < objMesh.vertices.size(); v++) {
     result.vertices[v].position = objMesh.vertices[v].position;
     result.vertices[v].uv = objMesh.vertices[v].uv;
     Maths::Vector3 T = cotangents[v] / triangleParticipations[v];
     Maths::Vector3 B = cobitangents[v] / triangleParticipations[v];
-    Maths::Vector3 N = objMesh.vertices[0].normal;
+    Maths::Vector3 N = objMesh.vertices[v].normal;
     result.vertices[v].TBN = Maths::Matrix3(T[X], T[Y], T[Z], B[X], B[Y], B[Z], N[X], N[Y], N[Z]);
     // result.vertices[v].TBN = Maths::Matrix3(N[X], N[Y], N[Z], B[0], B[1], B[2], N[0], N[1], N[2]);
   }

@@ -25,5 +25,5 @@ void main() {
     vec3 ambient = 0.03 * albedo * sceneData.lightColour;
 
     vec3 colour = diffuse + specular + ambient;
-    fragColour = vec4(0.5 * (TBN[2] + 1), 1.0);
+    fragColour = vec4(0.5 * (TBN[1] + 1), 1.0);
 }
