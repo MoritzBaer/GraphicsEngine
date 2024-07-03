@@ -71,10 +71,12 @@ Graphics::Mesh CalculateTangentSpace(Graphics::MeshT<OBJVertex, OBJVertex> &objM
     Maths::Matrix3 mat = Maths::Matrix3(q1[X], q1[Y], q1[Z], q2[X], q2[Y], q2[Z], N[X], N[Y], N[Z]);
     Maths::Matrix3 invMat = mat.Inverse();
 
+    Maths::Matrix3 test = mat * invMat;
+
     Maths::Vector3 T = (invMat * Maths::Vector3(objMesh.vertices[i1].uv[X] - objMesh.vertices[i0].uv[X],
-                                                objMesh.vertices[i1].uv[Y] - objMesh.vertices[i0].uv[Y], 0))
+                                                objMesh.vertices[i2].uv[X] - objMesh.vertices[i0].uv[X], 0))
                            .Normalized();
-    Maths::Vector3 B = (invMat * Maths::Vector3(objMesh.vertices[i2].uv[X] - objMesh.vertices[i0].uv[X],
+    Maths::Vector3 B = (invMat * Maths::Vector3(objMesh.vertices[i1].uv[Y] - objMesh.vertices[i0].uv[Y],
                                                 objMesh.vertices[i2].uv[Y] - objMesh.vertices[i0].uv[Y], 0))
                            .Normalized();
 
@@ -94,7 +96,8 @@ Graphics::Mesh CalculateTangentSpace(Graphics::MeshT<OBJVertex, OBJVertex> &objM
     Maths::Vector3 T = cotangents[v] / triangleParticipations[v];
     Maths::Vector3 B = cobitangents[v] / triangleParticipations[v];
     Maths::Vector3 N = objMesh.vertices[v].normal;
-    result.vertices[v].TBN = Maths::Matrix3(T[X], T[Y], T[Z], B[X], B[Y], B[Z], N[X], N[Y], N[Z]);
+    //  result.vertices[v].TBN = Maths::Matrix3(T[X], T[Y], T[Z], B[X], B[Y], B[Z], N[X], N[Y], N[Z]);
+    result.vertices[v].TBN = Maths::Matrix3(T[X], B[X], N[X], T[Y], B[Y], N[Y], T[Z], B[Z], N[Z]);
     // result.vertices[v].TBN = Maths::Matrix3(N[X], N[Y], N[Z], B[0], B[1], B[2], N[0], N[1], N[2]);
   }
 
@@ -234,7 +237,8 @@ Graphics::Mesh ParseOBJ(char const *charStream) {
       stateStack.push_back(ObjParsingState::READ_INT);
       stateStack.push_back(ObjParsingState::GOBBLE_SPACE);
       break;
-    case ObjParsingState::RESOLVE_INDEX_TRIPLE:
+    case ObjParsingState::RESOLVE_INDEX_TRIPLE: {
+      PROFILE_SCOPE("Resolve index triple")
       indexTriple = {intBuffer[0], intBuffer[1], intBuffer[2]};
       if (vertexIndices.find(indexTriple) == vertexIndices.end()) {
         vertexIndices.emplace(indexTriple, static_cast<uint32_t>(objMesh.vertices.size()));
@@ -244,7 +248,7 @@ Graphics::Mesh ParseOBJ(char const *charStream) {
       }
       objMesh.indices.push_back(vertexIndices.at(indexTriple));
       intBuffer = {};
-      break;
+    } break;
     case ObjParsingState::GOBBLE_CHARACTER:
       charStream++;
       break;

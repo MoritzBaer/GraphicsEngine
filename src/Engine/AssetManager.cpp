@@ -129,13 +129,14 @@ Graphics::Pipeline *ParsePipeline(char const *pipelineData) {
       .SetDepthFormat(VK_FORMAT_D32_SFLOAT)
       .SetDepthCompareOperation(VK_COMPARE_OP_LESS_OR_EQUAL)
       .EnableBlending(Graphics::PipelineBuilder::BlendMode::ALPHA)
+      .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
       .Build();
 }
 
 Graphics::Material *ParseMAT(char const *materialData) {
   auto pl = AssetManager::LoadPipeline("dummy");
-  return new Graphics::Materials::AlbedoAndBump(pl, AssetManager::LoadTexture("generator_diffuse.tga"),
-                                                AssetManager::LoadTexture("generator_bump.tga"));
+  return new Graphics::Materials::AlbedoAndBump(pl, AssetManager::LoadTexture("spaceship_texture.png"),
+                                                AssetManager::LoadTexture("spaceship_normals.png"));
 }
 
 Graphics::Material *AssetManager::LoadMaterial(char const *materialName) {

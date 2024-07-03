@@ -50,7 +50,7 @@ template <typename T> constexpr uint8_t alignment(uint8_t n, uint8_t m) {
 }
 
 // Saved in column form (n x m means m columns, n rows)
-template <uint8_t n, uint8_t m, typename T> struct /*alignas(alignment<T>(n, m))*/ MatrixT {
+template <uint8_t n, uint8_t m, typename T> struct alignas(alignment<T>(n, m)) MatrixT {
 private:
   inline void ConvertToColumnForm();
   MatrixT(bool rowWise, std::array<T, n * m> const &values) : data(values) {
