@@ -78,12 +78,14 @@ void Engine::RunMainLoop() {
     Time::Update();
     if (render) {
       auto renderersWithTransforms = Core::ECS::FilterEntities<Graphics::MeshRenderer, Graphics::Transform>();
-      for (auto const &[_, transform] : renderersWithTransforms) {
+      for (auto &[_, transform] : renderersWithTransforms) {
+        if (transform->parent)
+          transform = transform->parent->entity.GetComponent<Graphics::Transform>();
         transform->rotation =
             (Maths::Transformations::RotateAroundAxis(Maths::Vector3(0, 1, 0), Time::deltaTime * 0.2f) *
              transform->rotation)
                 .Normalized();
-        transform->position.y() = std::sin(Time::time) * 0.1f - 1.2f;
+        transform->position.y() = std::sin(Time::time) * 0.1f;
       }
       std::vector<Graphics::MeshRenderer const *> meshRenderers(renderersWithTransforms.size());
       std::transform(renderersWithTransforms.begin(), renderersWithTransforms.end(), meshRenderers.begin(),
@@ -91,7 +93,7 @@ void Engine::RunMainLoop() {
       Graphics::ImGUIManager::BeginFrame();
       Graphics::Renderer::DrawFrame(mainCam.GetComponent<Graphics::Camera>(),
                                     {mainCam.GetComponent<Graphics::Transform>()->position,
-                                     Maths::Vector3(0, -1, -1.5).Normalized(),
+                                     Maths::Vector3(0, -5, -1.5).Normalized(),
                                      {1.2f, 0.8f, 0.6f}},
                                     meshRenderers);
     } else {

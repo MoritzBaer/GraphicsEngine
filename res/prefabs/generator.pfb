@@ -3,18 +3,32 @@
     [
         Transform: 
         { 
-            position: { 0 -1 0 }, 
-            rotation: {w: -0.70710678118, x: 0.70710678118, y: 0, z: 0}, 
-            scale: { 0.05 0.05 0.05 }, 
-            children: [] 
+            position: { 0 0 0 }, 
+            rotation: {w: 1, x: 0, y: 0, z: 0}, 
+            scale: { 1 1 1 }, 
+            children: [{ 
+                Components: 
+                [
+                    Transform: 
+                    { 
+                        position: { 0 -1.2 0 }, 
+                        rotation: {w: -0.70710678118, x: 0.70710678118, y: 0, z: 0}, 
+                        scale: { 0.05 0.05 0.05 }, 
+                        children: [] 
+                    }, 
+                    MeshRenderer: 
+                    { 
+                        mesh: generator_small_mod.obj, 
+                        material: dummy 
+                    },
+                    Display: {
+                        label: generator
+                    }
+                ] 
+            }] 
         }, 
-        MeshRenderer: 
-        { 
-            mesh: generator_small_mod.obj, 
-            material: dummy 
-        },
         Display: {
-            label: generator
+            label: generator_parent
         }
     ] 
 }
