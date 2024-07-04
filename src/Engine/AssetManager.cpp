@@ -135,8 +135,8 @@ Graphics::Pipeline *ParsePipeline(char const *pipelineData) {
 
 Graphics::Material *ParseMAT(char const *materialData) {
   auto pl = AssetManager::LoadPipeline("dummy");
-  return new Graphics::Materials::AlbedoAndBump(pl, AssetManager::LoadTexture("spaceship_texture.png"),
-                                                AssetManager::LoadTexture("spaceship_normals.png"));
+  return new Graphics::Materials::AlbedoAndBump(pl, AssetManager::LoadTexture("speeder_t.png"),
+                                                AssetManager::LoadTexture("speeder_n_highres.png"));
 }
 
 Graphics::Material *AssetManager::LoadMaterial(char const *materialName) {

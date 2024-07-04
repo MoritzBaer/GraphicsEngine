@@ -43,9 +43,9 @@ void main() {
         vec3 B = normalize(normalTransform * vec4(ACCESS_TBNP(1), 0)).xyz;
         vec3 N = normalize(normalTransform * vec4(ACCESS_TBNP(2), 0)).xyz;
 
-        //vec3 T = ACCESS_TBNP(0);
-        //vec3 B = ACCESS_TBNP(1);
-        //vec3 N = ACCESS_TBNP(2);
+        //T = ACCESS_TBNP(0);
+        //B = ACCESS_TBNP(1);
+        //N = ACCESS_TBNP(2);
 
         outTBN = mat3(T, B, N);//mat3(T, B, ACCESS_TBNP(2));
         

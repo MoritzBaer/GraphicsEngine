@@ -21,7 +21,7 @@ int main() {
   Engine::Util::RegisterComponentParser("Display", Engine::Util::Deserializers::ParseDisplay);
 
   BEGIN_PROFILE_SESSION()
-  Engine::AssetManager::LoadPrefab("spaceship.pfb");
+  Engine::AssetManager::LoadPrefab("speeder.pfb");
   WRITE_PROFILE_SESSION("Scene-Loading")
 
   Engine::Editor::SceneView sceneView{};
