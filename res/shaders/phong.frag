@@ -24,7 +24,7 @@ void main() {
     vec3 albedo = texture(albedo, uv).xyz;
     //albedo = vec3(1);
     vec3 diffuse = albedo * max(dot(normal, -sceneData.lightDir), 0.0) * sceneData.lightColour;
-    vec3 specular = sceneData.lightColour * pow(max(dot(normal, halfway), 0.0), 1024.0) * 0.5;
+    vec3 specular = sceneData.lightColour * pow(max(dot(normal, halfway), 0.0), 8.0) * 0.5;
     vec3 ambient = 0.03 * albedo * sceneData.lightColour;
 
     vec3 colour = diffuse + specular + ambient;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Matrix.h"
+#include "json-parsing.h"
 
 namespace Engine::Maths {
 class Quaternion {
@@ -65,11 +66,6 @@ public:
   inline Vector3 EulerAngles() const;
   inline static Quaternion FromEulerAngles(Vector3 const &eulerAngles);
   inline Matrix3 RotationMatrix() const;
-
-  // Quaternion must not inherit Serializable because otherwise its pointers would be offset (which is bad with ImGUI)
-  inline void Serialize(std::stringstream &targetStream) const {
-    targetStream << "{w: " << w << ", x: " << x << ", y: " << y << ", z: " << z << "}";
-  }
 };
 
 Quaternion Quaternion::operator*(Quaternion const &other) const {
@@ -130,3 +126,7 @@ inline Matrix3 Quaternion::RotationMatrix() const {
                  2 * (w * y + x * z),           2 * (y * z - w * x),           w * w - x * x - y * y + z * z};
 }
 } // namespace Engine::Maths
+
+OBJECT_PARSER(Engine::Maths::Quaternion, FIELD_PARSER(w) FIELD_PARSER(x) FIELD_PARSER(y) FIELD_PARSER(z))
+OBJECT_SERIALIZER(Engine::Maths::Quaternion,
+                  FIELD_SERIALIZER(w) FIELD_SERIALIZER(x) FIELD_SERIALIZER(y) FIELD_SERIALIZER(z))

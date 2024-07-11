@@ -9,6 +9,7 @@
 #include "Util/FileIO.h"
 #include "Util/Parsing.h"
 #define STB_IMAGE_IMPLEMENTATION
+#include "Util/Serialization/EntitySerialization.h"
 #include "stb_image.h"
 
 #include <functional>
@@ -39,6 +40,14 @@
 #define _RETURN_ASSET(key, table, constructor)                                                                         \
   _INSERT_ASSET_IF_NEW(key, table, constructor)                                                                        \
   return instance->table[key];
+
+template <> struct json<Engine::Graphics::Material *> {
+  template <typename T_Other> friend struct json;
+
+  template <class Container> static Engine::Graphics::Material *deserialize(Container const &json);
+  template <class OutputIterator>
+  static constexpr OutputIterator serialize(Engine::Graphics::Material const &object, OutputIterator output);
+};
 
 namespace Engine {
 
@@ -79,6 +88,12 @@ Graphics::Shader AssetManager::LoadShaderWithInferredType(char const *shaderName
 }
 
 void AssetManager::InitStandins() {
+  uint32_t white = 0xFFFFFFFF;
+  uint32_t normalUp = 0xFFFF8080;
+  instance->loadedTextures.insert({"white", Graphics::Texture2D(Maths::Dimension2(1, 1), &white)});
+  instance->loadedTextures.insert({"normalUp", Graphics::Texture2D(Maths::Dimension2(1, 1), &normalUp)});
+  mainDeletionQueue.Push(&instance->loadedTextures["white"]);
+  mainDeletionQueue.Push(&instance->loadedTextures["normalUp"]);
 
   // Load error texture
   std::vector<uint32_t> errorTextureData(16 * 16, 0xFFFF00FF);
@@ -133,23 +148,14 @@ Graphics::Pipeline *ParsePipeline(char const *pipelineData) {
       .Build();
 }
 
-Graphics::Material *ParseMAT(char const *materialData) {
-  auto pl = AssetManager::LoadPipeline("dummy");
-  return new Graphics::Materials::AlbedoAndBump(pl, AssetManager::LoadTexture("speeder_t.png"),
-                                                AssetManager::LoadTexture("speeder_n_highres.png"));
+Graphics::Material *ParseMAT(char const *materialname) {
+  std::vector<char> materialData = Util::FileIO::ReadFile(materialname);
+  return json<Graphics::Material *>::deserialize(materialData);
 }
 
 Graphics::Material *AssetManager::LoadMaterial(char const *materialName) {
-  MAKE_FILE_PATH(materialName, MATERIAL_PATH)
-  // auto materialData = Util::FileIO::ReadFile(filePath);
-  char const *materialData = "dummy";
-  //_INSERT_ASSET_IF_NEW(materialName, loadedMaterials, ParseMAT(materialData.data()))
-  bool isNew = instance->loadedMaterials.find(materialName) == instance->loadedMaterials.end();
-  if (isNew) {
-    instance->loadedMaterials.insert({materialName, ParseMAT(materialData)});
-  }
-  Graphics::Material const *loadedMaterial = instance->loadedMaterials[materialName];
-  return new Graphics::Materials::AlbedoAndBump(loadedMaterial);
+  MAKE_FILE_PATH(materialName, MATERIAL_PATH);
+  _RETURN_ASSET(materialName, loadedMaterials, ParseMAT(filePath));
 }
 
 Graphics::Pipeline const *AssetManager::LoadPipeline(char const *pipelineName) {
@@ -165,9 +171,10 @@ Core::Entity AssetManager::LoadPrefab(char const *prefabName) {
   MAKE_FILE_PATH(prefabName, PREFAB_PATH);
 
   auto prefabData = Util::FileIO::ReadFile(filePath);
-  const char *dataString = prefabData.data();
-  auto e = Util::ParseEntity(dataString);
+  Core::Entity e = Core::ECS::CreateEntity();
+  json<Core::Entity>::deserialize(prefabData, e);
   Core::SceneHierarchy::BuildHierarchy();
+
   return e;
 }
 
@@ -194,3 +201,45 @@ Graphics::Texture2D AssetManager::LoadTexture(char const *textureName) {
 }
 
 } // namespace Engine
+
+template <class Container>
+Engine::Graphics::Material *json<Engine::Graphics::Material *>::deserialize(Container const &materialData) {
+  using namespace Engine;
+
+  auto pl = Engine::AssetManager::LoadPipeline("dummy");
+  std::vector<Token> tokens{};
+  tokenize(std::begin(materialData), std::end(materialData), std::back_inserter(tokens));
+
+  auto tokenIt = tokens.begin();
+
+  if (tokenIt++->type != Token::Type::LBrace) {
+    ENGINE_ERROR("Expected '{{' at start of material data, got '{}'", token_type_to_string((tokenIt - 1)->type));
+    return nullptr;
+  }
+
+  if (tokenIt->type != Token::Type::String) {
+    ENGINE_ERROR("Expected identifier after '{{', got '{}'", token_type_to_string(tokenIt->type));
+    return nullptr;
+  }
+
+  std::string materialType;
+  tokenIt = parse_key(tokenIt, tokens.end(), materialType);
+  Graphics::Material *mat = nullptr;
+
+  if (materialType == "Engine::Graphics::Materials::AlbedoAndBump") {
+    auto pl = AssetManager::LoadPipeline("dummy"); // TODO: Think of sensible system
+    mat = new Graphics::Materials::AlbedoAndBump(pl);
+    tokenIt = json<Graphics::Materials::AlbedoAndBump>::parse_tokenstream(
+        tokenIt, tokens.end(), *dynamic_cast<Graphics::Materials::AlbedoAndBump *>(mat));
+  } else {
+    ENGINE_ERROR("Unknown material type '{}'", materialType);
+    return nullptr;
+  }
+
+  if (tokenIt++->type != Token::Type::RBrace) {
+    ENGINE_ERROR("Expected '}}' at end of material data, got '{}'", token_type_to_string((tokenIt - 1)->type));
+    return nullptr;
+  }
+
+  return mat;
+}

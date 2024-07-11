@@ -1,14 +1,16 @@
 #pragma once
 
+#include <string>
+
 #include "Core/ECS.h"
 #include "Editor/Publishable.h"
 #include "Maths/Transformations.h"
-#include "Util/Serializable.h"
+#include "json-parsing.h"
 
 using namespace Engine::Maths;
 
 namespace Engine::Graphics {
-ENGINE_COMPONENT_DECLARATION(Transform), public Util::Serializable, public Editor::Publishable {
+ENGINE_COMPONENT_DECLARATION(Transform), public Editor::Publishable {
   Vector3 position;
   Quaternion rotation;
   Vector3 scale;
@@ -41,24 +43,6 @@ ENGINE_COMPONENT_DECLARATION(Transform), public Util::Serializable, public Edito
 
   inline std::vector<Editor::Publication> GetPublications() override {
     return {PUBLISH(position), PUBLISH_RANGE(rotation, 0.0f, 1.0f, 0.1f), PUBLISH_RANGE(scale, 0.001f, 10000.0f, 1.0f)};
-  }
-
-  inline void Serialize(std::stringstream & targetStream) const override {
-    targetStream << "Transform: { " << "position: ";
-    position.Serialize(targetStream);
-    targetStream << ", rotation: ";
-    rotation.Serialize(targetStream);
-    targetStream << ", scale: ";
-    scale.Serialize(targetStream);
-    targetStream << ", children: [";
-
-    for (int c = 0; c < children.size(); c++) {
-      if (c > 0) {
-        targetStream << ",";
-      }
-      children[c]->entity.Serialize(targetStream);
-    }
-    targetStream << "] }";
   }
 };
 
@@ -128,3 +112,23 @@ Quaternion Transform::WorldRotation() const {
 }
 
 } // namespace Engine::Graphics
+OBJECT_PARSER(
+    Engine::Graphics::Transform,
+    FIELD_PARSER(position) FIELD_PARSER(rotation) FIELD_PARSER(scale) if (key == "children") {
+      std::vector<Engine::Core::Entity> childrenEntities{};
+      begin = json<std::vector<Engine::Core::Entity>>::parse_tokenstream(begin, end, childrenEntities);
+      for (auto childEntity : childrenEntities) {
+        childEntity.GetComponent<Engine::Graphics::Transform>()->SetParent(&output);
+      }
+    } else)
+
+OBJECT_SERIALIZER(
+    Engine::Graphics::Transform,
+    FIELD_SERIALIZER(position) FIELD_SERIALIZER(rotation) FIELD_SERIALIZER(scale) *output++ = ',';
+    output = serialize_to_json("children", output); *output++ = ':'; *output++ = ' '; *output++ = '[';
+    for (int c = 0; c < object.children.size(); c++) {
+      if (c > 0) {
+        *output++ = ',';
+      }
+      output = json<Engine::Core::Entity>::serialize(object.children[c]->entity, output);
+    } *output++ = ']';)

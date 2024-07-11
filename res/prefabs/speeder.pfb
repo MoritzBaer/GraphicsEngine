@@ -1,34 +1,115 @@
-{ 
-    Components: 
-    [
-        Transform: 
-        { 
-            position: { 0 0 0 }, 
-            rotation: {w: 1, x: 0, y: 0, z: 0}, 
-            scale: { 1 1 1 }, 
-            children: [{ 
-                Components: 
-                [
-                    Transform: 
-                    { 
-                        position: { 0 0 0 }, 
-                        rotation: {w: 1, x: 0, y: 0, z: 0}, 
-                        scale: { 2 2 2 }, 
-                        children: [] 
-                    }, 
-                    MeshRenderer: 
-                    { 
-                        mesh: speeder.obj, 
-                        material: dummy 
+{
+    "components": [
+        {
+            "Engine::Graphics::Transform": {
+                "position": {
+                    "data": [
+                        0,
+                        0,
+                        0
+                    ]
+                },
+                "rotation": {
+                    "w": 1,
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                },
+                "scale": {
+                    "data": [
+                        1,
+                        1,
+                        1
+                    ]
+                },
+                "children": [
+                    {
+                        "components": [
+                            {
+                                "Engine::Graphics::Transform": {
+                                    "position": {
+                                        "data": [
+                                            0,
+                                            0,
+                                            0
+                                        ]
+                                    },
+                                    "rotation": {
+                                        "w": 1,
+                                        "x": 0,
+                                        "y": 0,
+                                        "z": 0
+                                    },
+                                    "scale": {
+                                        "data": [
+                                            1,
+                                            1,
+                                            1
+                                        ]
+                                    },
+                                    "children": []
+                                }
+                            },
+                            {
+                                "Engine::Graphics::MeshRenderer": {
+                                    "baseMesh": "speeder.obj",
+                                    "baseMaterial": "speeder.mat"
+                                }
+                            },
+                            {
+                                "Engine::Editor::Display": {
+                                    "label": "speeder_body"
+                                }
+                            }
+                        ]
                     },
-                    Display: {
-                        label: speeder
+                    {
+                        "components": [
+                            {
+                                "Engine::Graphics::Transform": {
+                                    "position": {
+                                        "data": [
+                                            0,
+                                            0,
+                                            0
+                                        ]
+                                    },
+                                    "rotation": {
+                                        "w": 1,
+                                        "x": 0,
+                                        "y": 0,
+                                        "z": 0
+                                    },
+                                    "scale": {
+                                        "data": [
+                                            1,
+                                            1,
+                                            1
+                                        ]
+                                    },
+                                    "children": []
+                                }
+                            },
+                            {
+                                "Engine::Graphics::MeshRenderer": {
+                                    "baseMesh": "guns.obj",
+                                    "baseMaterial": "guns.mat"
+                                }
+                            },
+                            {
+                                "Engine::Editor::Display": {
+                                    "label": "speeder_guns"
+                                }
+                            }
+                        ]
                     }
-                ] 
-            }] 
-        }, 
-        Display: {
-            label: speeder_parent
+                ]
+            }
+        },
+        {
+            "Engine::Editor::Display": {
+                "label": "speeder"
+            }
         }
-    ] 
+    ]
 }

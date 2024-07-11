@@ -26,7 +26,7 @@ bool render = true;
 
 Window *mainWindow;
 
-Core::Entity mainCam;
+Core::Entity mainCam((uint16_t)65535U);
 } // namespace Engine
 
 void Engine::Init(const char *applicationName) {

@@ -7,6 +7,8 @@
 #include <sstream>
 #include <stdint.h>
 
+#include "json-parsing.h"
+
 #define PI 3.14159265359
 #define EPS 0.0000001
 
@@ -49,6 +51,11 @@ template <typename T> constexpr uint8_t alignment(uint8_t n, uint8_t m) {
   return 16;
 }
 
+} // namespace Engine::Maths
+
+template <uint8_t n, uint8_t m, typename T> PARTIALLY_SPECIALIZED_JSON(Engine::Maths::MatrixT<n COMMA m COMMA T>);
+
+namespace Engine::Maths {
 // Saved in column form (n x m means m columns, n rows)
 template <uint8_t n, uint8_t m, typename T> struct alignas(alignment<T>(n, m)) MatrixT {
 private:
@@ -123,6 +130,11 @@ public:
     requires(m == n);
   inline static MatrixT<n, m, T> Zero();
   inline static MatrixT<n, m, T> One();
+
+  template <class TokenIterator>
+  friend TokenIterator parse_tokenstream(TokenIterator begin, TokenIterator end, MatrixT<n, m, T> &output);
+  template <class OutputIterator>
+  friend OutputIterator json_deserialize(MatrixT<n, m, T> const &object, OutputIterator output);
 
   // +--------------------------------+
   // |    Vector-specific operations  |
@@ -426,10 +438,6 @@ public:
     return EntryQuadruple(*this, X, Y, Z, W);
   }
 
-  // Matrix cannot Serializable because otherwise the Serializable* offsets the data by 64bit,
-  // which breaks GPU communication.
-  inline void Serialize(std::stringstream &stream) const;
-
 private:
   // Adds factor * row1 to row2
   inline void RowOp(uint8_t row1, uint8_t row2, T factor);
@@ -440,6 +448,7 @@ private:
 
   // Needed for access of private members of other instance in matrix multiplication
   template <uint8_t n, uint8_t l, typename T> friend class MatrixT;
+  friend struct json<MatrixT<n, m, T>>;
 };
 
 // +------------------------+
@@ -521,16 +530,6 @@ inline VectorT<3, T> MatrixT<n, m, T>::Cross(VectorT<3, T> const &other) const
 {
   return VectorT<3, T>{data[Y] * other[Z] - data[Z] * other[Y], data[Z] * other[X] - data[X] * other[Z],
                        data[X] * other[Y] - data[Y] * other[X]};
-}
-
-template <uint8_t n, uint8_t m, typename T> inline void MatrixT<n, m, T>::Serialize(std::stringstream &stream) const {
-  stream << "{ ";
-  for (int row = 0; row < n; row++) {
-    for (int col = 0; col < m; col++) {
-      stream << data[MATRIX_NM_AT_IJ(row, col)] << " ";
-    }
-  }
-  stream << "}";
 }
 
 template <uint8_t n, uint8_t m, typename T> inline void MatrixT<n, m, T>::RowOp(uint8_t row1, uint8_t row2, T factor) {
@@ -771,3 +770,8 @@ template <uint8_t n, uint8_t m, typename T> struct hash<Engine::Maths::MatrixT<n
   }
 };
 } // namespace std
+
+TEMPLATED_OBJECT_PARSER(uint8_t n COMMA uint8_t m COMMA typename T, Engine::Maths::MatrixT<n COMMA m COMMA T>,
+                        FIELD_PARSER(data));
+TEMPLATED_OBJECT_SERIALIZER(uint8_t n COMMA uint8_t m COMMA typename T, Engine::Maths::MatrixT<n COMMA m COMMA T>,
+                            FIELD_SERIALIZER(data));

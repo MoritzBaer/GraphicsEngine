@@ -12,14 +12,14 @@ void DrawNode(Core::SceneHierarchy::TreeNode const &node) {
 
   // TODO: Align text with and without arrows
   if (node.HasChildren()) {
-    if (ImGui::TreeNodeEx(node.entity.GetComponent<Display>()->label)) {
+    if (ImGui::TreeNodeEx(node.entity.GetComponent<Display>()->label.data())) {
       for (auto &child : node) {
         DrawNode(child);
       }
       ImGui::TreePop();
     }
   } else {
-    ImGui::Text(node.entity.GetComponent<Display>()->label);
+    ImGui::Text(node.entity.GetComponent<Display>()->label.data());
   }
 }
 

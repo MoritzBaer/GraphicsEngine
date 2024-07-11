@@ -26,6 +26,7 @@ include_directories("dependencies/GLM/")
 include_directories(${Vulkan_INCLUDE_DIR})
 
 include_directories("src/external/imgui")
+include_directories("src/external/json-parsing")
 include_directories("src/external/stb")
 include_directories("src/Engine")
 include_directories("src/Editor")

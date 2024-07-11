@@ -2,7 +2,6 @@
 
 #include "Debug/Logging.h"
 #include "Util/Macros.h"
-#include "Util/Serializable.h"
 
 #include <array>
 #include <inttypes.h>
@@ -73,24 +72,21 @@ public:
   template <class... Cs> static std::vector<std::tuple<Cs *...>> FilterEntities();
 
   class EntityIterator;
+  friend class EntityIterator;
 
   inline static class EntityContainer {
-    friend class ECS;
-    std::array<_Entity, MAX_ENTITY_NUMBER> liveEntityMap;
-    std::vector<_Entity> liveEntities;
-
   public:
     EntityIterator begin();
     EntityIterator end();
   } Entities;
 };
 
-class Entity : public Util::Serializable { // Wrapper for internal entity, convenience only
+class Entity { // Wrapper for internal entity, convenience only
   _Entity id;
 
 public:
   inline Entity(_Entity const &e) : id(e) {}
-  inline Entity() : id(-1) {}
+  inline Entity() : id(ECS::CreateEntity()){};
 
   template <class C> inline C *AddComponent() const { return ECS::AddComponent<C>(id); }
   template <class C> inline C *GetComponent() const { return ECS::GetComponent<C>(id); }
@@ -98,24 +94,23 @@ public:
   template <class C> inline void RemoveComponent() const { ECS::RemoveComponent<C>(id); }
 
   inline std::vector<_Component *> GetComponents() const { return ECS::GetComponents(id); }
-
-  void Serialize(std::stringstream &targetStream) const override;
 };
 
 class ECS::EntityIterator {
-  std::vector<_Entity>::iterator internalIt;
+  _Entity currentEntity = 0;
 
 public:
-  inline Entity const &operator*() const { return Entity(*internalIt); }
+  inline Entity const &operator*() const { return Entity(currentEntity); }
   inline EntityIterator &operator++() {
-    internalIt++;
+    while (!(ECS::instance->aliveAndComponentFlags[++currentEntity] & ALIVE_FLAG))
+      ;
     return *this;
   }
 
-  inline bool operator==(EntityIterator const &other) const { return internalIt == other.internalIt; }
-  inline bool operator!=(EntityIterator const &other) const { return internalIt != other.internalIt; }
+  inline bool operator==(EntityIterator const &other) const { return currentEntity == other.currentEntity; }
+  inline bool operator!=(EntityIterator const &other) const { return currentEntity != other.currentEntity; }
 
-  EntityIterator(std::vector<_Entity>::iterator parent) : internalIt(parent) {}
+  EntityIterator(_Entity e) : currentEntity(e) {}
 };
 
 class _Component {
@@ -123,7 +118,7 @@ public:
   Entity entity;
   inline _Component(_Entity e) : entity(e) {}
   virtual inline ~_Component() {}
-  virtual inline void Update(){};
+  virtual inline void Update() {};
 };
 
 template <class C> struct Component : public _Component {
@@ -133,8 +128,8 @@ template <class C> struct Component : public _Component {
 
 // IMPLEMENTATIONS
 
-inline ECS::EntityIterator ECS::EntityContainer::begin() { return EntityIterator(liveEntities.begin()); }
-inline ECS::EntityIterator ECS::EntityContainer::end() { return EntityIterator(liveEntities.end()); }
+inline ECS::EntityIterator ECS::EntityContainer::begin() { return EntityIterator(0); }
+inline ECS::EntityIterator ECS::EntityContainer::end() { return EntityIterator(instance->firstFreeEntity); }
 
 template <class C> inline ECS::ComponentArray<C>::~ComponentArray() {
   for (auto c : components) {

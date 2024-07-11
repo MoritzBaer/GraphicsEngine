@@ -1,0 +1,8 @@
+{
+    "Engine::Graphics::Materials::AlbedoAndBump": {
+        "albedo": "speeder_t.png",
+        "normal": "speeder_n.png",
+        "specularStrength": 0.4,
+        "phongExponent": 8
+    }
+}

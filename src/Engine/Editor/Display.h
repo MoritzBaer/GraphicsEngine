@@ -1,24 +1,27 @@
 #pragma once
 
+#include <array>
+
 #include "Core/ECS.h"
 #include "Publishable.h"
-#include "Util/Serializable.h"
+#include "json-parsing.h"
 
 namespace Engine::Editor {
 
-ENGINE_COMPONENT_DECLARATION(Display), public Publishable, public Util::Serializable {
-  char label[64];
+ENGINE_COMPONENT_DECLARATION(Display), public Publishable {
+  std::array<char, 64> label;
   ENGINE_COMPONENT_CONSTRUCTOR(Display), Publishable("Name"), label("unnamed entity") {}
   std::vector<Publication> GetPublications() override {
-    return {Publication{.label = label, .type = Publication::Type::TEXT}};
+    return {Publication{.label = label.data(), .type = Publication::Type::TEXT}};
   }
 
   inline void AssignLabel(const char *newLabel) {
-    std::fill(label, label + sizeof(label) / sizeof(char), 0);
-    strcpy(label, newLabel);
+    std::fill(label.begin(), label.end(), 0);
+    strcpy(label.data(), newLabel);
   }
-
-  inline void Serialize(std::stringstream & stream) const override { stream << "Display: { label: " << label << " }"; }
 };
 
 } // namespace Engine::Editor
+
+OBJECT_PARSER(Engine::Editor::Display, FIELD_PARSER(label))
+OBJECT_SERIALIZER(Engine::Editor::Display, FIELD_SERIALIZER(label))

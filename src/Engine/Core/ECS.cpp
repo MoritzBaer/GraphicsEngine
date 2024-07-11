@@ -2,16 +2,9 @@
 
 #include "Debug/Logging.h"
 
-#define GIVE_LIFE(entity)                                                                                              \
-  instance->aliveAndComponentFlags[entity] = ALIVE_FLAG;                                                               \
-  Entities.liveEntityMap[entity] = Entities.liveEntities.size();                                                       \
-  Entities.liveEntities.push_back(entity);
+#define GIVE_LIFE(entity) instance->aliveAndComponentFlags[entity] = ALIVE_FLAG;
 
-#define KILL(entity)                                                                                                   \
-  instance->aliveAndComponentFlags[entity] = 0;                                                                        \
-  Entities.liveEntityMap[Entities.liveEntities.back()] = Entities.liveEntityMap[entity];                               \
-  Entities.liveEntities[entity] = Entities.liveEntities.back();                                                        \
-  Entities.liveEntities.pop_back();
+#define KILL(entity) instance->aliveAndComponentFlags[entity] = 0;
 
 namespace Engine::Core {
 void ECS::Init() { instance = new ECS(); }
@@ -58,23 +51,6 @@ std::vector<_Component *> ECS::GetComponents(_Entity e) {
     }
   }
   return result;
-}
-
-void Entity::Serialize(std::stringstream &targetStream) const {
-  targetStream << "{ Components: [";
-  auto comps = ECS::GetComponents(id);
-  bool firstComp = true;
-  for (auto c : ECS::GetComponents(id)) {
-    if (Util::Serializable *scomp = dynamic_cast<Util::Serializable *>(c)) {
-      if (!firstComp) {
-        targetStream << ", ";
-      } else {
-        firstComp = false;
-      }
-      scomp->Serialize(targetStream);
-    }
-  }
-  targetStream << "] }";
 }
 
 } // namespace Engine::Core

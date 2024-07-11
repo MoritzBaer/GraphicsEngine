@@ -1,3 +1,9 @@
 [submodule "src/external/imgui"]
 	path = src/external/imgui
 	url = git@github.com:ocornut/imgui.git
+[submodule "external/"]
+	path = external/
+	url = https://github.com/uhfrb/json-parsing
+[submodule "src/external/json-parsing"]
+	path = src/external/json-parsing
+	url = https://github.com/uhfrb/json-parsing
