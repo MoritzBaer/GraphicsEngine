@@ -53,11 +53,11 @@ OBJECT_PARSER(
     Engine::Graphics::MeshRenderer,
     if (key == "baseMesh") {
       std::string value;
-      begin = json<std::string>::parse_tokenstream(begin, end, value);
+      begin = json<std::string>::parse_tokenstream(begin, end, value, context);
       output.AssignMesh(value);
     } else if (key == "baseMaterial") {
       std::string value;
-      begin = json<std::string>::parse_tokenstream(begin, end, value);
+      begin = json<std::string>::parse_tokenstream(begin, end, value, context);
       output.AssignMaterial(value);
     } else)
 OBJECT_SERIALIZER(Engine::Graphics::MeshRenderer, output = json<const char *>::serialize("baseMesh", output);

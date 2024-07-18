@@ -52,18 +52,18 @@ namespace Engine::Editor {
 
 #define DRAW_DRAG_INT(func, ranged)                                                                                    \
   if (ranged) {                                                                                                        \
-    func(publication.label, (int *)publication.referencedPointer, publication.intRange.min, publication.intRange.max,  \
-         publication.intRange.step);                                                                                   \
+    func(publication.label, (int *)publication.referencedPointer, publication.intRange.step, publication.intRange.min, \
+         publication.intRange.max);                                                                                    \
   } else {                                                                                                             \
-    func(publication.label, (int *)publication.referencedPointer);                                                     \
+    func(publication.label, (int *)publication.referencedPointer, 0.1f);                                               \
   }
 
 #define DRAW_DRAG_FLOAT(func, ranged)                                                                                  \
   if (ranged) {                                                                                                        \
-    func(publication.label, (float *)publication.referencedPointer, publication.floatRange.min,                        \
-         publication.floatRange.max, publication.floatRange.step);                                                     \
+    func(publication.label, (float *)publication.referencedPointer, publication.floatRange.step,                       \
+         publication.floatRange.min, publication.floatRange.max);                                                      \
   } else {                                                                                                             \
-    func(publication.label, (float *)publication.referencedPointer);                                                   \
+    func(publication.label, (float *)publication.referencedPointer, 0.01f);                                            \
   }
 
 #define DRAW_SLIDER_INT(func, ranged)                                                                                  \

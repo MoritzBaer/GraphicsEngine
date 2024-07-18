@@ -65,7 +65,7 @@ struct AlbedoAndBump : public Material {
 template <>
 template <class TokenIterator>
 inline constexpr TokenIterator json<Engine::Graphics::Materials::AlbedoAndBump>::parse_tokenstream(
-    TokenIterator begin, TokenIterator end, Engine::Graphics::Materials::AlbedoAndBump &output) {
+    TokenIterator begin, TokenIterator end, Engine::Graphics::Materials::AlbedoAndBump &output, void *context) {
   if (begin->type == Token::Type::LBrace) {
     begin++;
     std::string key;
@@ -73,16 +73,17 @@ inline constexpr TokenIterator json<Engine::Graphics::Materials::AlbedoAndBump>:
     do {
       begin = parse_key(begin, end, key);
       if (key == "specularStrength") {
-        begin = json<decltype(output.specularStrength)>::parse_tokenstream(begin, end, output.specularStrength);
+        begin =
+            json<decltype(output.specularStrength)>::parse_tokenstream(begin, end, output.specularStrength, context);
       } else if (key == "phongExponent") {
-        begin = json<decltype(output.phongExponent)>::parse_tokenstream(begin, end, output.phongExponent);
+        begin = json<decltype(output.phongExponent)>::parse_tokenstream(begin, end, output.phongExponent, context);
       } else if (key == "albedo") {
         std::string albedoPath;
-        begin = json<std::string>::parse_tokenstream(begin, end, albedoPath);
+        begin = json<std::string>::parse_tokenstream(begin, end, albedoPath, context);
         output.albedo = Engine::AssetManager::LoadTexture(albedoPath.c_str());
       } else if (key == "normal") {
         std::string normalPath;
-        begin = json<std::string>::parse_tokenstream(begin, end, normalPath);
+        begin = json<std::string>::parse_tokenstream(begin, end, normalPath, context);
         output.normal = Engine::AssetManager::LoadTexture(normalPath.c_str());
       } else {
         throw std::runtime_error("Unexpected key in "

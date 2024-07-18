@@ -6,13 +6,14 @@
 
 #define COMPONENT_OPTION(Name)                                                                                         \
   if (key == #Name) {                                                                                                  \
-    begin = json<Name>::parse_tokenstream(begin, end, *output.AddComponent<Name>());                                   \
+    begin = json<Name>::parse_tokenstream(begin, end, *output.AddComponent<Name>(), context);                          \
   } else
 
 template <>
 template <class TokenIterator>
 inline constexpr TokenIterator json<Engine::Core::Entity>::parse_tokenstream(TokenIterator begin, TokenIterator end,
-                                                                             Engine::Core::Entity &output) {
+                                                                             Engine::Core::Entity &output,
+                                                                             void *context) {
   if (begin->type == Token::Type::LBrace) {
     begin++;
     std::string key;

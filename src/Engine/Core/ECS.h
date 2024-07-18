@@ -94,6 +94,8 @@ public:
   template <class C> inline void RemoveComponent() const { ECS::RemoveComponent<C>(id); }
 
   inline std::vector<_Component *> GetComponents() const { return ECS::GetComponents(id); }
+
+  inline bool operator==(Entity const &other) const { return id == other.id; }
 };
 
 class ECS::EntityIterator {

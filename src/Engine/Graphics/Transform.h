@@ -11,6 +11,23 @@ using namespace Engine::Maths;
 
 namespace Engine::Graphics {
 ENGINE_COMPONENT_DECLARATION(Transform), public Editor::Publishable {
+private:
+  // TODO: Change publication so only the displayed entity's transform has to hold this data
+  struct {
+    Vector3 eulerAngles;
+    Vector3 oldEulerAngles;
+
+    void UpdateRotation(Quaternion &output) {
+      if (eulerAngles != oldEulerAngles) {
+        output = Quaternion::FromEulerAngles(eulerAngles);
+      } else {
+        eulerAngles = output.EulerAngles();
+      }
+      oldEulerAngles = eulerAngles;
+    }
+  } rotationPublication;
+
+public:
   Vector3 position;
   Quaternion rotation;
   Vector3 scale;
@@ -42,7 +59,9 @@ ENGINE_COMPONENT_DECLARATION(Transform), public Editor::Publishable {
   inline Quaternion WorldRotation() const;
 
   inline std::vector<Editor::Publication> GetPublications() override {
-    return {PUBLISH(position), PUBLISH_RANGE(rotation, 0.0f, 1.0f, 0.1f), PUBLISH_RANGE(scale, 0.001f, 10000.0f, 1.0f)};
+    rotationPublication.UpdateRotation(rotation);
+    return {PUBLISH(position), PUBLISH_RANGE(rotationPublication.eulerAngles, -(float)PI, (float)PI, 0.001f),
+            PUBLISH_RANGE(scale, 0.001f, 10000.0f, 0.01f * scale.Length())};
   }
 };
 
@@ -116,7 +135,7 @@ OBJECT_PARSER(
     Engine::Graphics::Transform,
     FIELD_PARSER(position) FIELD_PARSER(rotation) FIELD_PARSER(scale) if (key == "children") {
       std::vector<Engine::Core::Entity> childrenEntities{};
-      begin = json<std::vector<Engine::Core::Entity>>::parse_tokenstream(begin, end, childrenEntities);
+      begin = json<std::vector<Engine::Core::Entity>>::parse_tokenstream(begin, end, childrenEntities, context);
       for (auto childEntity : childrenEntities) {
         childEntity.GetComponent<Engine::Graphics::Transform>()->SetParent(&output);
       }

@@ -6,6 +6,7 @@
 #include "Engine/Core/SceneHierarchy.h"
 #include "Engine/Editor/Display.h"
 #include "Engine/Editor/EntityDetails.h"
+#include "Engine/Editor/SceneView.h"
 #include "Engine/Graphics/Texture.h"
 #include "Util/FileIO.h"
 #include "Util/Parsing.h"
@@ -20,7 +21,7 @@ int main() {
   WRITE_PROFILE_SESSION("Scene-Loading")
 
   Engine::Editor::SceneView sceneView{};
-  Engine::Editor::EntityDetails entityDetailView{sceneView};
+  Engine::Editor::EntityDetails entityDetailView{};
 
   Engine::RunMainLoop();
   Engine::Cleanup();

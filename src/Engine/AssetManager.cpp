@@ -44,7 +44,8 @@
 template <> struct json<Engine::Graphics::Material *> {
   template <typename T_Other> friend struct json;
 
-  template <class Container> static Engine::Graphics::Material *deserialize(Container const &json);
+  template <class Container>
+  static Engine::Graphics::Material *deserialize(Container const &json, void *context = nullptr);
   template <class OutputIterator>
   static constexpr OutputIterator serialize(Engine::Graphics::Material const &object, OutputIterator output);
 };
@@ -203,7 +204,8 @@ Graphics::Texture2D AssetManager::LoadTexture(char const *textureName) {
 } // namespace Engine
 
 template <class Container>
-Engine::Graphics::Material *json<Engine::Graphics::Material *>::deserialize(Container const &materialData) {
+Engine::Graphics::Material *json<Engine::Graphics::Material *>::deserialize(Container const &materialData,
+                                                                            void *context) {
   using namespace Engine;
 
   auto pl = Engine::AssetManager::LoadPipeline("dummy");
@@ -230,7 +232,7 @@ Engine::Graphics::Material *json<Engine::Graphics::Material *>::deserialize(Cont
     auto pl = AssetManager::LoadPipeline("dummy"); // TODO: Think of sensible system
     mat = new Graphics::Materials::AlbedoAndBump(pl);
     tokenIt = json<Graphics::Materials::AlbedoAndBump>::parse_tokenstream(
-        tokenIt, tokens.end(), *dynamic_cast<Graphics::Materials::AlbedoAndBump *>(mat));
+        tokenIt, tokens.end(), *dynamic_cast<Graphics::Materials::AlbedoAndBump *>(mat), context);
   } else {
     ENGINE_ERROR("Unknown material type '{}'", materialType);
     return nullptr;

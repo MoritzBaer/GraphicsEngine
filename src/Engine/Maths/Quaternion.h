@@ -101,9 +101,9 @@ inline Quaternion &Quaternion::operator/=(float theta) {
 }
 
 inline Vector3 Quaternion::EulerAngles() const {
-  return {atan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y)),
+  return {atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z)),
           float(-PI / 2) + 2 * atan2(sqrt(1 + 2 * (w * y - x * z)), sqrt(1 - 2 * (w * y - x * z))),
-          atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z))};
+          atan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y))};
 }
 
 inline Quaternion Quaternion::FromEulerAngles(Vector3 const &eulerAngles) {
