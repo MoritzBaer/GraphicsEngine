@@ -22,7 +22,7 @@ struct Vec3AlignmentGLM {
   glm::vec3 w;
 };
 
-TEST_ASSERT(sizeof(Vec3Alignment) == sizeof(Vec3AlignmentGLM), "Vector3 not aligned correctly!")
+TEST_ASSERT_EQUAL_SIZE(Vec3Alignment, "own", Vec3AlignmentGLM, "glm", "Vector3 not aligned correctly!")
 
 struct glmVertex {
   glm::mat3 TBN;

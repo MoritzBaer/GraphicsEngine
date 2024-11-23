@@ -35,6 +35,14 @@
     Debug::Logging::PrintError("Test", "{}", format_single_T_ptr((T *)&object2, label2, VAR_WITH_LINE(size)));         \
   }
 
+#define TEST_ASSERT_EQUAL_SIZE(type1, label1, type2, label2, message)                                                  \
+  if (sizeof(type1) != sizeof(type2)) {                                                                                \
+    env.Fail();                                                                                                        \
+    Debug::Logging::PrintError("Test", message);                                                                       \
+    Debug::Logging::PrintError("Test", "{}: {}", label1, sizeof(type1));                                               \
+    Debug::Logging::PrintError("Test", "{}: {}", label2, sizeof(type2));                                               \
+  }
+
 namespace Engine::Test {
 
 class TestEnv {
