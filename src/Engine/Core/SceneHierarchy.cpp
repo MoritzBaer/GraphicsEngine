@@ -15,10 +15,10 @@ Engine::Core::SceneHierarchy::TreeNode Engine::Core::SceneHierarchy::BuildNode(E
 }
 
 void Engine::Core::SceneHierarchy::BuildHierarchy() {
-  RootEntities.roots = std::vector<TreeNode>();
-  for (auto e : ECS::Entities) {
+  roots = std::vector<TreeNode>();
+  for (auto e : ecs) {
     if (!e.HasComponent<Graphics::Transform>() || !e.GetComponent<Graphics::Transform>()->parent) {
-      RootEntities.roots.push_back(BuildNode(e));
+      roots.push_back(BuildNode(e));
     }
   }
 }

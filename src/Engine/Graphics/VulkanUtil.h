@@ -21,6 +21,10 @@ inline VkSemaphoreSubmitInfo SemaphoreSubmitInfo(VkSemaphore semaphore, VkPipeli
           .deviceIndex = 0};
 }
 
+inline VkFenceCreateInfo FenceCreateInfo(VkFenceCreateFlags flags = VK_FENCE_CREATE_SIGNALED_BIT) {
+  return {.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, .flags = flags};
+}
+
 inline VkImageMemoryBarrier2 ImageMemoryBarrier(VkImage image, VkImageLayout currentLayout,
                                                 VkImageLayout targetLayout) {
   return {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
@@ -82,6 +86,24 @@ inline VkRenderingAttachmentInfo DepthAttachmentInfo(VkImageView const &imageVie
           .clearValue{.depthStencil = clearValue}};
 }
 
+inline VkSubmitInfo2 SubmitInfo(std::vector<VkSemaphoreSubmitInfo> const &semaphoreWaitInfos,
+                                std::vector<VkCommandBufferSubmitInfo> const &commandBufferInfos,
+                                std::vector<VkSemaphoreSubmitInfo> const &semaphoreSignalInfos) {
+  return {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+          .waitSemaphoreInfoCount = static_cast<uint32_t>(semaphoreWaitInfos.size()),
+          .pWaitSemaphoreInfos = semaphoreWaitInfos.data(),
+          .commandBufferInfoCount = static_cast<uint32_t>(commandBufferInfos.size()),
+          .pCommandBufferInfos = commandBufferInfos.data(),
+          .signalSemaphoreInfoCount = static_cast<uint32_t>(semaphoreSignalInfos.size()),
+          .pSignalSemaphoreInfos = semaphoreSignalInfos.data()};
+}
+
+inline VkSubmitInfo2 SubmitInfo(VkSemaphoreSubmitInfo const &semaphoreWaitInfo,
+                                VkCommandBufferSubmitInfo const &commandBufferInfo,
+                                VkSemaphoreSubmitInfo const &semaphoreSignalInfo) {
+  return SubmitInfo({semaphoreWaitInfo}, {commandBufferInfo}, {semaphoreSignalInfo});
+}
+
 } // namespace Engine::Graphics::vkinit
 
 namespace Engine::Graphics::vkutil {
@@ -108,4 +130,30 @@ template <> inline VkOffset3D DimensionToOffset(Maths::Dimension<3> dimension) {
   return VkOffset3D{static_cast<int32_t>(dimension.x()), static_cast<int32_t>(dimension.y()),
                     static_cast<int32_t>(dimension.z())};
 }
+
+inline PipelineBarrierCommand TransitionImageCommand(VkImage image, VkImageLayout currentLayout,
+                                                     VkImageLayout targetLayout) {
+  return PipelineBarrierCommand({vkinit::ImageMemoryBarrier(image, currentLayout, targetLayout)});
+}
+
+inline BlitImageCommand CopyFullImage(VkImage source, VkImage destination, VkExtent3D srcExtent, VkExtent3D dstExtent) {
+  VkImageBlit2 blitRegion{
+      .sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2,
+      .srcSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1},
+      .srcOffsets =
+          {
+              {0, 0, 0},
+              {static_cast<int32_t>(srcExtent.width), static_cast<int32_t>(srcExtent.height),
+               static_cast<int32_t>(srcExtent.depth)},
+          },
+      .dstSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1},
+      .dstOffsets = {
+          {0, 0, 0},
+          {static_cast<int32_t>(dstExtent.width), static_cast<int32_t>(dstExtent.height),
+           static_cast<int32_t>(dstExtent.depth)},
+      }};
+
+  return BlitImageCommand(source, destination, {blitRegion});
+}
+
 } // namespace Engine::Graphics::vkutil

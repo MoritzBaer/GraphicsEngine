@@ -8,15 +8,15 @@
 #include "imgui.h"
 
 namespace Engine {
-void Window::ResizeCallbackGLFW(GLFWwindow *window, int width, int height) {
-  Window *comp = new Window(window);
-  WindowManager::CallResizeCallbackOnCorrectWindow(
-      comp, Maths::Dimension<2>{static_cast<uint32_t>(width), static_cast<uint32_t>(height)});
+
+template <WindowManager *windowManager> void Window::GLFWResizeCallback(GLFWwindow *glfwWindow, int width, int height) {
+  Window comparison = Window(glfwWindow, nullptr);
+  WindowManager::CallResizeCallbackOnCorrectWindow(nullptr, &comparison, Maths::Dimension2(width, height));
 }
 
 Window::Window(uint32_t width, uint32_t height, const char *title) : width(width), height(height), minimized(false) {
   glfwWindow = glfwCreateWindow(width, height, title, nullptr, nullptr);
-  glfwSetFramebufferSizeCallback(glfwWindow, ResizeCallbackGLFW);
+  glfwSetFramebufferSizeCallback(glfwWindow, &WindowManager::CallResizeCallbackOnCorrectWindow);
 }
 
 Window::~Window() { glfwDestroyWindow(glfwWindow); }

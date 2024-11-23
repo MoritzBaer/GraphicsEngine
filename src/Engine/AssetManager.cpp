@@ -4,12 +4,12 @@
 #include "Debug/Profiling.h"
 #include "Editor/Display.h"
 #include "Graphics/Materials/AlbedoAndBump.h"
-#include "Graphics/Materials/TestMaterial.h"
 #include "Graphics/MeshRenderer.h"
+#include "Serialization/Entity.h"
 #include "Util/FileIO.h"
 #include "Util/Parsing.h"
 #define STB_IMAGE_IMPLEMENTATION
-#include "Util/Serialization/EntitySerialization.h"
+#include "Game.h"
 #include "stb_image.h"
 
 #include <functional>
@@ -32,14 +32,14 @@
   strcat(filePath, fileName);
 
 #define _INSERT_ASSET_IF_NEW(key, table, constructor)                                                                  \
-  bool isNew = instance->table.find(key) == instance->table.end();                                                     \
+  bool isNew = table.find(key) == table.end();                                                                         \
   if (isNew) {                                                                                                         \
-    instance->table.insert({key, constructor});                                                                        \
+    table.insert({key, constructor});                                                                                  \
   }
 
 #define _RETURN_ASSET(key, table, constructor)                                                                         \
   _INSERT_ASSET_IF_NEW(key, table, constructor)                                                                        \
-  return instance->table[key];
+  return table[key];
 
 template <> struct json<Engine::Graphics::Material *> {
   template <typename T_Other> friend struct json;
@@ -51,24 +51,31 @@ template <> struct json<Engine::Graphics::Material *> {
 };
 
 namespace Engine {
-
-AssetManager::AssetManager()
-    : loadedShaders(), loadedMaterials(), loadedMeshes(), loadedPipelines(), loadedTextures() {}
-AssetManager::~AssetManager() {}
-void AssetManager::Init() { instance = new AssetManager(); }
-void AssetManager::Cleanup() { delete instance; }
+AssetManager::AssetManager(Game *game)
+    : game(game), loadedShaders(), loadedPipelines(), loadedMaterials(), loadedMeshes(), loadedTextures() {}
 
 Graphics::Shader AssetManager::LoadShader(char const *shaderName, Graphics::ShaderType shaderType) {
   PROFILE_FUNCTION()
   MAKE_FILE_PATH(shaderName, SHADER_PATH)
-  _INSERT_ASSET_IF_NEW(
-      shaderName, loadedShaders,
-      Graphics::ShaderCompiler::CompileShaderCode(shaderName, Util::FileIO::ReadFile(filePath), shaderType))
-  Graphics::Shader &loadedShader = instance->loadedShaders[shaderName];
-  if (isNew) {
-    mainDeletionQueue.Push(&loadedShader);
-  }
+  _INSERT_ASSET_IF_NEW(shaderName, loadedShaders,
+                       game->shaderCompiler.CompileShaderCode(shaderName, Util::FileIO::ReadFile(filePath), shaderType))
+  Graphics::Shader &loadedShader = loadedShaders[shaderName];
   return loadedShader;
+}
+
+AssetManager::~AssetManager() {
+  for (auto &texture : loadedTextures) {
+    game->gpuObjectManager.DestroyTexture(texture.second);
+  }
+
+  Graphics::PipelineBuilder pipelineBuilder = Graphics::PipelineBuilder(game->instanceManager);
+  for (auto &pipeline : loadedPipelines) {
+    pipelineBuilder.DestroyPipeline(pipeline.second);
+  }
+
+  for (auto &shader : loadedShaders) {
+    game->shaderCompiler.DestroyShader(shader.second);
+  }
 }
 
 Graphics::Shader AssetManager::LoadShaderWithInferredType(char const *shaderName) {
@@ -91,10 +98,8 @@ Graphics::Shader AssetManager::LoadShaderWithInferredType(char const *shaderName
 void AssetManager::InitStandins() {
   uint32_t white = 0xFFFFFFFF;
   uint32_t normalUp = 0xFFFF8080;
-  instance->loadedTextures.insert({"white", Graphics::Texture2D(Maths::Dimension2(1, 1), &white)});
-  instance->loadedTextures.insert({"normalUp", Graphics::Texture2D(Maths::Dimension2(1, 1), &normalUp)});
-  mainDeletionQueue.Push(&instance->loadedTextures["white"]);
-  mainDeletionQueue.Push(&instance->loadedTextures["normalUp"]);
+  loadedTextures.insert({"white", game->gpuObjectManager.CreateTexture(Maths::Dimension2(1, 1), &white)});
+  loadedTextures.insert({"normalUp", game->gpuObjectManager.CreateTexture(Maths::Dimension2(1, 1), &normalUp)});
 
   // Load error texture
   std::vector<uint32_t> errorTextureData(16 * 16, 0xFFFF00FF);
@@ -103,9 +108,9 @@ void AssetManager::InitStandins() {
       errorTextureData[x * 16 + y] = 0xFF000000;
     }
   }
-  instance->loadedTextures.insert(
-      {"missing", Graphics::Texture2D({16, 16}, errorTextureData.data(), VK_FILTER_NEAREST, VK_FILTER_NEAREST)});
-  mainDeletionQueue.Push(&instance->loadedTextures["missing"]);
+  loadedTextures.insert(
+      {"missing", game->gpuObjectManager.CreateTexture(Maths::Dimension2(16, 16), errorTextureData.data(),
+                                                       VK_FILTER_NEAREST, VK_FILTER_NEAREST)});
 }
 
 Graphics::Mesh AssetManager::LoadMeshFromOBJ(char const *meshName) {
@@ -121,17 +126,18 @@ Graphics::AllocatedMesh *AssetManager::LoadMesh(char const *meshName, bool flipU
       vertex.uv.y() = 1 - vertex.uv.y();
     }
   }
-  return new Graphics::AllocatedMeshT(mesh); // TODO: Decide if it would be better to store this in a map as well
+  return new Graphics::AllocatedMeshT(game->gpuObjectManager.AllocateMesh<Graphics::Vertex, Graphics::VertexFormat>(
+      mesh)); // TODO: Decide if it would be better to store this in a map as well
 }
 
-Graphics::Pipeline *ParsePipeline(char const *pipelineData) {
+Graphics::Pipeline *AssetManager::ParsePipeline(char const *pipelineData) {
   // Dummy implementation // TODO: implement properly
-  Graphics::Shader vertexShader = AssetManager::LoadShaderWithInferredType("phong.vert");
-  Graphics::Shader fragmentShader = AssetManager::LoadShaderWithInferredType("phong.frag");
+  Graphics::Shader vertexShader = LoadShaderWithInferredType("phong.vert");
+  Graphics::Shader fragmentShader = LoadShaderWithInferredType("phong.frag");
 
   size_t uniformSize = sizeof(VkDeviceAddress) + sizeof(Matrix4);
 
-  Graphics::PipelineBuilder pipelineBuilder = Graphics::PipelineBuilder();
+  Graphics::PipelineBuilder pipelineBuilder = Graphics::PipelineBuilder(game->instanceManager);
   return pipelineBuilder.AddPushConstant(uniformSize, 0, Graphics::ShaderType::VERTEX)
       .AddDescriptorBinding(0, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
       .AddDescriptorBinding(1, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
@@ -160,21 +166,16 @@ Graphics::Material *AssetManager::LoadMaterial(char const *materialName) {
 }
 
 Graphics::Pipeline const *AssetManager::LoadPipeline(char const *pipelineName) {
-  _INSERT_ASSET_IF_NEW(pipelineName, loadedPipelines, ParsePipeline(pipelineName));
-  auto p = instance->loadedPipelines[pipelineName];
-  if (isNew) {
-    mainDeletionQueue.Push(p);
-  }
-  return p;
+  _RETURN_ASSET(pipelineName, loadedPipelines, ParsePipeline(pipelineName));
 }
 
 Core::Entity AssetManager::LoadPrefab(char const *prefabName) {
   MAKE_FILE_PATH(prefabName, PREFAB_PATH);
 
   auto prefabData = Util::FileIO::ReadFile(filePath);
-  Core::Entity e = Core::ECS::CreateEntity();
+  Core::Entity e = game->ecs.CreateEntity();
   json<Core::Entity>::deserialize(prefabData, e);
-  Core::SceneHierarchy::BuildHierarchy();
+  game->sceneHierarchy.BuildHierarchy();
 
   return e;
 }
@@ -189,15 +190,11 @@ Graphics::Texture2D AssetManager::LoadTexture(char const *textureName) {
       reinterpret_cast<uint32_t *>(pixelChannels); // TODO: Fix issues occurring when fewer channels are used
 
   if (pixels) {
-    _INSERT_ASSET_IF_NEW(textureName, loadedTextures,
-                         Graphics::Texture2D({width, height}, pixels, VK_FILTER_LINEAR, VK_FILTER_LINEAR))
-    auto &t = instance->loadedTextures[textureName];
-    if (isNew) {
-      mainDeletionQueue.Push(t);
-    }
-    return t;
+    _RETURN_ASSET(textureName, loadedTextures,
+                  game->gpuObjectManager.CreateTexture(Maths::Dimension2(width, height), pixels, VK_FILTER_LINEAR,
+                                                       VK_FILTER_LINEAR))
   } else {
-    return instance->loadedTextures["missing"];
+    return loadedTextures["missing"];
   }
 }
 
@@ -208,7 +205,7 @@ Engine::Graphics::Material *json<Engine::Graphics::Material *>::deserialize(Cont
                                                                             void *context) {
   using namespace Engine;
 
-  auto pl = Engine::AssetManager::LoadPipeline("dummy");
+  auto pl = static_cast<Game *>(context)->assetManager.LoadPipeline("dummy");
   std::vector<Token> tokens{};
   tokenize(std::begin(materialData), std::end(materialData), std::back_inserter(tokens));
 
@@ -229,8 +226,9 @@ Engine::Graphics::Material *json<Engine::Graphics::Material *>::deserialize(Cont
   Graphics::Material *mat = nullptr;
 
   if (materialType == "Engine::Graphics::Materials::AlbedoAndBump") {
-    auto pl = AssetManager::LoadPipeline("dummy"); // TODO: Think of sensible system
-    mat = new Graphics::Materials::AlbedoAndBump(pl);
+    auto pl = static_cast<Game *>(context)->assetManager.LoadPipeline("dummy"); // TODO: Think of sensible system
+    mat = new Graphics::Materials::AlbedoAndBump(pl, static_cast<Game *>(context)->assetManager.LoadTexture("white"),
+                                                 static_cast<Game *>(context)->assetManager.LoadTexture("normalUp"));
     tokenIt = json<Graphics::Materials::AlbedoAndBump>::parse_tokenstream(
         tokenIt, tokens.end(), *dynamic_cast<Graphics::Materials::AlbedoAndBump *>(mat), context);
   } else {

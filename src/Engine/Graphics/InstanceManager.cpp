@@ -186,8 +186,6 @@ void FillDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo
   createInfo.pfnUserCallback = DebugCallback;
 }
 
-InstanceManager::InstanceManager() {}
-
 struct QueueFamilyIndices {
   std::optional<uint32_t> graphicsFamily;
   std::optional<uint32_t> presentFamily;
@@ -384,19 +382,19 @@ void InstanceManager::CreateLogicalDevice() {
   VULKAN_ASSERT(vkCreateDevice(gpu, &deviceInfo, nullptr, &graphicsHandler), "Failed to create logical device!")
 }
 
-void InstanceManager::FillImGUIInitInfo(ImGui_ImplVulkan_InitInfo &initInfo) {
-  initInfo.Instance = instance->vulkanInstance;
-  initInfo.PhysicalDevice = instance->gpu;
-  initInfo.Device = instance->graphicsHandler;
+void InstanceManager::FillImGUIInitInfo(ImGui_ImplVulkan_InitInfo &initInfo) const {
+  initInfo.Instance = vulkanInstance;
+  initInfo.PhysicalDevice = gpu;
+  initInfo.Device = graphicsHandler;
   GetGraphicsQueue(&initInfo.Queue);
 }
 
 void InstanceManager::CreateSwapchain(VkSurfaceFormatKHR const &surfaceFormat, VkPresentModeKHR const &presentMode,
                                       VkExtent2D const &extent, uint32_t const &imageCount,
-                                      VkSwapchainKHR const &oldSwapchain, VkSwapchainKHR *swapchain) {
-  auto details = QuerySwapchainSupport(instance->gpu, instance->surface);
+                                      VkSwapchainKHR const &oldSwapchain, VkSwapchainKHR *swapchain) const {
+  auto details = QuerySwapchainSupport(gpu, surface);
   VkSwapchainCreateInfoKHR swapchainInfo{.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-                                         .surface = instance->surface,
+                                         .surface = surface,
                                          .minImageCount = imageCount,
                                          .imageFormat = surfaceFormat.format,
                                          .imageColorSpace = surfaceFormat.colorSpace,
@@ -410,7 +408,7 @@ void InstanceManager::CreateSwapchain(VkSurfaceFormatKHR const &surfaceFormat, V
                                          .clipped = VK_TRUE,
                                          .oldSwapchain = oldSwapchain};
 
-  QueueFamilyIndices indices = FindQueueFamilies(instance->gpu, instance->surface);
+  QueueFamilyIndices indices = FindQueueFamilies(gpu, surface);
   uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
 
   if (indices.graphicsFamily != indices.presentFamily) {
@@ -423,93 +421,92 @@ void InstanceManager::CreateSwapchain(VkSurfaceFormatKHR const &surfaceFormat, V
     swapchainInfo.pQueueFamilyIndices = nullptr; // Optional
   }
 
-  VULKAN_ASSERT(vkCreateSwapchainKHR(instance->graphicsHandler, &swapchainInfo, nullptr, swapchain),
+  VULKAN_ASSERT(vkCreateSwapchainKHR(graphicsHandler, &swapchainInfo, nullptr, swapchain),
                 "Failed to create swapchain!")
 }
 
-void InstanceManager::GetSwapchainImages(VkSwapchainKHR const &swapchain, std::vector<VkImage> &images) {
+void InstanceManager::GetSwapchainImages(VkSwapchainKHR const &swapchain, std::vector<VkImage> &images) const {
   uint32_t imageCount;
-  vkGetSwapchainImagesKHR(instance->graphicsHandler, swapchain, &imageCount, nullptr);
+  vkGetSwapchainImagesKHR(graphicsHandler, swapchain, &imageCount, nullptr);
   images.resize(imageCount);
-  vkGetSwapchainImagesKHR(instance->graphicsHandler, swapchain, &imageCount, images.data());
+  vkGetSwapchainImagesKHR(graphicsHandler, swapchain, &imageCount, images.data());
 }
 
-void InstanceManager::CreateImageView(VkImageViewCreateInfo const *createInfo, VkImageView *view) {
-  VULKAN_ASSERT(vkCreateImageView(instance->graphicsHandler, createInfo, nullptr, view), "Failed to create image view!")
+void InstanceManager::CreateImageView(VkImageViewCreateInfo const *createInfo, VkImageView *view) const {
+  VULKAN_ASSERT(vkCreateImageView(graphicsHandler, createInfo, nullptr, view), "Failed to create image view!")
 }
 
-void InstanceManager::CreateCommandPool(VkCommandPoolCreateInfo const *createInfo, VkCommandPool *commandPool) {
-  VULKAN_ASSERT(vkCreateCommandPool(instance->graphicsHandler, createInfo, nullptr, commandPool),
+void InstanceManager::CreateCommandPool(VkCommandPoolCreateInfo const *createInfo, VkCommandPool *commandPool) const {
+  VULKAN_ASSERT(vkCreateCommandPool(graphicsHandler, createInfo, nullptr, commandPool),
                 "Failed to create command pool!")
 }
 
-void InstanceManager::CreateSemaphore(VkSemaphoreCreateInfo const *createInfo, VkSemaphore *semaphore) {
-  VULKAN_ASSERT(vkCreateSemaphore(instance->graphicsHandler, createInfo, nullptr, semaphore),
-                "Failed to create semaphore!")
+void InstanceManager::CreateSemaphore(VkSemaphoreCreateInfo const *createInfo, VkSemaphore *semaphore) const {
+  VULKAN_ASSERT(vkCreateSemaphore(graphicsHandler, createInfo, nullptr, semaphore), "Failed to create semaphore!")
 }
 
-void InstanceManager::CreateFence(VkFenceCreateInfo const *createInfo, VkFence *fence) {
-  VULKAN_ASSERT(vkCreateFence(instance->graphicsHandler, createInfo, nullptr, fence), "Failed to create fence!")
+void InstanceManager::CreateFence(VkFenceCreateInfo const *createInfo, VkFence *fence) const {
+  VULKAN_ASSERT(vkCreateFence(graphicsHandler, createInfo, nullptr, fence), "Failed to create fence!")
 }
 
-void InstanceManager::CreateShaderModule(VkShaderModuleCreateInfo const *createInfo, VkShaderModule *shaderModule) {
-  VULKAN_ASSERT(vkCreateShaderModule(instance->graphicsHandler, createInfo, nullptr, shaderModule),
+void InstanceManager::CreateShaderModule(VkShaderModuleCreateInfo const *createInfo,
+                                         VkShaderModule *shaderModule) const {
+  VULKAN_ASSERT(vkCreateShaderModule(graphicsHandler, createInfo, nullptr, shaderModule),
                 "Failed to create shader module!")
 }
 
 void InstanceManager::CreateDescriptorSetLayout(VkDescriptorSetLayoutCreateInfo const *createInfo,
-                                                VkDescriptorSetLayout *layout) {
-  VULKAN_ASSERT(vkCreateDescriptorSetLayout(instance->graphicsHandler, createInfo, nullptr, layout),
+                                                VkDescriptorSetLayout *layout) const {
+  VULKAN_ASSERT(vkCreateDescriptorSetLayout(graphicsHandler, createInfo, nullptr, layout),
                 "Failed to create descriptor set layout!")
 }
 
 void InstanceManager::CreateDescriptorPool(VkDescriptorPoolCreateInfo const *createInfo,
-                                           VkDescriptorPool *descriptorPool) {
-  VULKAN_ASSERT(vkCreateDescriptorPool(instance->graphicsHandler, createInfo, nullptr, descriptorPool),
+                                           VkDescriptorPool *descriptorPool) const {
+  VULKAN_ASSERT(vkCreateDescriptorPool(graphicsHandler, createInfo, nullptr, descriptorPool),
                 "Failed to create descriptor pool!")
 }
 
-void InstanceManager::CreatePipelineLayout(VkPipelineLayoutCreateInfo const *createInfo, VkPipelineLayout *layout) {
+void InstanceManager::CreatePipelineLayout(VkPipelineLayoutCreateInfo const *createInfo,
+                                           VkPipelineLayout *layout) const {
   PROFILE_FUNCTION()
-  VULKAN_ASSERT(vkCreatePipelineLayout(instance->graphicsHandler, createInfo, nullptr, layout),
+  VULKAN_ASSERT(vkCreatePipelineLayout(graphicsHandler, createInfo, nullptr, layout),
                 "Failed to create pipeline layout!")
 }
 
 void InstanceManager::CreateComputePipelines(std::vector<VkComputePipelineCreateInfo> const &createInfos,
-                                             VkPipeline *pipelines) {
+                                             VkPipeline *pipelines) const {
   PROFILE_FUNCTION()
-  VULKAN_ASSERT(vkCreateComputePipelines(instance->graphicsHandler, VK_NULL_HANDLE,
-                                         static_cast<uint32_t>(createInfos.size()), createInfos.data(), nullptr,
-                                         pipelines),
+  VULKAN_ASSERT(vkCreateComputePipelines(graphicsHandler, VK_NULL_HANDLE, static_cast<uint32_t>(createInfos.size()),
+                                         createInfos.data(), nullptr, pipelines),
                 "Failed to create compute pipelines!")
 }
 
 void InstanceManager::CreateGraphicsPipelines(std::vector<VkGraphicsPipelineCreateInfo> const &createInfos,
-                                              VkPipeline *pipelines) {
-  VULKAN_ASSERT(vkCreateGraphicsPipelines(instance->graphicsHandler, VK_NULL_HANDLE,
-                                          static_cast<uint32_t>(createInfos.size()), createInfos.data(), nullptr,
-                                          pipelines),
+                                              VkPipeline *pipelines) const {
+  VULKAN_ASSERT(vkCreateGraphicsPipelines(graphicsHandler, VK_NULL_HANDLE, static_cast<uint32_t>(createInfos.size()),
+                                          createInfos.data(), nullptr, pipelines),
                 "Failed to create graphics pipelines!")
 }
 
-void InstanceManager::CreateSampler(VkSamplerCreateInfo const *createInfo, VkSampler *sampler) {
-  VULKAN_ASSERT(vkCreateSampler(instance->graphicsHandler, createInfo, nullptr, sampler), "Failed to create sampler!")
+void InstanceManager::CreateSampler(VkSamplerCreateInfo const *createInfo, VkSampler *sampler) const {
+  VULKAN_ASSERT(vkCreateSampler(graphicsHandler, createInfo, nullptr, sampler), "Failed to create sampler!")
 }
 
 void InstanceManager::AllocateCommandBuffers(VkCommandBufferAllocateInfo const *allocInfo,
-                                             VkCommandBuffer *commandBuffers){
-    VULKAN_ASSERT(vkAllocateCommandBuffers(instance -> graphicsHandler, allocInfo, commandBuffers),
+                                             VkCommandBuffer *commandBuffers) const {
+    VULKAN_ASSERT(vkAllocateCommandBuffers(graphicsHandler, allocInfo, commandBuffers),
                   "Failed to allocate command buffers!")}
 
 VkResult InstanceManager::AllocateDescriptorSets(std::vector<VkDescriptorSetLayout> const &layouts,
                                                  VkDescriptorPool const &descriptorPool,
-                                                 VkDescriptorSet *descriptorSets) {
+                                                 VkDescriptorSet *descriptorSets) const {
   VkDescriptorSetAllocateInfo allocationInfo{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
                                              .descriptorPool = descriptorPool,
                                              .descriptorSetCount = static_cast<uint32_t>(layouts.size()),
                                              .pSetLayouts = layouts.data()};
 
-  VkResult allocationResult = vkAllocateDescriptorSets(instance->graphicsHandler, &allocationInfo, descriptorSets);
+  VkResult allocationResult = vkAllocateDescriptorSets(graphicsHandler, &allocationInfo, descriptorSets);
   if (allocationResult == VK_ERROR_OUT_OF_POOL_MEMORY) {
     ENGINE_WARNING("Descriptor pool is out of memory!")
   } else if (allocationResult == VK_ERROR_FRAGMENTED_POOL) {
@@ -520,20 +517,21 @@ VkResult InstanceManager::AllocateDescriptorSets(std::vector<VkDescriptorSetLayo
   return allocationResult;
 }
 
-void InstanceManager::WaitForFences(VkFence const *fences, uint32_t fenceCount, bool waitForAll, uint32_t timeout) {
-  VULKAN_ASSERT(vkWaitForFences(instance->graphicsHandler, fenceCount, fences, waitForAll, timeout),
+void InstanceManager::WaitForFences(VkFence const *fences, uint32_t fenceCount, bool waitForAll,
+                                    uint32_t timeout) const {
+  VULKAN_ASSERT(vkWaitForFences(graphicsHandler, fenceCount, fences, waitForAll, timeout),
                 "I have no idea how, but we just failed to wait on a fence.")
 }
 
-void InstanceManager::ResetFences(VkFence const *fences, uint32_t fenceCount){
-    VULKAN_ASSERT(vkResetFences(instance -> graphicsHandler, fenceCount, fences), "Failed to reset fences!")}
+void InstanceManager::ResetFences(VkFence const *fences, uint32_t fenceCount) const {
+    VULKAN_ASSERT(vkResetFences(graphicsHandler, fenceCount, fences), "Failed to reset fences!")}
 
 uint32_t InstanceManager::GetNextSwapchainImageIndex(VkResult &acquisitionResult, VkSwapchainKHR const &swapchain,
                                                      VkSemaphore const &semaphore, VkFence const &fence,
-                                                     uint32_t timeout) {
+                                                     uint32_t timeout) const {
   PROFILE_FUNCTION()
   uint32_t index;
-  acquisitionResult = vkAcquireNextImageKHR(instance->graphicsHandler, swapchain, timeout, semaphore, fence, &index);
+  acquisitionResult = vkAcquireNextImageKHR(graphicsHandler, swapchain, timeout, semaphore, fence, &index);
   if (acquisitionResult == VK_ERROR_OUT_OF_DATE_KHR) {
     ENGINE_WARNING("Swapchain is out of date!")
   } else if (acquisitionResult == VK_SUBOPTIMAL_KHR) {
@@ -544,13 +542,9 @@ uint32_t InstanceManager::GetNextSwapchainImageIndex(VkResult &acquisitionResult
   return index;
 }
 
-uint32_t InstanceManager::GetGraphicsFamily() {
-  return FindQueueFamilies(instance->gpu, instance->surface).graphicsFamily.value();
-}
+uint32_t InstanceManager::GetGraphicsFamily() const { return FindQueueFamilies(gpu, surface).graphicsFamily.value(); }
 
-uint32_t InstanceManager::GetPresentFamily() {
-  return FindQueueFamilies(instance->gpu, instance->surface).presentFamily.value();
-}
+uint32_t InstanceManager::GetPresentFamily() const { return FindQueueFamilies(gpu, surface).presentFamily.value(); }
 
 void InstanceManager::PickPhysicalDevice() {
   uint32_t deviceCount = 0;
@@ -574,31 +568,27 @@ void InstanceManager::PickPhysicalDevice() {
   gpu = *bestDevice;
 }
 
-void InstanceManager::Init(const char *applicationName, Window const *window) {
+InstanceManager::InstanceManager(const char *applicationName, Window const *window) {
   PROFILE_FUNCTION()
-  instance = new InstanceManager();
   // Only set up vulkan validation if in debug mode
 #ifndef NDEBUG
   if (CheckValidationLayerSupport()) {
-    instance->EnableValidationLayers();
+    EnableValidationLayers();
   } else {
     ENGINE_WARNING("Some requested validation layers could not be provided.")
   }
 #endif
-  instance->CreateInstance(
-      applicationName); // Instance must be created after validation layer availability has been checked
+  CreateInstance(applicationName); // Instance must be created after validation layer availability has been checked
 #ifndef NDEBUG
-  instance->SetupDebugMessenger();
+  SetupDebugMessenger();
 #endif
-  window->CreateSurfaceOnWindow(instance->vulkanInstance, &instance->surface);
-  instance->PickPhysicalDevice();
-  instance->CreateLogicalDevice();
+  window->CreateSurfaceOnWindow(vulkanInstance, &surface);
+  PickPhysicalDevice();
+  CreateLogicalDevice();
 
-  mainAllocator.Create(instance->gpu, instance->graphicsHandler, instance->vulkanInstance);
+  mainAllocator.Create(gpu, graphicsHandler, vulkanInstance);
   mainDeletionQueue.Push(&mainAllocator);
 }
-
-void InstanceManager::Cleanup() { delete instance; }
 
 SwapchainSupportDetails QuerySwapchainSupport(VkPhysicalDevice device, VkSurfaceKHR presentationSurface) {
   SwapchainSupportDetails details{};

@@ -5,30 +5,6 @@
 #include "Util/Macros.h"
 #include "VulkanUtil.h"
 
-void Engine::Graphics::CommandQueue::Create() {
-  VkCommandPoolCreateInfo commandPoolInfo{
-      .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-      .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-      .queueFamilyIndex = InstanceManager::GetGraphicsFamily(),
-  };
-
-  InstanceManager::CreateCommandPool(&commandPoolInfo, &commandPool);
-
-  VkCommandBufferAllocateInfo commandBufferInfo{
-      .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-      .commandPool = commandPool,
-      .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-      .commandBufferCount = 1,
-  };
-
-  InstanceManager::AllocateCommandBuffers(&commandBufferInfo, &mainBuffer);
-}
-
-void Engine::Graphics::CommandQueue::Destroy() const {
-  InstanceManager::FreeCommandBuffers(commandPool, &mainBuffer);
-  InstanceManager::DestroyCommandPool(commandPool);
-}
-
 VkCommandBufferSubmitInfo
 Engine::Graphics::CommandQueue::EnqueueCommandSequence(std::initializer_list<Command const *> commands,
                                                        VkCommandBufferUsageFlags flags) const {

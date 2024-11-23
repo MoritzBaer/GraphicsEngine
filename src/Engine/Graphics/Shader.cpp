@@ -40,16 +40,11 @@ public:
   }
 };
 
-ShaderCompiler::ShaderCompiler() {}
-ShaderCompiler::~ShaderCompiler() {}
-void ShaderCompiler::Init() {
-  instance = new ShaderCompiler();
-  instance->options.SetIncluder(std::make_unique<ShaderIncluder>());
+ShaderCompiler::ShaderCompiler(InstanceManager &instanceManager) : instanceManager(instanceManager) {
+  options.SetIncluder(std::make_unique<ShaderIncluder>());
 }
-void ShaderCompiler::Cleanup() { delete instance; }
 
-Shader ShaderCompiler::_CompileShaderCode(const char *shaderName, std::vector<char> const &shaderCode,
-                                          ShaderType type) {
+Shader ShaderCompiler::CompileShaderCode(const char *shaderName, std::vector<char> const &shaderCode, ShaderType type) {
   Shader result;
   result.type = type;
 
@@ -73,12 +68,12 @@ Shader ShaderCompiler::_CompileShaderCode(const char *shaderName, std::vector<ch
                                                   .codeSize = static_cast<uint32_t>(bytecode.size()) * sizeof(uint32_t),
                                                   .pCode = bytecode.data()};
 
-  InstanceManager::CreateShaderModule(&shaderModuleCreateInfo, &result.shaderModule);
+  instanceManager.CreateShaderModule(&shaderModuleCreateInfo, &result.shaderModule);
 
   return result;
 }
 
-inline void Shader::Destroy() const { InstanceManager::DestroyShaderModule(shaderModule); }
+void ShaderCompiler::DestroyShader(Shader &shader) { instanceManager.DestroyShaderModule(shader.shaderModule); }
 
 VkPipelineShaderStageCreateInfo Shader::GetStageInfo() const {
   return {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,

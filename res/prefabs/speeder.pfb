@@ -52,8 +52,8 @@
                             },
                             {
                                 "Engine::Graphics::MeshRenderer": {
-                                    "baseMesh": "speeder.obj",
-                                    "baseMaterial": "speeder.mat"
+                                    "mesh": "speeder.obj",
+                                    "material": "speeder.mat"
                                 }
                             },
                             {
@@ -92,8 +92,8 @@
                             },
                             {
                                 "Engine::Graphics::MeshRenderer": {
-                                    "baseMesh": "guns.obj",
-                                    "baseMaterial": "guns.mat"
+                                    "mesh": "guns.obj",
+                                    "material": "guns.mat"
                                 }
                             },
                             {

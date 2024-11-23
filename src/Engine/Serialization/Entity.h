@@ -1,8 +1,14 @@
+#pragma once
+
 #include "Core/ECS.h"
 #include "Editor/Display.h"
-#include "Graphics/MeshRenderer.h"
 #include "Graphics/Transform.h"
+#include "Serialization/MeshRenderer.h"
 #include "json-parsing.h"
+
+// Mesh renderer
+
+// Entity
 
 #define COMPONENT_OPTION(Name)                                                                                         \
   if (key == #Name) {                                                                                                  \

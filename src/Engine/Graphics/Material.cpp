@@ -4,14 +4,6 @@
 
 namespace Engine::Graphics {
 
-void Engine::Graphics::Pipeline::Destroy() const {
-  InstanceManager::DestroyPipeline(pipeline);
-  InstanceManager::DestroyPipelineLayout(layout);
-  for (auto layout : descriptorLayouts) {
-    InstanceManager::DestroyDescriptorSetLayout(layout);
-  }
-}
-
 void PipelineBuilder::SetBlendFactors(VkBlendFactor const &srcFactor, VkBlendFactor const &dstFactor) {
   colourBlendAttachment.colorWriteMask =
       VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
@@ -59,9 +51,11 @@ PipelineBuilder &PipelineBuilder::Reset() {
                 .colorAttachmentCount = 1,
                 .pColorAttachmentFormats = &colourAttachmentformat};
 
-  shaderStages.clear();
-  for (auto &builder : layoutBuilders) {
-    builder.Clear();
+  for (auto &shaderStage : shaderStageInfos) {
+    shaderStage = {};
+  }
+  for (auto &descriptor : descriptorSets) {
+    descriptor.layoutBuilder.Clear();
   }
 
   return *this;
@@ -69,10 +63,8 @@ PipelineBuilder &PipelineBuilder::Reset() {
 
 PipelineBuilder &PipelineBuilder::SetShaderStages(Graphics::Shader const &vertexShader,
                                                   Graphics::Shader const &fragmentShader) {
-  shaderStages.clear();
-
-  shaderStages.push_back(vertexShader.GetStageInfo());
-  shaderStages.push_back(fragmentShader.GetStageInfo());
+  shaderStageInfos[static_cast<size_t>(ShaderType::VERTEX)] = vertexShader.GetStageInfo();
+  shaderStageInfos[static_cast<size_t>(ShaderType::FRAGMENT)] = fragmentShader.GetStageInfo();
   return *this;
 }
 
@@ -136,11 +128,14 @@ PipelineBuilder &PipelineBuilder::EnableBlending(BlendMode const &mode) {
 PipelineBuilder &PipelineBuilder::AddDescriptorBinding(uint32_t set, uint32_t binding,
                                                        VkDescriptorType descriptorType) {
   // TODO: Allow multiple shader stages
-  if (set >= layoutBuilders.size()) {
-    layoutBuilders.resize(set + 1);
-    descriptorSetStages.resize(set + 1);
+  if (set >= descriptorSets.size()) {
+    auto oldSetCount = descriptorSets.size();
+    descriptorSets.resize(set + 1);
+    for (auto i = oldSetCount; i < descriptorSets.size(); i++) {
+      descriptorSets[i].layoutBuilder = DescriptorLayoutBuilder(&instanceManager);
+    }
   }
-  layoutBuilders[set].AddBinding(binding, descriptorType);
+  descriptorSets[set].layoutBuilder.AddBinding(binding, descriptorType);
   return *this;
 }
 
@@ -155,9 +150,9 @@ PipelineBuilder &PipelineBuilder::AddPushConstant(size_t size, size_t offset, Sh
 
 Pipeline *PipelineBuilder::Build() {
   std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
-  for (uint32_t i = 0; i < layoutBuilders.size(); i++) {
-    if (layoutBuilders[i].HasBindings()) {
-      descriptorSetLayouts.push_back(layoutBuilders[i].Build(descriptorSetStages[i]));
+  for (uint32_t i = 0; i < descriptorSets.size(); i++) {
+    if (descriptorSets[i].layoutBuilder.HasBindings()) {
+      descriptorSetLayouts.push_back(descriptorSets[i].layoutBuilder.Build(descriptorSets[i].descriptorSetStages));
     }
   }
 
@@ -167,7 +162,7 @@ Pipeline *PipelineBuilder::Build() {
                                         .pSetLayouts = descriptorSetLayouts.data(),
                                         .pushConstantRangeCount = static_cast<uint32_t>(pushConstantRanges.size()),
                                         .pPushConstantRanges = pushConstantRanges.data()};
-  InstanceManager::CreatePipelineLayout(&layoutInfo, &pipelineLayout);
+  instanceManager.CreatePipelineLayout(&layoutInfo, &pipelineLayout);
 
   VkPipelineViewportStateCreateInfo viewportInfo{
       .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO, .viewportCount = 1, .scissorCount = 1};
@@ -186,8 +181,8 @@ Pipeline *PipelineBuilder::Build() {
 
   VkGraphicsPipelineCreateInfo pipelineInfo{.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
                                             .pNext = &renderInfo,
-                                            .stageCount = static_cast<uint32_t>(shaderStages.size()),
-                                            .pStages = shaderStages.data(),
+                                            .stageCount = static_cast<uint32_t>(shaderStageInfos.size()),
+                                            .pStages = shaderStageInfos.data(),
                                             .pVertexInputState = &vertexInputInfo,
                                             .pInputAssemblyState = &inputAssembly,
                                             .pViewportState = &viewportInfo,
@@ -199,9 +194,17 @@ Pipeline *PipelineBuilder::Build() {
                                             .layout = pipelineLayout};
 
   VkPipeline pipeline;
-  Graphics::InstanceManager::CreateGraphicsPipeline(pipelineInfo, &pipeline);
+  instanceManager.CreateGraphicsPipeline(pipelineInfo, &pipeline);
 
   return new Pipeline(pipelineLayout, descriptorSetLayouts, pipeline);
+}
+
+void PipelineBuilder::DestroyPipeline(Pipeline const &pipeline) const {
+  instanceManager.DestroyPipeline(pipeline.pipeline);
+  instanceManager.DestroyPipelineLayout(pipeline.layout);
+  for (auto layout : pipeline.descriptorLayouts) {
+    instanceManager.DestroyDescriptorSetLayout(layout);
+  }
 }
 
 } // namespace Engine::Graphics

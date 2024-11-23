@@ -46,7 +46,7 @@ enum class ObjParsingState {
   READ_FACE
 };
 
-Graphics::Mesh CalculateTangentSpace(Graphics::MeshT<OBJVertex, OBJVertex> &objMesh) {
+inline Graphics::Mesh CalculateTangentSpace(Graphics::MeshT<OBJVertex> &objMesh) {
   PROFILE_FUNCTION()
 
   std::vector<uint16_t> triangleParticipations(objMesh.vertices.size(), 0);
@@ -119,7 +119,7 @@ Graphics::Mesh ParseOBJ(char const *charStream) {
   std::unordered_map<IndexTriple, uint32_t> vertexIndices{};
   IndexTriple indexTriple;
 
-  Graphics::MeshT<OBJVertex, OBJVertex> objMesh;
+  Graphics::MeshT<OBJVertex> objMesh;
 
   char currentSymbol;
   while (currentSymbol = *charStream) {
@@ -265,38 +265,6 @@ enum class EntityParsingState {
   GOBBLE_SPACE,
   GOBBLE_CHARACTER,
 };
-
-Core::Entity ParseEntity(const char *&charStream) {
-  SkipWhitespace(charStream);
-
-  Core::Entity e = ENGINE_NEW_ENTITY();
-
-  PARSE_BLOCK(charStream,
-              FIRST_TOKEN_REACTION(
-                  "Components",
-                  PARSE_ARRAY(
-                      charStream,
-                      // Read component type to buffer
-                      ReadTokenToBuffer(charStream, tokenBuffer, sizeof(tokenBuffer) / sizeof(uint8_t));
-                      if (componentParsers.find(tokenBuffer) != componentParsers.end()) {
-                        componentParsers[tokenBuffer](e, charStream);
-                      } else {
-                        ENGINE_WARNING(
-                            "Component '{}' found in entity serialization, but no deserializer for {} was registered!",
-                            tokenBuffer, tokenBuffer);
-                      },
-                      "component")),
-              "Entity")
-
-  // TODO: Returns valid (but empty) entity even if parsing fails. Figure out if this is desirable.
-  return e;
-}
-
-std::vector<Core::Entity> ParseEntityArray(char const *&charStream) {
-  std::vector<Core::Entity> result;
-  PARSE_ARRAY(charStream, result.push_back(ParseEntity(charStream)), "entity")
-  return result;
-}
 
 std::vector<float> ParseFloatArray(char const *&charStream) {
   std::vector<float> result;

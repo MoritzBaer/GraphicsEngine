@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AssetManager.h"
+#include "Game.h"
 #include "Graphics/Material.h"
 #include "Graphics/Texture.h"
 
@@ -21,9 +22,7 @@ struct AlbedoAndBump : public Material {
       phongExponent = aab->phongExponent;
       hue = aab->hue;
     } else {
-      hue = Maths::Vector3(1.0f, 1.0f, 1.0f);
-      albedo = AssetManager::LoadTexture("white");
-      normal = AssetManager::LoadTexture("normalUp");
+      ENGINE_ERROR("Tried to initialize AlbedoAndBump from Material of different type!");
     }
   }
 
@@ -31,28 +30,17 @@ struct AlbedoAndBump : public Material {
                 float phongExponent = 16.0f, Maths::Vector3 hue = Maths::Vector3(1.0f, 1.0f, 1.0f))
       : Material(pipeline), albedo(albedo), normal(normal), specularStrength(specularStrength),
         phongExponent(phongExponent), hue(hue) {}
-  AlbedoAndBump(Pipeline const *pipeline, Texture2D albedo, float specularStrength = 0.5f, float phongExponent = 16.0f,
-                Maths::Vector3 hue = Maths::Vector3(1.0f, 1.0f, 1.0f))
-      : Material(pipeline), albedo(albedo), specularStrength(specularStrength), phongExponent(phongExponent) {
-    normal = AssetManager::LoadTexture("normalUp");
-  }
-  AlbedoAndBump(Pipeline const *pipeline, float specularStrength = 0.5f, float phongExponent = 16.0f,
-                Maths::Vector3 hue = Maths::Vector3(1.0f, 1.0f, 1.0f))
-      : Material(pipeline), specularStrength(specularStrength), phongExponent(phongExponent), hue(hue) {
-    albedo = AssetManager::LoadTexture("white");
-    normal = AssetManager::LoadTexture("normalUp");
-  }
 
   inline void AppendData(PushConstantsAggregate &aggregate) const override {}
   inline void Bind(VkCommandBuffer const &commandBuffer, DescriptorAllocator &descriptorAllocator,
-                   Buffer<DrawData> const &drawDataBuffer) const override {
-    Material::Bind(commandBuffer, descriptorAllocator, drawDataBuffer);
+                   DescriptorWriter &writer, Buffer<DrawData> const &drawDataBuffer) const override {
+    Material::Bind(commandBuffer, descriptorAllocator, writer, drawDataBuffer);
     std::vector<VkDescriptorSet> descriptorSets{};
     descriptorSets.push_back(descriptorAllocator.Allocate(pipeline->DescriptorLayout(0)));
-    drawDataBuffer.UpdateDescriptor(descriptorSets.back(), 0);
+    drawDataBuffer.UpdateDescriptor(writer, descriptorSets.back(), 0);
     descriptorSets.push_back(descriptorAllocator.Allocate(pipeline->DescriptorLayout(1)));
-    albedo.UpdateDescriptors(descriptorSets.back(), 0);
-    normal.UpdateDescriptors(descriptorSets.back(), 1);
+    albedo.UpdateDescriptors(writer, descriptorSets.back(), 0);
+    normal.UpdateDescriptors(writer, descriptorSets.back(), 1);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->Layout(), 0,
                             static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
   }
@@ -80,11 +68,11 @@ inline constexpr TokenIterator json<Engine::Graphics::Materials::AlbedoAndBump>:
       } else if (key == "albedo") {
         std::string albedoPath;
         begin = json<std::string>::parse_tokenstream(begin, end, albedoPath, context);
-        output.albedo = Engine::AssetManager::LoadTexture(albedoPath.c_str());
+        output.albedo = static_cast<Game *>(context)->assetManager.LoadTexture(albedoPath.c_str());
       } else if (key == "normal") {
         std::string normalPath;
         begin = json<std::string>::parse_tokenstream(begin, end, normalPath, context);
-        output.normal = Engine::AssetManager::LoadTexture(normalPath.c_str());
+        output.normal = static_cast<Game *>(context)->assetManager.LoadTexture(normalPath.c_str());
       } else {
         throw std::runtime_error("Unexpected key in "
                                  "Engine::Graphics::Materials::AlbedoAndBump"

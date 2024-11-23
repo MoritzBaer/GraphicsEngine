@@ -13,34 +13,25 @@
 namespace Engine::Graphics {
 
 class GPUMemoryManager;
+class GPUObjectManager;
 
-template <typename T> class Buffer : public ConstDestroyable {
+template <typename T> class Buffer {
   VkBuffer buffer;
   VmaAllocation allocation;
   VmaAllocationInfo info;
   size_t size;
 
   friend class GPUMemoryManager;
+  friend class GPUObjectManager;
 
 public:
-  void Create(size_t size, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
-  void Destroy() const;
+  inline Buffer() {}
 
-  // TODO: Decide how to handle buffer destruction in general
-  // inline ~Buffer() { Destroy(); }
+  Buffer(VkBuffer buffer, VmaAllocation allocation, VmaAllocationInfo info, size_t size)
+      : buffer(buffer), allocation(allocation), info(info), size(size) {}
 
-  Buffer() {}
-  Buffer(size_t size, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) { Create(size, usage, memoryUsage); }
-  Buffer(T const *data, size_t size, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) {
-    Create(size, usage, memoryUsage);
-    SetData(data, size);
-  }
-  Buffer(T const &data, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) : Buffer(&data, 1, usage, memoryUsage) {}
-
-  inline VkDeviceAddress GetDeviceAddresss() const {
-    VkBufferDeviceAddressInfo deviceAdressInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = buffer};
-
-    return InstanceManager::GetBufferDeviceAddress(&deviceAdressInfo);
+  inline VkBufferDeviceAddressInfo GetDeviceAddresssInfo() const {
+    return {.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = buffer};
   }
 
   inline void *GetMappedData() const { return info.pMappedData; }
@@ -53,8 +44,7 @@ public:
   inline void SetData(T const &data) const { SetData(&data, 1); }
   inline void SetData(std::vector<T> const &data) const { SetData(data.data(), data.size()); }
 
-  inline void UpdateDescriptor(VkDescriptorSet descriptorSet, uint32_t binding) const {
-    DescriptorWriter writer{};
+  inline void UpdateDescriptor(DescriptorWriter &writer, VkDescriptorSet descriptorSet, uint32_t binding) const {
     writer.WriteBuffer(binding, buffer, PhysicalSize(), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
     writer.UpdateSet(descriptorSet);
   }
@@ -77,18 +67,5 @@ public:
     vkCmdBindIndexBuffer(commandBuffer, buffer, 0, indexType);
   }
 };
-
-template <typename T> void Buffer<T>::Destroy() const { mainAllocator.DestroyBuffer(buffer, allocation); }
-
-template <typename T> void Buffer<T>::Create(size_t size, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) {
-  this->size = size;
-
-  VkBufferCreateInfo bufferInfo{
-      .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, .size = size * sizeof(T), .usage = usage};
-
-  VmaAllocationCreateInfo allocInfo{.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT, .usage = memoryUsage};
-
-  mainAllocator.CreateBuffer(&bufferInfo, &allocInfo, &buffer, &allocation, &info);
-}
 
 } // namespace Engine::Graphics

@@ -3,5 +3,5 @@
 #include "Core/ECS.h"
 
 namespace Engine::Editor {
-inline Core::Entity selectedEntity((uint16_t)65535U);
+inline Core::Entity selectedEntity{};
 } // namespace Engine::Editor

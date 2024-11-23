@@ -1,30 +1,11 @@
-#include "Engine/Engine.h"
-
-#include "Debug/Profiling.h"
-#include "Editor/EntityDetails.h"
-#include "Engine/AssetManager.h"
-#include "Engine/Core/SceneHierarchy.h"
-#include "Engine/Editor/Display.h"
-#include "Engine/Editor/EntityDetails.h"
-#include "Engine/Editor/SceneView.h"
-#include "Engine/Graphics/Texture.h"
-#include "Util/FileIO.h"
-#include "Util/Parsing.h"
-#include "json-parsing.h"
+#include "Game.h"
 
 int main() {
 
-  Engine::Init("Test project");
+  Game game("Test Project");
 
-  BEGIN_PROFILE_SESSION()
-  Engine::AssetManager::LoadPrefab("speeder.pfb");
-  WRITE_PROFILE_SESSION("Scene-Loading")
-
-  Engine::Editor::SceneView sceneView{};
-  Engine::Editor::EntityDetails entityDetailView{};
-
-  Engine::RunMainLoop();
-  Engine::Cleanup();
+  for (int i = 0; i < 2000; i++)
+    game.CalculateFrame();
 
   return 0;
 }

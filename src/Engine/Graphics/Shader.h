@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Image.h"
+#include "InstanceManager.h"
 #include "Util/DeletionQueue.h"
 #include "Util/Macros.h"
 #include "shaderc/shaderc.hpp"
@@ -12,7 +13,7 @@ class ShaderCompiler;
 
 enum class ShaderType { VERTEX, FRAGMENT, COMPUTE, GEOMETRY, NUMBER_OF_TYPES };
 
-class Shader : public ConstDestroyable {
+class Shader {
 private:
   friend class ShaderCompiler;
 
@@ -21,22 +22,21 @@ private:
   VkShaderModule shaderModule;
 
 public:
-  void Destroy() const;
+  Shader() {}
   VkPipelineShaderStageCreateInfo GetStageInfo() const;
 };
 
 class ShaderCompiler {
-  _SINGLETON(ShaderCompiler)
   shaderc::Compiler compiler;
   shaderc::CompileOptions options;
+  InstanceManager &instanceManager;
   // TODO: Write includer
 
-  Shader _CompileShaderCode(const char *shaderName, std::vector<char> const &shaderCode, ShaderType type);
-
 public:
-  static inline Shader CompileShaderCode(const char *shaderName, std::vector<char> const &shaderCode, ShaderType type) {
-    return instance->_CompileShaderCode(shaderName, shaderCode, type);
-  };
+  ShaderCompiler(InstanceManager &instanceManager);
+
+  Shader CompileShaderCode(const char *shaderName, std::vector<char> const &shaderCode, ShaderType type);
+  void DestroyShader(Shader &shader);
 };
 
 inline shaderc_shader_kind ConvertToShaderKind(ShaderType const &type) {

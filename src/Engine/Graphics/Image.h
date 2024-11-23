@@ -10,23 +10,30 @@
 namespace Engine::Graphics {
 
 // Image is not responsible for image object creation and therefore also doesn't destroy it
-template <uint8_t Dimension> class Image : public ConstDestroyable {
+template <uint8_t Dimension> class Image {
 protected:
   VkImage image;
   VkImageView imageView;
-  VkExtent3D imageExtent;
+  Maths::Dimension<Dimension> imageDimension;
   VkFormat imageFormat;
   VkImageLayout currentLayout;
 
+  friend class GPUMemoryManager;
+  friend class GPUObjectManager;
+
+public:
   static const VkImageType IMAGE_TYPE;
   static const VkImageViewType VIEW_TYPE;
 
-  friend class GPUMemoryManager;
-
-public:
-  inline void Create(VkImage const &image, VkExtent3D const &extent, VkFormat const &format,
-                     VkImageAspectFlags aspectMask, uint32_t mipLevels, uint32_t arrayLayers,
-                     VkSampleCountFlagBits msaaSamples);
+  inline Image()
+      : image(VK_NULL_HANDLE), imageView(VK_NULL_HANDLE), imageDimension(Maths::Dimension<Dimension>::Zero()),
+        imageFormat(VK_FORMAT_UNDEFINED), currentLayout(VK_IMAGE_LAYOUT_UNDEFINED) {}
+  inline Image(VkImage image, VkImageView imageView, Maths::Dimension<Dimension> imageExtent, VkFormat imageFormat,
+               VkImageLayout currentLayout)
+      : image(image), imageView(imageView), imageDimension(imageExtent), imageFormat(imageFormat),
+        currentLayout(currentLayout) {}
+  inline Image(Image<Dimension> const &other)
+      : Image(other.image, other.imageView, other.imageDimension, other.imageFormat, other.currentLayout) {}
 
   inline PipelineBarrierCommand Transition(VkImageLayout const &newLayout);
   inline BlitImageCommand BlitTo(Image<Dimension> const &target) const;
@@ -37,23 +44,20 @@ public:
                                                              .depth = 1.0f}) const;
   inline virtual VkDescriptorImageInfo BindInDescriptor(VkImageLayout layout) const;
 
-  inline Maths::Dimension<Dimension> GetExtent() const;
-
-  virtual void Destroy() const override;
+  inline Maths::Dimension<Dimension> GetExtent() const { return imageDimension; }
 };
 
 template <uint8_t Dimension> class AllocatedImage : public Image<Dimension> {
 private:
   VmaAllocation allocation;
 
-  // friend class Renderer;
+  friend class GPUObjectManager;
 
 public:
-  inline AllocatedImage() = default;
-  inline void Create(VkFormat format, VkExtent3D extent, VkImageUsageFlags usage, VkImageAspectFlags aspectMask,
-                     uint32_t mipLevels = 1, uint32_t arrayLayers = 1,
-                     VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT);
-  inline virtual void Destroy() const override;
+  inline AllocatedImage() : Image<Dimension>(), allocation(VK_NULL_HANDLE) {}
+  inline AllocatedImage(Image<Dimension> const &image, VmaAllocation allocation)
+      : Image<Dimension>(image), allocation(allocation) {}
+  inline AllocatedImage(AllocatedImage<Dimension> const &other) : AllocatedImage(other, other.allocation) {}
 };
 
 using Image1 = Image<1>;
@@ -75,50 +79,6 @@ template <> const VkImageViewType Engine::Graphics::Image<2>::VIEW_TYPE = VK_IMA
 template <> const VkImageViewType Engine::Graphics::Image<3>::VIEW_TYPE = VK_IMAGE_VIEW_TYPE_3D;
 
 template <uint8_t Dimension>
-inline void Engine::Graphics::AllocatedImage<Dimension>::Create(VkFormat format, VkExtent3D extent,
-                                                                VkImageUsageFlags usage, VkImageAspectFlags aspectMask,
-                                                                uint32_t mipLevels, uint32_t arrayLayers,
-                                                                VkSampleCountFlagBits msaaSamples) {
-  VkImageCreateInfo imageCreateInfo{
-      .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-      .imageType = Image<Dimension>::IMAGE_TYPE,
-      .format = format,
-      .extent = extent,
-      .mipLevels = mipLevels,
-      .arrayLayers = arrayLayers,
-      .samples = msaaSamples,
-      .tiling = VK_IMAGE_TILING_OPTIMAL,
-      .usage = usage,
-  };
-
-  VkImage im;
-  mainAllocator.CreateImage(&imageCreateInfo, &im, &allocation);
-  Image<Dimension>::Create(im, extent, format, aspectMask, mipLevels, arrayLayers, msaaSamples);
-}
-
-template <uint8_t Dimension>
-inline void Image<Dimension>::Create(VkImage const &image, VkExtent3D const &extent, VkFormat const &format,
-                                     VkImageAspectFlags aspectMask, uint32_t mipLevels, uint32_t arrayLayers,
-                                     VkSampleCountFlagBits msaaSamples) {
-  this->image = image;
-  imageExtent = extent;
-  imageFormat = format;
-  currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
-  VkImageViewCreateInfo imageViewCreateInfo{.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-                                            .image = image,
-                                            .viewType = VIEW_TYPE,
-                                            .format = imageFormat,
-                                            .subresourceRange = {.aspectMask = aspectMask,
-                                                                 .baseMipLevel = 0,
-                                                                 .levelCount = mipLevels,
-                                                                 .baseArrayLayer = 0,
-                                                                 .layerCount = arrayLayers}};
-
-  InstanceManager::CreateImageView(&imageViewCreateInfo, &imageView);
-}
-
-template <uint8_t Dimension>
 inline PipelineBarrierCommand Image<Dimension>::Transition(VkImageLayout const &newLayout) {
   auto result = PipelineBarrierCommand({vkinit::ImageMemoryBarrier(image, currentLayout, newLayout)});
   currentLayout = newLayout;
@@ -126,6 +86,8 @@ inline PipelineBarrierCommand Image<Dimension>::Transition(VkImageLayout const &
 }
 
 template <uint8_t Dimension> inline BlitImageCommand Image<Dimension>::BlitTo(Image<Dimension> const &target) const {
+  auto imageExtent = vkutil::DimensionToExtent(imageDimension);
+  auto targetExtent = vkutil::DimensionToExtent(target.imageDimension);
   VkImageBlit2 blitRegion{
       .sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2,
       .srcSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1},
@@ -138,8 +100,8 @@ template <uint8_t Dimension> inline BlitImageCommand Image<Dimension>::BlitTo(Im
       .dstSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1},
       .dstOffsets = {
           {0, 0, 0},
-          {static_cast<int32_t>(target.imageExtent.width), static_cast<int32_t>(target.imageExtent.height),
-           static_cast<int32_t>(target.imageExtent.depth)},
+          {static_cast<int32_t>(targetExtent.width), static_cast<int32_t>(targetExtent.height),
+           static_cast<int32_t>(targetExtent.depth)},
       }};
 
   return BlitImageCommand(image, target.image, {blitRegion});
@@ -175,23 +137,6 @@ inline VkDescriptorImageInfo Image<Dimension>::BindInDescriptor(VkImageLayout la
       .imageView = imageView,
       .imageLayout = layout,
   };
-}
-
-template <> inline Maths::Dimension<1> Image<1>::GetExtent() const { return Maths::Dimension<1>(imageExtent.width); }
-template <> inline Maths::Dimension<2> Image<2>::GetExtent() const {
-  return Maths::Dimension<2>(imageExtent.width, imageExtent.height);
-}
-template <> inline Maths::Dimension<3> Image<3>::GetExtent() const {
-  return Maths::Dimension<3>(imageExtent.width, imageExtent.height, imageExtent.depth);
-}
-
-template <uint8_t Dimension> inline void Image<Dimension>::Destroy() const {
-  InstanceManager::DestroyImageView(imageView);
-}
-
-template <uint8_t Dimension> inline void AllocatedImage<Dimension>::Destroy() const {
-  Image<Dimension>::Destroy();
-  mainAllocator.DestroyImage(Image<Dimension>::image, allocation);
 }
 
 } // namespace Engine::Graphics

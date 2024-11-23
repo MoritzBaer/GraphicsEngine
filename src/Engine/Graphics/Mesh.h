@@ -8,13 +8,13 @@
 
 namespace Engine::Graphics {
 // T_GPU must have a constructor taking a T_CPU const &
-template <typename T_CPU, typename T_GPU> class MeshT {
+template <typename T_CPU> class MeshT {
 
 public:
   std::vector<T_CPU> vertices;
   std::vector<uint32_t> indices;
 
-  inline std::vector<T_GPU> ReformattedVertices() {
+  template <typename T_GPU> inline std::vector<T_GPU> ReformattedVertices() const {
     std::vector<T_GPU> reformattedVerts(vertices.size());
     std::transform(vertices.begin(), vertices.end(), reformattedVerts.begin(), [](T_CPU const &v) { return T_GPU(v); });
     return reformattedVerts;
@@ -40,6 +40,6 @@ struct VertexFormat {
         TBNP_2(v.TBN[0][Z], v.TBN[1][Z], v.TBN[2][Z], v.position[Z]), uv(v.uv) {}
 };
 
-using Mesh = MeshT<Vertex, VertexFormat>;
+using Mesh = MeshT<Vertex>;
 
 } // namespace Engine::Graphics

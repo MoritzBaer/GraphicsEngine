@@ -17,7 +17,6 @@ struct SwapchainSupportDetails {
 SwapchainSupportDetails QuerySwapchainSupport(VkPhysicalDevice device, VkSurfaceKHR presentationSurface);
 
 class InstanceManager {
-  _SINGLETON(InstanceManager, const char *, Window const *)
 
   VkInstance vulkanInstance;
   VkDebugUtilsMessengerEXT debugMessenger;
@@ -34,127 +33,120 @@ class InstanceManager {
   void CreateLogicalDevice();
 
 public:
-  static inline SwapchainSupportDetails GetSwapchainSupport() {
-    return QuerySwapchainSupport(instance->gpu, instance->surface);
-  }
-  static uint32_t GetGraphicsFamily();
-  static uint32_t GetPresentFamily();
-  static void GetSwapchainImages(VkSwapchainKHR const &swapchain, std::vector<VkImage> &images);
-  static inline void GetGraphicsQueue(VkQueue *queue) {
-    vkGetDeviceQueue(instance->graphicsHandler, GetGraphicsFamily(), 0, queue);
-  }
-  static inline void GetPresentQueue(VkQueue *queue) {
-    vkGetDeviceQueue(instance->graphicsHandler, GetPresentFamily(), 0, queue);
-  }
+  InstanceManager(const char *appName, Window const *surfaceWindow);
+  ~InstanceManager();
 
-  static void FillImGUIInitInfo(ImGui_ImplVulkan_InitInfo &initInfo);
+  inline SwapchainSupportDetails GetSwapchainSupport() const { return QuerySwapchainSupport(gpu, surface); }
+  uint32_t GetGraphicsFamily() const;
+  uint32_t GetPresentFamily() const;
+  void GetSwapchainImages(VkSwapchainKHR const &swapchain, std::vector<VkImage> &images) const;
+  inline void GetGraphicsQueue(VkQueue *queue) const {
+    vkGetDeviceQueue(graphicsHandler, GetGraphicsFamily(), 0, queue);
+  }
+  inline void GetPresentQueue(VkQueue *queue) const { vkGetDeviceQueue(graphicsHandler, GetPresentFamily(), 0, queue); }
+
+  void FillImGUIInitInfo(ImGui_ImplVulkan_InitInfo &initInfo) const;
 
   // Create vulkan objects
-  static void
-  CreateSwapchain(VkSurfaceFormatKHR const &surfaceFormat, VkPresentModeKHR const &presentMode,
-                  VkExtent2D const &extent, uint32_t const &imageCount, VkSwapchainKHR const &oldSwapchain,
-                  VkSwapchainKHR *swapchain); // Maybe allow caller to choose every value but surface at some point
-  static void CreateImageView(VkImageViewCreateInfo const *createInfo, VkImageView *view);
-  static void CreateCommandPool(VkCommandPoolCreateInfo const *createInfo, VkCommandPool *commandPool);
-  static void CreateSemaphore(VkSemaphoreCreateInfo const *createInfo, VkSemaphore *semaphore);
-  static void CreateFence(VkFenceCreateInfo const *createInfo, VkFence *fence);
-  static void CreateShaderModule(VkShaderModuleCreateInfo const *createInfo, VkShaderModule *shaderModule);
-  static void CreateDescriptorSetLayout(VkDescriptorSetLayoutCreateInfo const *createInfo,
-                                        VkDescriptorSetLayout *layout);
-  static void CreateDescriptorPool(VkDescriptorPoolCreateInfo const *createInfo, VkDescriptorPool *descriptorPool);
-  static void CreatePipelineLayout(VkPipelineLayoutCreateInfo const *createInfo, VkPipelineLayout *layout);
-  static void CreateComputePipelines(std::vector<VkComputePipelineCreateInfo> const &createInfos,
-                                     VkPipeline *pipelines);
-  static inline void CreateComputePipeline(VkComputePipelineCreateInfo const &createInfo, VkPipeline *pipeline) {
+  void CreateSwapchain(
+      VkSurfaceFormatKHR const &surfaceFormat, VkPresentModeKHR const &presentMode, VkExtent2D const &extent,
+      uint32_t const &imageCount, VkSwapchainKHR const &oldSwapchain,
+      VkSwapchainKHR *swapchain) const; // Maybe allow caller to choose every value but surface at some point
+  void CreateImageView(VkImageViewCreateInfo const *createInfo, VkImageView *view) const;
+  void CreateCommandPool(VkCommandPoolCreateInfo const *createInfo, VkCommandPool *commandPool) const;
+  void CreateSemaphore(VkSemaphoreCreateInfo const *createInfo, VkSemaphore *semaphore) const;
+  void CreateFence(VkFenceCreateInfo const *createInfo, VkFence *fence) const;
+  void CreateShaderModule(VkShaderModuleCreateInfo const *createInfo, VkShaderModule *shaderModule) const;
+  void CreateDescriptorSetLayout(VkDescriptorSetLayoutCreateInfo const *createInfo,
+                                 VkDescriptorSetLayout *layout) const;
+  void CreateDescriptorPool(VkDescriptorPoolCreateInfo const *createInfo, VkDescriptorPool *descriptorPool) const;
+  void CreatePipelineLayout(VkPipelineLayoutCreateInfo const *createInfo, VkPipelineLayout *layout) const;
+  void CreateComputePipelines(std::vector<VkComputePipelineCreateInfo> const &createInfos, VkPipeline *pipelines) const;
+  inline void CreateComputePipeline(VkComputePipelineCreateInfo const &createInfo, VkPipeline *pipeline) const {
     CreateComputePipelines({createInfo}, pipeline);
   }
-  static void CreateGraphicsPipelines(std::vector<VkGraphicsPipelineCreateInfo> const &createInfos,
-                                      VkPipeline *pipelines);
-  static inline void CreateGraphicsPipeline(VkGraphicsPipelineCreateInfo const &createInfo, VkPipeline *pipeline) {
+  void CreateGraphicsPipelines(std::vector<VkGraphicsPipelineCreateInfo> const &createInfos,
+                               VkPipeline *pipelines) const;
+  inline void CreateGraphicsPipeline(VkGraphicsPipelineCreateInfo const &createInfo, VkPipeline *pipeline) const {
     CreateGraphicsPipelines({createInfo}, pipeline);
   }
-  static void CreateSampler(VkSamplerCreateInfo const *createInfo, VkSampler *sampler);
+  void CreateSampler(VkSamplerCreateInfo const *createInfo, VkSampler *sampler) const;
 
   // Destroy vulkan objects
-  static inline void DestroySwapchain(VkSwapchainKHR const &swapchain) {
-    vkDestroySwapchainKHR(instance->graphicsHandler, swapchain, nullptr);
+  inline void DestroySwapchain(VkSwapchainKHR const &swapchain) const {
+    vkDestroySwapchainKHR(graphicsHandler, swapchain, nullptr);
   }
-  static inline void DestroyImageView(VkImageView const &view) {
-    vkDestroyImageView(instance->graphicsHandler, view, nullptr);
+  inline void DestroyImageView(VkImageView const &view) const { vkDestroyImageView(graphicsHandler, view, nullptr); }
+  inline void DestroyCommandPool(VkCommandPool const &pool) const {
+    vkDestroyCommandPool(graphicsHandler, pool, nullptr);
   }
-  static inline void DestroyCommandPool(VkCommandPool const &pool) {
-    vkDestroyCommandPool(instance->graphicsHandler, pool, nullptr);
+  inline void DestroySemaphore(VkSemaphore const &semaphore) const {
+    vkDestroySemaphore(graphicsHandler, semaphore, nullptr);
   }
-  static inline void DestroySemaphore(VkSemaphore const &semaphore) {
-    vkDestroySemaphore(instance->graphicsHandler, semaphore, nullptr);
+  inline void DestroyFence(VkFence const &fence) const { vkDestroyFence(graphicsHandler, fence, nullptr); }
+  inline void DestroyShaderModule(VkShaderModule const &shaderModule) const {
+    vkDestroyShaderModule(graphicsHandler, shaderModule, nullptr);
   }
-  static inline void DestroyFence(VkFence const &fence) { vkDestroyFence(instance->graphicsHandler, fence, nullptr); }
-  static inline void DestroyShaderModule(VkShaderModule const &shaderModule) {
-    vkDestroyShaderModule(instance->graphicsHandler, shaderModule, nullptr);
+  inline void DestroyDescriptorSetLayout(VkDescriptorSetLayout const &layout) const {
+    vkDestroyDescriptorSetLayout(graphicsHandler, layout, nullptr);
   }
-  static inline void DestroyDescriptorSetLayout(VkDescriptorSetLayout const &layout) {
-    vkDestroyDescriptorSetLayout(instance->graphicsHandler, layout, nullptr);
+  inline void DestroyDescriptorPool(VkDescriptorPool const &pool) const {
+    vkDestroyDescriptorPool(graphicsHandler, pool, nullptr);
   }
-  static inline void DestroyDescriptorPool(VkDescriptorPool const &pool) {
-    vkDestroyDescriptorPool(instance->graphicsHandler, pool, nullptr);
+  inline void DestroyPipelineLayout(VkPipelineLayout const &layout) const {
+    vkDestroyPipelineLayout(graphicsHandler, layout, nullptr);
   }
-  static inline void DestroyPipelineLayout(VkPipelineLayout const &layout) {
-    vkDestroyPipelineLayout(instance->graphicsHandler, layout, nullptr);
+  inline void DestroyPipeline(VkPipeline const &pipeline) const {
+    vkDestroyPipeline(graphicsHandler, pipeline, nullptr);
   }
-  static inline void DestroyPipeline(VkPipeline const &pipeline) {
-    vkDestroyPipeline(instance->graphicsHandler, pipeline, nullptr);
-  }
-  static inline void DestroySampler(VkSampler const &sampler) {
-    vkDestroySampler(instance->graphicsHandler, sampler, nullptr);
-  }
+  inline void DestroySampler(VkSampler const &sampler) const { vkDestroySampler(graphicsHandler, sampler, nullptr); }
 
   // Allocate vulkan memory
-  static void AllocateCommandBuffers(VkCommandBufferAllocateInfo const *allocInfo, VkCommandBuffer *commandBuffers);
-  static VkResult AllocateDescriptorSets(std::vector<VkDescriptorSetLayout> const &layouts,
-                                         VkDescriptorPool const &descriptorPool, VkDescriptorSet *descriptorSets);
-  static inline VkResult AllocateDescriptorSets(VkDescriptorSetLayout const &layout,
-                                                VkDescriptorPool const &descriptorPool,
-                                                VkDescriptorSet *descriptorSet) {
+  void AllocateCommandBuffers(VkCommandBufferAllocateInfo const *allocInfo, VkCommandBuffer *commandBuffers) const;
+  VkResult AllocateDescriptorSets(std::vector<VkDescriptorSetLayout> const &layouts,
+                                  VkDescriptorPool const &descriptorPool, VkDescriptorSet *descriptorSets) const;
+  inline VkResult AllocateDescriptorSets(VkDescriptorSetLayout const &layout, VkDescriptorPool const &descriptorPool,
+                                         VkDescriptorSet *descriptorSet) const {
     return AllocateDescriptorSets(std::vector<VkDescriptorSetLayout>{layout}, descriptorPool, descriptorSet);
   }
 
   // Free vulkan memory
-  static inline void FreeCommandBuffers(VkCommandPool const &commandPool, VkCommandBuffer const *buffers,
-                                        uint32_t bufferCount = 1) {
-    vkFreeCommandBuffers(instance->graphicsHandler, commandPool, bufferCount, buffers);
+  inline void FreeCommandBuffers(VkCommandPool const &commandPool, VkCommandBuffer const *buffers,
+                                 uint32_t bufferCount = 1) const {
+    vkFreeCommandBuffers(graphicsHandler, commandPool, bufferCount, buffers);
   }
 
   // Vulkan synchronization
-  static void WaitForFences(VkFence const *fences, uint32_t fenceCount = 1, bool waitForAll = true,
-                            uint32_t timeout = 1000000000);
-  static void ResetFences(VkFence const *fences, uint32_t fenceCount = 1);
-  static inline void WaitUntilDeviceIdle() { vkDeviceWaitIdle(instance->graphicsHandler); }
+  void WaitForFences(VkFence const *fences, uint32_t fenceCount = 1, bool waitForAll = true,
+                     uint32_t timeout = 1000000000) const;
+  void ResetFences(VkFence const *fences, uint32_t fenceCount = 1) const;
+  inline void WaitUntilDeviceIdle() const { vkDeviceWaitIdle(graphicsHandler); }
 
   // Swapchain handling
-  static uint32_t GetNextSwapchainImageIndex(VkResult &acquisitionResult, VkSwapchainKHR const &swapchain,
+  uint32_t GetNextSwapchainImageIndex(VkResult &acquisitionResult, VkSwapchainKHR const &swapchain,
+                                      VkSemaphore const &semaphore = VK_NULL_HANDLE,
+                                      VkFence const &fence = VK_NULL_HANDLE, uint32_t timeout = 1000000000) const;
+  inline uint32_t GetNextSwapchainImageIndex(VkSwapchainKHR const &swapchain,
                                              VkSemaphore const &semaphore = VK_NULL_HANDLE,
-                                             VkFence const &fence = VK_NULL_HANDLE, uint32_t timeout = 1000000000);
-  static inline uint32_t GetNextSwapchainImageIndex(VkSwapchainKHR const &swapchain,
-                                                    VkSemaphore const &semaphore = VK_NULL_HANDLE,
-                                                    VkFence const &fence = VK_NULL_HANDLE,
-                                                    uint32_t timeout = 1000000000) {
+                                             VkFence const &fence = VK_NULL_HANDLE,
+                                             uint32_t timeout = 1000000000) const {
     VkResult _;
     return GetNextSwapchainImageIndex(_, swapchain, semaphore, fence, timeout);
   }
 
   // Miscellaneous vulkan wrappers
-  static inline void ClearDescriptorPool(VkDescriptorPool const &pool, VkDescriptorPoolResetFlags flags = 0) {
-    vkResetDescriptorPool(instance->graphicsHandler, pool, flags);
+  inline void ClearDescriptorPool(VkDescriptorPool const &pool, VkDescriptorPoolResetFlags flags = 0) const {
+    vkResetDescriptorPool(graphicsHandler, pool, flags);
   }
-  static inline void UpdateDescriptorSets(std::vector<VkWriteDescriptorSet> const &descriptorSets) {
-    vkUpdateDescriptorSets(instance->graphicsHandler, static_cast<uint32_t>(descriptorSets.size()),
-                           descriptorSets.data(), 0, nullptr);
+  inline void UpdateDescriptorSets(std::vector<VkWriteDescriptorSet> const &descriptorSets) const {
+    vkUpdateDescriptorSets(graphicsHandler, static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0,
+                           nullptr);
   }
-  static inline void UpdateDescriptorSets(VkWriteDescriptorSet const &descriptorSet) {
+  inline void UpdateDescriptorSets(VkWriteDescriptorSet const &descriptorSet) const {
     UpdateDescriptorSets(std::vector<VkWriteDescriptorSet>{descriptorSet});
   }
-  static inline VkDeviceAddress GetBufferDeviceAddress(VkBufferDeviceAddressInfo const *bufferInfo) {
-    return vkGetBufferDeviceAddress(instance->graphicsHandler, bufferInfo);
+  inline VkDeviceAddress GetBufferDeviceAddress(VkBufferDeviceAddressInfo const *bufferInfo) const {
+    return vkGetBufferDeviceAddress(graphicsHandler, bufferInfo);
   }
 };
 

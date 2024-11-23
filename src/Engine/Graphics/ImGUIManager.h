@@ -11,16 +11,21 @@ namespace Engine::Graphics {
 struct ImGUIView;
 
 class ImGUIManager {
-  _SINGLETON(ImGUIManager, Window const *window)
+  InstanceManager &instanceManager;
 
+public:
+  ImGUIManager(Window const *window, VkFormat swapchainFormat, InstanceManager &instanceManager);
+  ~ImGUIManager();
+
+private:
   VkDescriptorPool imGUIPool;
   std::vector<ImGUIView const *> views;
 
 public:
-  static void BeginFrame();
-  static void RegisterView(ImGUIView const *view);
+  void BeginFrame();
+  void RegisterView(ImGUIView const *view);
 
-  static class ImGUIDrawCommand : public Command {
+  class ImGUIDrawCommand : public Command {
     Image<2> const &targetImage;
 
   public:
@@ -33,7 +38,7 @@ public:
 
 struct ImGUIView {
   virtual void Draw() const = 0;
-  ImGUIView() { ImGUIManager::RegisterView(this); }
+  ImGUIView(ImGUIManager &imGuiManager) { imGuiManager.RegisterView(this); }
 };
 
 } // namespace Engine::Graphics

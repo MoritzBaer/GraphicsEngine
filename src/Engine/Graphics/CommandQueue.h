@@ -6,19 +6,25 @@
 #include <vector>
 
 namespace Engine::Graphics {
+
+class GPUObjectManager;
+
 class Command {
 public:
   virtual void QueueExecution(VkCommandBuffer const &queue) const = 0;
 };
 
-class CommandQueue : public ConstDestroyable {
+class CommandQueue {
+  friend class GPUObjectManager;
+
 private:
   VkCommandPool commandPool;
   VkCommandBuffer mainBuffer;
 
 public:
-  void Create();
-  void Destroy() const;
+  CommandQueue(VkCommandPool commandPool, VkCommandBuffer mainBuffer)
+      : commandPool(commandPool), mainBuffer(mainBuffer) {}
+  CommandQueue() : CommandQueue(VK_NULL_HANDLE, VK_NULL_HANDLE) {}
 
   VkCommandBufferSubmitInfo EnqueueCommandSequence(std::initializer_list<Command const *> commands,
                                                    VkCommandBufferUsageFlags flags = 0) const;

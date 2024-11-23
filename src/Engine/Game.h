@@ -1,0 +1,35 @@
+#pragma once
+
+#include "AssetManager.h"
+#include "Core/ECS.h"
+#include "Core/SceneHierarchy.h"
+#include "Graphics/ImGUIManager.h"
+#include "Graphics/InstanceManager.h"
+#include "Graphics/MemoryAllocator.h"
+#include "Graphics/Renderer.h"
+#include "Util/DeletionQueue.h"
+#include "WindowManager.h"
+
+struct Game {
+  Engine::Graphics::InstanceManager instanceManager;
+  Engine::AssetManager assetManager;
+  Engine::Window *mainWindow;
+  Engine::Graphics::ShaderCompiler shaderCompiler;
+  Engine::Core::ECS ecs;
+  Engine::Core::SceneHierarchy sceneHierarchy;
+  Engine::Graphics::Renderer renderer;
+  Engine::Graphics::GPUObjectManager gpuObjectManager;
+  Engine::Graphics::MemoryAllocator memoryAllocator;
+  Engine::DeletionQueue mainDeletionQueue;
+  Engine::Graphics::ImGUIManager imGuiManager;
+
+  Engine::Core::Entity mainCam;
+  bool render;
+
+  // TODO: Make CreateWindow use dimension, pass dimension to Game()
+  Game(const char *name);
+
+  void CalculateFrame();
+
+  ~Game();
+};

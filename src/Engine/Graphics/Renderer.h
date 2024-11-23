@@ -5,6 +5,8 @@
 #include "CommandQueue.h"
 #include "DescriptorHandling.h"
 #include "DrawData.h"
+#include "GPUObjectManager.h"
+#include "Graphics/ImGUIManager.h"
 #include "Image.h"
 #include "Maths/Dimension.h"
 #include "Shader.h"
@@ -19,9 +21,10 @@ namespace Engine::Graphics {
 class MeshRenderer;
 
 class Renderer {
-  _SINGLETON(Renderer, Maths::Dimension2 windowSize)
+  InstanceManager &instanceManager;
+  GPUObjectManager &gpuObjectManager;
 
-  struct FrameResources : public Initializable {
+  struct FrameResources {
     CommandQueue commandQueue;
     DeletionQueue deletionQueue;
     VkSemaphore swapchainSemaphore;
@@ -29,18 +32,7 @@ class Renderer {
     VkFence renderFence;
     DescriptorAllocator descriptorAllocator;
     Buffer<DrawData> uniformBuffer;
-
-    void Create() override;
-    void Destroy() override;
   };
-
-  struct ImmediateSubmitResources : public ConstInitializable {
-    CommandQueue commandQueue;
-    VkFence fence;
-
-    void Create();
-    void Destroy() const;
-  } immediateResources;
 
   static const uint32_t MAX_FRAME_OVERLAP = 3;
 
@@ -56,17 +48,15 @@ class Renderer {
 
   Maths::Dimension2 windowDimension;
   bool renderBufferInitialized;
-  struct : public ConstDestroyable {
+  struct {
     AllocatedImage<2> colourImage;
     AllocatedImage<2> depthImage;
-    inline void Destroy() const {
-      colourImage.Destroy();
-      depthImage.Destroy();
-    }
   } renderBuffer;
   Maths::Dimension2 renderBufferDimension{1600, 900};
   float renderScale = 1.0f;
   DescriptorAllocator descriptorAllocator;
+  DescriptorLayoutBuilder descriptorLayoutBuilder;
+  DescriptorWriter descriptorWriter;
   VkDescriptorSet renderBufferDescriptors;
   VkDescriptorSetLayout renderBufferDescriptorLayout;
   VkDescriptorSetLayout singleTextureDescriptorLayout;
@@ -74,37 +64,38 @@ class Renderer {
   void CreateSwapchain();
   void DestroySwapchain();
   void InitDescriptors();
-  void InitPipelines();
-  void InitBackgroundPipeline();
 
-  void Draw(Camera const *camera, SceneData const &sceneData, std::span<MeshRenderer const *> const &objectsToDraw);
   void RecreateRenderBuffer();
+  void DestroyRenderBuffer();
+  void CreateFrameResources(FrameResources &resources);
+  void DestroyFrameResources(FrameResources &resources);
 
   inline FrameResources const &CurrentResources() const { return frameResources[currentFrame % MAX_FRAME_OVERLAP]; }
 
 public:
-  // Signature is likely to change (for example a list of render objects will have to be passed somehow)
-  static inline void DrawFrame(Camera const *camera, SceneData const &sceneData,
-                               std::span<MeshRenderer const *> const &objectsToDraw) {
-    instance->Draw(camera, sceneData, objectsToDraw);
+  Renderer(Maths::Dimension2 windowSize, InstanceManager &instanceManager, GPUObjectManager &gpuObjectManager);
+  ~Renderer();
+
+  void DrawFrame(Camera const *camera, SceneData const &sceneData,
+                 std::span<MeshRenderer const *> const &objectsToDraw);
+  //{
+  //  Debug::Logging::PrintMessage("DEBUG", "Drawing frame!");
+  //};
+
+  inline void RecreateSwapchain() {
+    instanceManager.WaitUntilDeviceIdle();
+    DestroySwapchain();
+    CreateSwapchain();
   }
 
-  static inline void RecreateSwapchain() {
-    InstanceManager::WaitUntilDeviceIdle();
-    instance->DestroySwapchain();
-    instance->CreateSwapchain();
-  }
-
-  static inline void SetWindowSize(Maths::Dimension2 newSize) {
-    instance->windowDimension = newSize;
+  inline void SetWindowSize(Maths::Dimension2 newSize) {
+    windowDimension = newSize;
     RecreateSwapchain();
   }
 
-  static void ImmediateSubmit(Command *command);
+  void GetImGUISection();
 
-  static void GetImGUISection();
-
-  static inline VkFormat GetSwapchainFormat() { return instance->swapchainFormat; }
+  inline VkFormat GetSwapchainFormat() { return swapchainFormat; }
 };
 
 } // namespace Engine::Graphics

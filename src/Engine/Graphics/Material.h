@@ -11,7 +11,11 @@
 
 namespace Engine::Graphics {
 
-class Pipeline : public ConstDestroyable {
+class PipelineBuilder;
+
+class Pipeline {
+  friend class PipelineBuilder;
+
   VkPipeline pipeline;
   VkPipelineLayout layout;
   std::vector<VkDescriptorSetLayout> descriptorLayouts;
@@ -26,7 +30,6 @@ public:
   }
   inline VkPipelineLayout Layout() const { return layout; }
   inline VkDescriptorSetLayout DescriptorLayout(uint8_t set) const { return descriptorLayouts[set]; }
-  void Destroy() const;
 };
 
 class Material {
@@ -38,7 +41,7 @@ public:
   Material(Pipeline const *pipeline) : pipeline(pipeline) {}
   virtual void AppendData(PushConstantsAggregate &aggregate) const = 0;
   virtual void Bind(VkCommandBuffer const &commandBuffer, DescriptorAllocator &descriptorAllocator,
-                    Buffer<DrawData> const &drawDataBuffer) const {
+                    DescriptorWriter &writer, Buffer<DrawData> const &drawDataBuffer) const {
     pipeline->Bind(commandBuffer);
   }
   VkPipelineLayout GetPipelineLayout() const { return pipeline->Layout(); }
@@ -46,7 +49,22 @@ public:
 };
 
 class PipelineBuilder {
-  std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+  struct ShaderStage {
+    VkPipelineShaderStageCreateInfo stageInfo;
+    VkPushConstantRange pushConstantRange;
+
+    ShaderStage() : stageInfo(), pushConstantRange() {}
+  };
+
+  struct DescriptorSet {
+    VkDescriptorSetLayout descriptorLayout;
+    DescriptorLayoutBuilder layoutBuilder;
+    VkShaderStageFlags descriptorSetStages;
+
+    DescriptorSet() : descriptorLayout(), layoutBuilder(nullptr), descriptorSetStages() {}
+  };
+
+  InstanceManager &instanceManager;
 
   VkPipelineInputAssemblyStateCreateInfo inputAssembly;
   VkPipelineRasterizationStateCreateInfo rasterizer;
@@ -57,11 +75,9 @@ class PipelineBuilder {
   VkPipelineRenderingCreateInfo renderInfo;
   VkFormat colourAttachmentformat;
 
-  std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
+  std::array<VkPipelineShaderStageCreateInfo, static_cast<size_t>(ShaderType::NUMBER_OF_TYPES)> shaderStageInfos;
   std::vector<VkPushConstantRange> pushConstantRanges;
-
-  std::vector<DescriptorLayoutBuilder> layoutBuilders;
-  std::vector<VkShaderStageFlags> descriptorSetStages;
+  std::vector<DescriptorSet> descriptorSets;
 
   inline void SetBlendFactors(VkBlendFactor const &srcFactor, VkBlendFactor const &dstFactor);
 
@@ -69,7 +85,13 @@ public:
   enum class BlendMode { ALPHA, ADDITIVE };
   PipelineBuilder &Reset();
 
-  PipelineBuilder() : layoutBuilders(4), descriptorSetStages(4) { Reset(); }
+  PipelineBuilder(InstanceManager &instanceManager)
+      : instanceManager(instanceManager), descriptorSets(4), shaderStageInfos(), pushConstantRanges() {
+    for (int i = 0; i < 4; i++) {
+      descriptorSets[i].layoutBuilder = DescriptorLayoutBuilder(&instanceManager);
+    }
+    Reset();
+  }
 
   PipelineBuilder &SetShaderStages(Graphics::Shader const &vertexShader, Graphics::Shader const &fragmentShader);
   PipelineBuilder &SetInputTopology(VkPrimitiveTopology const &topology);
@@ -86,11 +108,14 @@ public:
   template <typename... ShaderTypes> PipelineBuilder &BindSetInShaders(uint8_t set, ShaderTypes... shaderTypes);
 
   Pipeline *Build();
+
+  void DestroyPipeline(Pipeline const &pipeline) const;
 };
 
 template <typename... ShaderTypes>
 inline PipelineBuilder &PipelineBuilder::BindSetInShaders(uint8_t set, ShaderTypes... shaderTypes) {
-  descriptorSetStages[set] = descriptorSetStages[set] | (ConvertToShaderStage(shaderTypes) | ...);
+  descriptorSets[set].descriptorSetStages =
+      descriptorSets[set].descriptorSetStages | (ConvertToShaderStage(shaderTypes) | ...);
   return *this;
 }
 

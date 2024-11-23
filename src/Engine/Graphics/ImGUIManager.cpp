@@ -20,27 +20,9 @@
 #include "Editor/SceneView.h"
 
 namespace Engine::Graphics {
-ImGUIManager::ImGUIManager() {}
-ImGUIManager::~ImGUIManager() { InstanceManager::DestroyDescriptorPool(instance->imGUIPool); }
-
-using Editor::Publication;
-using Editor::Publishable;
-
-struct TestPublishable : public Publishable {
-  Maths::Vector3 position, rotation, scale;
-  Maths::Vector4 colour;
-
-  TestPublishable(Maths::Vector3 pos, Maths::Vector3 rot, Maths::Vector3 scl)
-      : position(pos), rotation(rot), scale(scl), Publishable("TestPublishable") {}
-  TestPublishable() : position(), rotation(), scale(), Publishable("TestPublishable") {}
-
-  std::vector<Publication> GetPublications() {
-    return {PUBLISH(position), PUBLISH(rotation), PUBLISH_SLIDER(scale, 0.01f, 1000.0f, 1.0f), PUBLISH(colour)};
-  }
-} testPublishable;
-void ImGUIManager::Init(Window const *window) {
+ImGUIManager::ImGUIManager(Window const *window, VkFormat swapchainFormat, InstanceManager &instanceManager)
+    : instanceManager(instanceManager), views() {
   PROFILE_FUNCTION()
-  instance = new ImGUIManager();
 
   VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
                                       {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
@@ -59,14 +41,14 @@ void ImGUIManager::Init(Window const *window) {
                                             .maxSets = 1000,
                                             .poolSizeCount = static_cast<uint32_t>(std::size(poolSizes)),
                                             .pPoolSizes = poolSizes};
-  InstanceManager::CreateDescriptorPool(&poolCreateInfo, &instance->imGUIPool);
+  instanceManager.CreateDescriptorPool(&poolCreateInfo, &imGUIPool);
 
   ImGui::CreateContext();
   window->InitImGUIOnWindow();
 
-  VkFormat colourAttachmentFormat = Renderer::GetSwapchainFormat();
+  VkFormat colourAttachmentFormat = swapchainFormat;
   ImGui_ImplVulkan_InitInfo imGUIInfo{
-      .DescriptorPool = instance->imGUIPool,
+      .DescriptorPool = imGUIPool,
       .MinImageCount = 3,
       .ImageCount = 3,
       .MSAASamples = VK_SAMPLE_COUNT_1_BIT,
@@ -75,21 +57,21 @@ void ImGUIManager::Init(Window const *window) {
                                    .colorAttachmentCount = 1,
                                    .pColorAttachmentFormats = &colourAttachmentFormat}};
 
-  InstanceManager::FillImGUIInitInfo(imGUIInfo);
+  instanceManager.FillImGUIInitInfo(imGUIInfo);
 
   ImGui_ImplVulkan_Init(&imGUIInfo);
   ImGui_ImplVulkan_CreateFontsTexture();
 
   // Enable docking for whole application
   ImGui::GetIO().ConfigFlags = ImGuiConfigFlags_DockingEnable;
-
-  testPublishable = TestPublishable(Maths::Vector3{10, -2, 4}, Maths::Vector3{0, 90, 0}, Maths::Vector3{0.3, 0.2, 0.5});
 }
-
-void ImGUIManager::Cleanup() {
+ImGUIManager::~ImGUIManager() {
   ImGui_ImplVulkan_Shutdown();
-  delete instance;
+  instanceManager.DestroyDescriptorPool(imGUIPool);
 }
+
+using Editor::Publication;
+using Editor::Publishable;
 
 void ImGUIManager::BeginFrame() {
   PROFILE_FUNCTION()
@@ -99,29 +81,16 @@ void ImGUIManager::BeginFrame() {
 
   if (ImGui::Begin("Debug GUI")) {
     ImGui::Text("FPS: %.1f", 1.0f / Time::deltaTime);
-    Renderer::GetImGUISection();
     ImGui::End();
   }
 
-  for (auto view : instance->views) {
+  for (auto view : views) {
     view->Draw();
   }
 
   ImGui::Render();
 }
 
-void ImGUIManager::RegisterView(ImGUIView const *view) { instance->views.push_back(view); }
-
-void ImGUIManager::ImGUIDrawCommand::QueueExecution(VkCommandBuffer const &queue) const {
-  auto colourInfo = targetImage.BindAsColourAttachment();
-  VkExtent2D extent = {targetImage.GetExtent().x(), targetImage.GetExtent().y()};
-  VkRenderingInfo renderInfo = vkinit::RenderingInfo(colourInfo, extent);
-
-  vkCmdBeginRendering(queue, &renderInfo);
-
-  ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), queue);
-
-  vkCmdEndRendering(queue);
-}
+void ImGUIManager::RegisterView(ImGUIView const *view) { views.push_back(view); }
 
 } // namespace Engine::Graphics

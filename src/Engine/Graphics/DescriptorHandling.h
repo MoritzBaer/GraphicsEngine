@@ -14,9 +14,12 @@ enum class DescriptorType {
 };
 
 class DescriptorLayoutBuilder {
-  std::vector<VkDescriptorSetLayoutBinding> bindings{};
+  std::vector<VkDescriptorSetLayoutBinding> bindings;
+  InstanceManager const *instanceManager;
 
 public:
+  inline DescriptorLayoutBuilder(InstanceManager const *instanceManager)
+      : instanceManager(instanceManager), bindings() {}
   inline DescriptorLayoutBuilder &AddBinding(uint32_t binding, VkDescriptorType type);
   inline bool HasBindings() const { return !bindings.empty(); }
   inline void Clear();
@@ -24,18 +27,13 @@ public:
 };
 
 class DescriptorAllocator {
+  InstanceManager const *instanceManager;
 
 public:
   struct PoolSizeRatio {
     VkDescriptorType type;
     float ratio;
   };
-
-  inline void InitPools(uint32_t initialSets, std::span<PoolSizeRatio> poolRatios);
-  inline void ClearDescriptors();
-  inline void DestroyPools();
-
-  inline VkDescriptorSet Allocate(VkDescriptorSetLayout layout);
 
 private:
   inline VkDescriptorPool GetPool();
@@ -45,16 +43,30 @@ private:
   std::vector<VkDescriptorPool> fullPools;
   std::vector<VkDescriptorPool> readyPools;
   uint32_t setsPerPool;
+
+public:
+  DescriptorAllocator(InstanceManager const *instanceManager)
+      : instanceManager(instanceManager), poolRatios(), fullPools(), readyPools(), setsPerPool(-1) {}
+  DescriptorAllocator() : DescriptorAllocator(nullptr) {}
+
+  inline void InitPools(uint32_t initialSets, std::span<PoolSizeRatio> poolRatios);
+  inline void ClearDescriptors();
+  inline void DestroyPools();
+
+  inline VkDescriptorSet Allocate(VkDescriptorSetLayout layout);
 };
 
 class DescriptorWriter {
+  InstanceManager const *instanceManager;
   std::deque<VkDescriptorImageInfo> imageInfos;
   std::deque<VkDescriptorBufferInfo> bufferInfos;
   std::vector<VkWriteDescriptorSet> writes;
 
 public:
-  template <uint8_t N>
+  DescriptorWriter(InstanceManager const *instanceManager)
+      : instanceManager(instanceManager), imageInfos(), bufferInfos(), writes() {}
   // Image must be passed as a pointer to allow subclasses substituting
+  template <uint8_t N>
   inline void WriteImage(uint32_t binding, Image<N> const &image, VkImageLayout layout, VkDescriptorType type);
   // TODO: Refactor to use Buffer
   inline void WriteBuffer(uint32_t binding, VkBuffer buffer, size_t size, size_t offset, VkDescriptorType type);
@@ -86,7 +98,7 @@ VkDescriptorSetLayout DescriptorLayoutBuilder::Build(VkShaderStageFlags shaderSt
 
   VkDescriptorSetLayout layout;
 
-  InstanceManager::CreateDescriptorSetLayout(&layoutInfo, &layout);
+  instanceManager->CreateDescriptorSetLayout(&layoutInfo, &layout);
 
   return layout;
 }
@@ -102,21 +114,22 @@ void DescriptorAllocator::InitPools(uint32_t maxSets, std::span<PoolSizeRatio> p
 
 void DescriptorAllocator::ClearDescriptors() {
   for (auto pool : readyPools) {
-    InstanceManager::ClearDescriptorPool(pool);
+    instanceManager->ClearDescriptorPool(pool);
   }
-  std::transform(fullPools.begin(), fullPools.end(), std::back_inserter(readyPools), [](VkDescriptorPool pool) {
-    InstanceManager::ClearDescriptorPool(pool);
+  auto &im = *instanceManager;
+  std::transform(fullPools.begin(), fullPools.end(), std::back_inserter(readyPools), [&im](VkDescriptorPool pool) {
+    im.ClearDescriptorPool(pool);
     return pool;
   });
 }
 
 void DescriptorAllocator::DestroyPools() {
   for (auto pool : readyPools) {
-    InstanceManager::DestroyDescriptorPool(pool);
+    instanceManager->DestroyDescriptorPool(pool);
   }
   readyPools.clear();
   for (auto pool : fullPools) {
-    InstanceManager::DestroyDescriptorPool(pool);
+    instanceManager->DestroyDescriptorPool(pool);
   }
   fullPools.clear();
 }
@@ -125,12 +138,12 @@ VkDescriptorSet DescriptorAllocator::Allocate(VkDescriptorSetLayout layout) {
   VkDescriptorPool selectedPool = GetPool();
 
   VkDescriptorSet allocatedSet;
-  VkResult res = InstanceManager::AllocateDescriptorSets(layout, selectedPool, &allocatedSet);
+  VkResult res = instanceManager->AllocateDescriptorSets(layout, selectedPool, &allocatedSet);
 
   if (res == VK_ERROR_OUT_OF_POOL_MEMORY || res == VK_ERROR_FRAGMENTED_POOL) {
     fullPools.push_back(selectedPool);
     selectedPool = GetPool();
-    VULKAN_ASSERT(InstanceManager::AllocateDescriptorSets(layout, selectedPool, &allocatedSet),
+    VULKAN_ASSERT(instanceManager->AllocateDescriptorSets(layout, selectedPool, &allocatedSet),
                   "Failed to allocate descriptor set in new pool!")
   }
 
@@ -166,7 +179,7 @@ VkDescriptorPool DescriptorAllocator::CreatePool(uint32_t maxSets, std::span<Poo
                                                       .pPoolSizes = poolSizes.data()};
 
   VkDescriptorPool descriptorPool;
-  InstanceManager::CreateDescriptorPool(&descriptorPoolCreateInfo, &descriptorPool);
+  instanceManager->CreateDescriptorPool(&descriptorPoolCreateInfo, &descriptorPool);
   return descriptorPool;
 }
 
@@ -193,7 +206,7 @@ void DescriptorWriter::UpdateSet(VkDescriptorSet set) {
     write.dstSet = set;
   }
 
-  InstanceManager::UpdateDescriptorSets(writes);
+  instanceManager->UpdateDescriptorSets(writes);
 }
 
 template <uint8_t N>

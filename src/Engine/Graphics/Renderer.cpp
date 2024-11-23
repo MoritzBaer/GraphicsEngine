@@ -7,7 +7,6 @@
 #include "GLFW/glfw3.h"
 #include "Graphics/ImGUIManager.h"
 #include "Image.h"
-#include "InstanceManager.h"
 #include "Mesh.h"
 #include "MeshRenderer.h"
 #include "UniformAggregate.h"
@@ -29,50 +28,13 @@ std::vector<ComputeEffect<ComputePushConstants>> backgroundEffects = {
 };
 uint8_t currentBackgroundEffect = 1;
 
-namespace vkinit {
-inline VkFenceCreateInfo FenceCreateInfo(VkFenceCreateFlags flags = VK_FENCE_CREATE_SIGNALED_BIT) {
-  return {.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, .flags = flags};
-}
+class ImGUIDrawCommand : public Command {
+  Image2 const &targetImage;
 
-inline VkSubmitInfo2 SubmitInfo(std::vector<VkSemaphoreSubmitInfo> const &semaphoreWaitInfos,
-                                std::vector<VkCommandBufferSubmitInfo> const &commandBufferInfos,
-                                std::vector<VkSemaphoreSubmitInfo> const &semaphoreSignalInfos) {
-  return {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-          .waitSemaphoreInfoCount = static_cast<uint32_t>(semaphoreWaitInfos.size()),
-          .pWaitSemaphoreInfos = semaphoreWaitInfos.data(),
-          .commandBufferInfoCount = static_cast<uint32_t>(commandBufferInfos.size()),
-          .pCommandBufferInfos = commandBufferInfos.data(),
-          .signalSemaphoreInfoCount = static_cast<uint32_t>(semaphoreSignalInfos.size()),
-          .pSignalSemaphoreInfos = semaphoreSignalInfos.data()};
-}
-} // namespace vkinit
-
-namespace vkutil {
-inline PipelineBarrierCommand TransitionImageCommand(VkImage image, VkImageLayout currentLayout,
-                                                     VkImageLayout targetLayout) {
-  return PipelineBarrierCommand({vkinit::ImageMemoryBarrier(image, currentLayout, targetLayout)});
-}
-
-inline BlitImageCommand CopyFullImage(VkImage source, VkImage destination, VkExtent3D srcExtent, VkExtent3D dstExtent) {
-  VkImageBlit2 blitRegion{
-      .sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2,
-      .srcSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1},
-      .srcOffsets =
-          {
-              {0, 0, 0},
-              {static_cast<int32_t>(srcExtent.width), static_cast<int32_t>(srcExtent.height),
-               static_cast<int32_t>(srcExtent.depth)},
-          },
-      .dstSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1},
-      .dstOffsets = {
-          {0, 0, 0},
-          {static_cast<int32_t>(dstExtent.width), static_cast<int32_t>(dstExtent.height),
-           static_cast<int32_t>(dstExtent.depth)},
-      }};
-
-  return BlitImageCommand(source, destination, {blitRegion});
-}
-} // namespace vkutil
+public:
+  ImGUIDrawCommand(Image2 const &targetImage) : targetImage(targetImage) {}
+  void QueueExecution(VkCommandBuffer const &queue) const;
+};
 
 class DrawGeometryCommand : public Command {
   VkImageView drawImageView;
@@ -93,48 +55,47 @@ class MultimeshDrawCommand : public Command {
   Maths::Dimension2 renderAreaSize;
   Maths::Dimension2 renderAreaOffset;
   DescriptorAllocator &descriptorAllocator;
+  DescriptorWriter &descriptorWriter;
   Buffer<DrawData> uniformBuffer;
   std::span<MeshRenderer const *> singleMeshes;
 
 public:
   MultimeshDrawCommand(Image<2> const &drawImage, Image<2> const &depthImage, DescriptorAllocator &descriptorAllocator,
-                       Maths::Dimension2 const &renderAreaSize, Buffer<DrawData> const &uniformBuffer,
-                       std::span<MeshRenderer const *> const &meshes)
+                       DescriptorWriter &descriptorWriter, Maths::Dimension2 const &renderAreaSize,
+                       Buffer<DrawData> const &uniformBuffer, std::span<MeshRenderer const *> const &meshes)
       : drawImage(drawImage), depthImage(depthImage), singleMeshes(meshes), uniformBuffer(uniformBuffer),
-        renderAreaSize(renderAreaSize), descriptorAllocator(descriptorAllocator) {}
+        renderAreaSize(renderAreaSize), descriptorAllocator(descriptorAllocator), descriptorWriter(descriptorWriter) {}
   void QueueExecution(VkCommandBuffer const &) const;
 };
 
-void Renderer::Init(Maths::Dimension2 windowSize) {
+Renderer::Renderer(Maths::Dimension2 windowSize, InstanceManager &instanceManager, GPUObjectManager &gpuObjectManager)
+    : instanceManager(instanceManager), descriptorLayoutBuilder(&instanceManager), descriptorWriter(&instanceManager),
+      gpuObjectManager(gpuObjectManager) {
   PROFILE_FUNCTION()
-  instance = new Renderer();
-  InstanceManager::GetGraphicsQueue(&instance->graphicsQueue);
-  InstanceManager::GetPresentQueue(&instance->presentQueue);
-  instance->windowDimension = windowSize;
-  instance->renderBufferInitialized = false;
-  instance->CreateSwapchain();
-  instance->RecreateRenderBuffer();
-  mainDeletionQueue.Push(&instance->renderBuffer);
+  instanceManager.GetGraphicsQueue(&graphicsQueue);
+  instanceManager.GetPresentQueue(&presentQueue);
+  windowDimension = windowSize;
+  renderBufferInitialized = false;
+  CreateSwapchain();
+  RecreateRenderBuffer();
   for (int i = 0; i < MAX_FRAME_OVERLAP; i++) {
-    mainDeletionQueue.Push(instance->frameResources[i]);
+    CreateFrameResources(frameResources[i]);
   }
-  mainDeletionQueue.Push(&instance->immediateResources);
-  instance->InitDescriptors();
-  instance->InitPipelines();
+  InitDescriptors();
 }
 
-void Renderer::Cleanup() { delete instance; }
-
-Renderer::Renderer() {}
 Renderer::~Renderer() {
   for (auto effect : backgroundEffects) {
-    InstanceManager::DestroyPipeline(effect.pipeline);
+    instanceManager.DestroyPipeline(effect.pipeline);
   }
-  InstanceManager::DestroyPipelineLayout(backgroundEffects[0].pipelineLayout);
+  instanceManager.DestroyPipelineLayout(backgroundEffects[0].pipelineLayout);
   DestroySwapchain();
   descriptorAllocator.ClearDescriptors();
+  for (int i = 0; i < MAX_FRAME_OVERLAP; i++) {
+    DestroyFrameResources(frameResources[i]);
+  }
   descriptorAllocator.DestroyPools();
-  InstanceManager::DestroyDescriptorSetLayout(renderBufferDescriptorLayout);
+  instanceManager.DestroyDescriptorSetLayout(renderBufferDescriptorLayout);
 }
 
 VkSurfaceFormatKHR ChooseSwapchainSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats) {
@@ -173,7 +134,7 @@ VkExtent2D ChooseSwapchainExtent(const VkSurfaceCapabilitiesKHR &capabilities, M
 void Renderer::CreateSwapchain() {
   PROFILE_FUNCTION()
 
-  SwapchainSupportDetails details = InstanceManager::GetSwapchainSupport();
+  SwapchainSupportDetails details = instanceManager.GetSwapchainSupport();
 
   VkSurfaceFormatKHR surfaceFormat = ChooseSwapchainSurfaceFormat(details.formats);
   VkPresentModeKHR presentMode = ChooseSwapchainPresentMode(details.presentModes);
@@ -182,42 +143,43 @@ void Renderer::CreateSwapchain() {
   uint32_t imageCount =
       std::min(std::max(details.capabilities.minImageCount + 1, MAX_FRAME_OVERLAP), details.capabilities.maxImageCount);
 
-  InstanceManager::CreateSwapchain(surfaceFormat, presentMode, extent, imageCount, VK_NULL_HANDLE, &swapchain);
+  instanceManager.CreateSwapchain(surfaceFormat, presentMode, extent, imageCount, VK_NULL_HANDLE, &swapchain);
 
   swapchainExtent = extent;
   swapchainFormat = surfaceFormat.format;
 
   std::vector<VkImage> scImgs;
-  InstanceManager::GetSwapchainImages(swapchain, scImgs);
+  instanceManager.GetSwapchainImages(swapchain, scImgs);
   swapchainImages.resize(scImgs.size());
 
   // Create image views
   for (int i = 0; i < swapchainImages.size(); i++) {
-    swapchainImages[i].Create(scImgs[i], {.width = extent.width, .height = extent.height, .depth = 1},
-                              surfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, VK_SAMPLE_COUNT_1_BIT);
+    swapchainImages[i] = gpuObjectManager.CreateImage(scImgs[i], windowDimension, surfaceFormat.format,
+                                                      VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_ASPECT_COLOR_BIT);
   }
 }
 
 void Renderer::DestroySwapchain() {
   for (auto image : swapchainImages) {
-    image.Destroy();
+    gpuObjectManager.DestroyImage(image);
   }
-  InstanceManager::DestroySwapchain(swapchain);
+  instanceManager.DestroySwapchain(swapchain);
 }
 
-void Renderer::Draw(Camera const *camera, SceneData const &sceneData,
-                    std::span<MeshRenderer const *> const &objectsToDraw) {
+void Renderer::DrawFrame(Camera const *camera, SceneData const &sceneData,
+                         std::span<MeshRenderer const *> const &objectsToDraw) {
+
   PROFILE_FUNCTION()
   uint32_t resourceIndex = currentFrame % MAX_FRAME_OVERLAP;
 
   VkCommandBufferSubmitInfo commandBufferSubmitInfo{};
   {
     PROFILE_SCOPE("Waiting for previous frame to finish rendering")
-    InstanceManager::WaitForFences(&frameResources[resourceIndex].renderFence);
-    InstanceManager::ResetFences(&frameResources[resourceIndex].renderFence);
+    instanceManager.WaitForFences(&frameResources[resourceIndex].renderFence);
+    instanceManager.ResetFences(&frameResources[resourceIndex].renderFence);
   }
   VkResult swapchainImageAcqusitionResult;
-  uint32_t swapchainImageIndex = InstanceManager::GetNextSwapchainImageIndex(
+  uint32_t swapchainImageIndex = instanceManager.GetNextSwapchainImageIndex(
       swapchainImageAcqusitionResult, swapchain, frameResources[resourceIndex].swapchainSemaphore);
   if (swapchainImageAcqusitionResult == VK_ERROR_OUT_OF_DATE_KHR ||
       swapchainImageAcqusitionResult == VK_SUBOPTIMAL_KHR) {
@@ -254,9 +216,10 @@ void Renderer::Draw(Camera const *camera, SceneData const &sceneData,
     };
 
     frameResources[resourceIndex].uniformBuffer.SetData(uniformData);
-    auto drawMeshes = MultimeshDrawCommand(renderBuffer.colourImage, renderBuffer.depthImage,
-                                           frameResources[resourceIndex].descriptorAllocator, scaledDrawDimension,
-                                           frameResources[resourceIndex].uniformBuffer, objectsToDraw);
+    DescriptorWriter descriptorWriter{&instanceManager};
+    auto drawMeshes = MultimeshDrawCommand(
+        renderBuffer.colourImage, renderBuffer.depthImage, frameResources[resourceIndex].descriptorAllocator,
+        descriptorWriter, scaledDrawDimension, frameResources[resourceIndex].uniformBuffer, objectsToDraw);
 
     // Commands for copying render to swapchain
     auto transitionBufferToTransferSrc = renderBuffer.colourImage.Transition(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
@@ -265,9 +228,10 @@ void Renderer::Draw(Camera const *camera, SceneData const &sceneData,
     auto copyBufferToPresenter = renderBuffer.colourImage.BlitTo(swapchainImages[swapchainImageIndex]);
 
     // Commands for rendering ImGUI
-    auto renderImGUI = ImGUIManager::DrawFrameCommand(swapchainImages[swapchainImageIndex]);
     auto transitionPresenterToColourAttachment =
         swapchainImages[swapchainImageIndex].Transition(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    auto renderImGUI = ImGUIDrawCommand(swapchainImages[swapchainImageIndex]);
 
     // Command for presenting
     auto transitionPresenterToPresent =
@@ -292,11 +256,7 @@ void Renderer::Draw(Camera const *camera, SceneData const &sceneData,
   auto semaphoreSignalInfo =
       vkinit::SemaphoreSubmitInfo(frameResources[resourceIndex].renderSemaphore, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
 
-  std::vector<VkCommandBufferSubmitInfo> buffer{commandBufferSubmitInfo};
-  std::vector<VkSemaphoreSubmitInfo> waitSemaphores{semaphoreWaitInfo};
-  std::vector<VkSemaphoreSubmitInfo> signalSemaphores{semaphoreSignalInfo};
-
-  VkSubmitInfo2 submitInfo = vkinit::SubmitInfo(waitSemaphores, buffer, signalSemaphores);
+  VkSubmitInfo2 submitInfo = vkinit::SubmitInfo(semaphoreWaitInfo, commandBufferSubmitInfo, semaphoreSignalInfo);
 
   VULKAN_ASSERT(vkQueueSubmit2(graphicsQueue, 1, &submitInfo, frameResources[resourceIndex].renderFence),
                 "Failed to submit queue")
@@ -310,22 +270,59 @@ void Renderer::Draw(Camera const *camera, SceneData const &sceneData,
 
   VULKAN_ASSERT(vkQueuePresentKHR(presentQueue, &presentInfo), "Failed to present image!")
 
-  instance->frameResources[instance->currentFrame % MAX_FRAME_OVERLAP].deletionQueue.Flush();
-  instance->currentFrame++;
+  frameResources[currentFrame % MAX_FRAME_OVERLAP].deletionQueue.Flush();
+  currentFrame++;
+}
+
+void Renderer::DestroyRenderBuffer() {}
+
+void Renderer::CreateFrameResources(FrameResources &resources) {
+  VkFenceCreateInfo fenceInfo = vkinit::FenceCreateInfo();
+
+  VkSemaphoreCreateInfo semaphoreInfo{.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+
+  instanceManager.CreateFence(&fenceInfo, &resources.renderFence);
+  instanceManager.CreateSemaphore(&semaphoreInfo, &resources.renderSemaphore);
+  instanceManager.CreateSemaphore(&semaphoreInfo, &resources.swapchainSemaphore);
+
+  resources.commandQueue = gpuObjectManager.CreateCommandQueue();
+  resources.deletionQueue.Create();
+
+  std::vector<DescriptorAllocator::PoolSizeRatio> frame_sizes = {
+      {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 3},
+      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3},
+      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3},
+      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
+  };
+
+  descriptorAllocator = DescriptorAllocator(&instanceManager);
+  descriptorAllocator.InitPools(10, frame_sizes);
+  resources.uniformBuffer =
+      gpuObjectManager.CreateBuffer<DrawData>(1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+}
+
+void Renderer::DestroyFrameResources(FrameResources &resources) {
+  resources.deletionQueue.Destroy();
+  gpuObjectManager.DestroyCommandQueue(resources.commandQueue);
+  instanceManager.DestroySemaphore(resources.swapchainSemaphore);
+  instanceManager.DestroySemaphore(resources.renderSemaphore);
+  instanceManager.DestroyFence(resources.renderFence);
+  descriptorAllocator.DestroyPools();
+  gpuObjectManager.DestroyBuffer(resources.uniformBuffer);
 }
 
 void Renderer::RecreateRenderBuffer() {
   VkExtent3D renderBufferExtent = {windowDimension.x(), windowDimension.y(), 1};
 
   if (renderBufferInitialized) {
-    renderBuffer.Destroy();
+    DestroyRenderBuffer();
   }
-  renderBuffer.colourImage.Create(VK_FORMAT_R16G16B16A16_SFLOAT, renderBufferExtent,
-                                  VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-                                      VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                                  VK_IMAGE_ASPECT_COLOR_BIT);
-  renderBuffer.depthImage.Create(VK_FORMAT_D32_SFLOAT, renderBufferExtent, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                                 VK_IMAGE_ASPECT_DEPTH_BIT);
+  renderBuffer.colourImage = gpuObjectManager.CreateAllocatedImage(
+      VK_FORMAT_R8G8B8A8_SRGB, renderBufferDimension, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+      VK_IMAGE_ASPECT_COLOR_BIT);
+  renderBuffer.depthImage =
+      gpuObjectManager.CreateAllocatedImage(VK_FORMAT_D32_SFLOAT, renderBufferDimension,
+                                            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
 void Renderer::InitDescriptors() {
@@ -334,55 +331,15 @@ void Renderer::InitDescriptors() {
 
   descriptorAllocator.InitPools(10, ratios);
 
-  DescriptorLayoutBuilder builder{};
-  builder.AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-  renderBufferDescriptorLayout = builder.Build(VK_SHADER_STAGE_COMPUTE_BIT);
+  descriptorLayoutBuilder.AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+  renderBufferDescriptorLayout = descriptorLayoutBuilder.Build(VK_SHADER_STAGE_COMPUTE_BIT);
+  descriptorLayoutBuilder.Clear();
 
   renderBufferDescriptors = descriptorAllocator.Allocate(renderBufferDescriptorLayout);
 
-  DescriptorWriter writer{};
-  writer.WriteImage(0, renderBuffer.colourImage, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-  writer.UpdateSet(renderBufferDescriptors);
-}
-
-void Renderer::InitPipelines() { InitBackgroundPipeline(); }
-
-void Renderer::InitBackgroundPipeline() {
-  PROFILE_FUNCTION()
-  VkPushConstantRange pushConstants{
-      .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT, .offset = 0, .size = sizeof(ComputePushConstants)};
-
-  VkPipelineLayoutCreateInfo computeLayoutInfo{.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-                                               .setLayoutCount = 1,
-                                               .pSetLayouts = &renderBufferDescriptorLayout,
-                                               .pushConstantRangeCount = 1,
-                                               .pPushConstantRanges = &pushConstants};
-
-  VkPipelineLayout computePipelineLayout;
-  InstanceManager::CreatePipelineLayout(&computeLayoutInfo, &computePipelineLayout);
-
-  VkComputePipelineCreateInfo pipelineInfo{.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-                                           .layout = computePipelineLayout};
-
-  for (auto &effect : backgroundEffects) {
-    Shader shader = AssetManager::LoadShader(effect.name + ".comp", ShaderType::COMPUTE);
-    pipelineInfo.stage = shader.GetStageInfo();
-
-    effect.pipelineLayout = computePipelineLayout;
-    InstanceManager::CreateComputePipeline(pipelineInfo, &effect.pipeline);
-  }
-}
-
-void Renderer::ImmediateSubmit(Command *command) {
-  InstanceManager::ResetFences(&instance->immediateResources.fence);
-  auto commandInfo = instance->immediateResources.commandQueue.EnqueueCommandSequence({command});
-  std::vector<VkCommandBufferSubmitInfo> buffer{commandInfo};
-  VkSubmitInfo2 submitInfo = vkinit::SubmitInfo({}, buffer, {});
-
-  VULKAN_ASSERT(vkQueueSubmit2(instance->graphicsQueue, 1, &submitInfo, instance->immediateResources.fence),
-                "Failed to submit immediate queue")
-
-  InstanceManager::WaitForFences(&instance->immediateResources.fence);
+  descriptorWriter.WriteImage(0, renderBuffer.colourImage, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+  descriptorWriter.UpdateSet(renderBufferDescriptors);
+  descriptorWriter.Clear();
 }
 
 void Renderer::GetImGUISection() {
@@ -406,53 +363,9 @@ void Renderer::GetImGUISection() {
   ImGui::InputFloat4("data3", (float *)&backgroundEffects[currentBackgroundEffect].constants.data3);
   ImGui::InputFloat4("data4", (float *)&backgroundEffects[currentBackgroundEffect].constants.data4);
 
-  ImGui::SliderFloat("Render scale", &instance->renderScale, 0.1f, 1.0f, "%.3f");
+  ImGui::SliderFloat("Render scale", &renderScale, 0.1f, 1.0f, "%.3f");
 
   ImGui::EndGroup();
-}
-
-void Renderer::FrameResources::Create() {
-  VkFenceCreateInfo fenceInfo = vkinit::FenceCreateInfo();
-
-  VkSemaphoreCreateInfo semaphoreInfo{.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-
-  InstanceManager::CreateFence(&fenceInfo, &renderFence);
-
-  InstanceManager::CreateSemaphore(&semaphoreInfo, &renderSemaphore);
-  InstanceManager::CreateSemaphore(&semaphoreInfo, &swapchainSemaphore);
-
-  commandQueue.Create();
-  deletionQueue.Create();
-
-  std::vector<DescriptorAllocator::PoolSizeRatio> frame_sizes = {
-      {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 3},
-      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3},
-      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3},
-      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
-  };
-  descriptorAllocator.InitPools(10, frame_sizes);
-  uniformBuffer.Create(1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-}
-
-void Renderer::FrameResources::Destroy() {
-  deletionQueue.Destroy();
-  commandQueue.Destroy();
-  InstanceManager::DestroySemaphore(swapchainSemaphore);
-  InstanceManager::DestroySemaphore(renderSemaphore);
-  InstanceManager::DestroyFence(renderFence);
-  descriptorAllocator.DestroyPools();
-  uniformBuffer.Destroy();
-}
-
-void Renderer::ImmediateSubmitResources::Create() {
-  auto fenceInfo = vkinit::FenceCreateInfo();
-  InstanceManager::CreateFence(&fenceInfo, &fence);
-  commandQueue.Create();
-}
-
-void Renderer::ImmediateSubmitResources::Destroy() const {
-  commandQueue.Destroy();
-  InstanceManager::DestroyFence(fence);
 }
 
 void DrawGeometryCommand::QueueExecution(VkCommandBuffer const &queue) const {
@@ -479,25 +392,28 @@ void DrawGeometryCommand::QueueExecution(VkCommandBuffer const &queue) const {
 }
 
 void DrawSingleMesh(VkCommandBuffer const &commandBuffer, DescriptorAllocator &descriptorAllocator,
-                    Buffer<DrawData> const &uniformBuffer, MeshRenderer const *renderInfo) {
+                    DescriptorWriter &descriptorWriter, Buffer<DrawData> const &uniformBuffer,
+                    MeshRenderer const *renderInfo) {
+  AllocatedMesh const *mesh = renderInfo->mesh;
+  Material const *material = renderInfo->material;
 
   // Bind material pipelines
-  VkDescriptorSet descriptorSet = descriptorAllocator.Allocate(renderInfo->material->GetDescriptorSetLayout(1));
-  renderInfo->material->Bind(commandBuffer, descriptorAllocator, uniformBuffer);
+  VkDescriptorSet descriptorSet = descriptorAllocator.Allocate(material->GetDescriptorSetLayout(1));
+  material->Bind(commandBuffer, descriptorAllocator, descriptorWriter, uniformBuffer);
 
   // Upload uniform data
   Maths::Matrix4 model = renderInfo->entity.GetComponent<Transform>()->ModelToWorldMatrix();
   Maths::Matrix4 normals = renderInfo->entity.GetComponent<Transform>()->ModelToWorldMatrix().Inverse().Transposed();
   PushConstantsAggregate data{};
   data.PushData(&model);
-  renderInfo->mesh->AppendData(data);
-  renderInfo->material->AppendData(data);
+  mesh->AppendData(data);
+  material->AppendData(data);
 
-  vkCmdPushConstants(commandBuffer, renderInfo->material->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0,
-                     data.Size(), data.Data());
+  vkCmdPushConstants(commandBuffer, material->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, data.Size(),
+                     data.Data());
 
   // Draw mesh
-  renderInfo->mesh->BindAndDraw(commandBuffer);
+  mesh->BindAndDraw(commandBuffer);
 }
 
 void MultimeshDrawCommand::QueueExecution(VkCommandBuffer const &queue) const {
@@ -524,8 +440,20 @@ void MultimeshDrawCommand::QueueExecution(VkCommandBuffer const &queue) const {
   vkCmdBeginRendering(queue, &renderingInfo);
 
   for (auto mesh : singleMeshes) {
-    DrawSingleMesh(queue, descriptorAllocator, uniformBuffer, mesh);
+    DrawSingleMesh(queue, descriptorAllocator, descriptorWriter, uniformBuffer, mesh);
   }
+
+  vkCmdEndRendering(queue);
+}
+
+void ImGUIDrawCommand::QueueExecution(VkCommandBuffer const &queue) const {
+  auto colourInfo = targetImage.BindAsColourAttachment();
+  VkExtent2D extent = {targetImage.GetExtent().x(), targetImage.GetExtent().y()};
+  VkRenderingInfo renderInfo = vkinit::RenderingInfo(colourInfo, extent);
+
+  vkCmdBeginRendering(queue, &renderInfo);
+
+  ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), queue);
 
   vkCmdEndRendering(queue);
 }

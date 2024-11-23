@@ -17,9 +17,12 @@ public:                                                                         
 private:
 
 namespace Engine {
+class WindowManager;
+
 class Window {
 public:
   enum class UserEvent { SHOULD_CLOSE, WAS_MINIMIZED, WAS_RESTORED };
+  friend class WindowManager;
 
 private:
   GLFWwindow *glfwWindow;
@@ -28,7 +31,8 @@ private:
   bool minimized;
 
   Window(GLFWwindow *glfwWindow) : glfwWindow(glfwWindow) {}
-  static void ResizeCallbackGLFW(GLFWwindow *window, int width, int height);
+
+  template <WindowManager *windowManager> static void GLFWResizeCallback(GLFWwindow *glfwWindow, int width, int height);
 
 public:
   Window(uint32_t width, uint32_t height, const char *title);

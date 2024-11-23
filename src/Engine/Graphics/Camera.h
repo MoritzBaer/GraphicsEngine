@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Core/ECS.h"
 #include "Maths/Transformations.h"
 
