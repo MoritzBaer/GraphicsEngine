@@ -13,13 +13,13 @@ void Engine::DeletionQueue::ChangeBaseMemory() {
   queue = newQueue;
 }
 
-void Engine::DeletionQueue::Create() {
+Engine::DeletionQueue::DeletionQueue() {
   queueCapacity = INITIAL_QUEUE_CAPACITIES;
   queueSize = 0;
   queue = static_cast<Destroyable **>(malloc(queueCapacity * sizeof(Destroyable *)));
 }
 
-void Engine::DeletionQueue::Destroy() const {
+Engine::DeletionQueue::~DeletionQueue() {
   if (queueSize > 0) {
     ENGINE_WARNING("Deleting non-empty deletion queue")
   }

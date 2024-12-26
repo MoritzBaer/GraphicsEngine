@@ -108,7 +108,7 @@ class ECS::EntityIterator {
 public:
   inline Entity const &operator*() const { return Entity(currentEntity, ecs); }
   inline EntityIterator &operator++() {
-    while (!(ecs->aliveAndComponentFlags[++currentEntity] & ALIVE_FLAG))
+    while (!(ecs->aliveAndComponentFlags[++currentEntity] & ALIVE_FLAG) && currentEntity < ecs->firstFreeEntity)
       ;
     return *this;
   }

@@ -1,0 +1,40 @@
+{
+    "components": [
+        {
+            "Engine::Graphics::Transform": {
+                "position": {
+                    "data": [
+                        0,
+                        0,
+                        0
+                    ]
+                },
+                "rotation": {
+                    "w": 1,
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                },
+                "scale": {
+                    "data": [
+                        1,
+                        1,
+                        1
+                    ]
+                },
+                "children": []
+            }
+        },
+        {
+            "Engine::Graphics::MeshRenderer": {
+                "mesh": "speeder.obj",
+                "material": "speeder.mat"
+            }
+        },
+        {
+            "Engine::Editor::Display": {
+                "label": "speeder_body"
+            }
+        }
+    ]
+}

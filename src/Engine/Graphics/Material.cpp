@@ -179,10 +179,16 @@ Pipeline *PipelineBuilder::Build() {
   VkPipelineDynamicStateCreateInfo dynamicStateInfo{
       .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO, .dynamicStateCount = 2, .pDynamicStates = states};
 
+  std::vector<VkPipelineShaderStageCreateInfo> activeStages{};
+  for (auto const &stage : shaderStageInfos) {
+    if (stage.sType)
+      activeStages.push_back(stage);
+  }
+
   VkGraphicsPipelineCreateInfo pipelineInfo{.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
                                             .pNext = &renderInfo,
-                                            .stageCount = static_cast<uint32_t>(shaderStageInfos.size()),
-                                            .pStages = shaderStageInfos.data(),
+                                            .stageCount = static_cast<uint32_t>(activeStages.size()),
+                                            .pStages = activeStages.data(),
                                             .pVertexInputState = &vertexInputInfo,
                                             .pInputAssemblyState = &inputAssembly,
                                             .pViewportState = &viewportInfo,

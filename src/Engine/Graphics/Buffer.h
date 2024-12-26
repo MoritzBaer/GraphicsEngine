@@ -34,6 +34,9 @@ public:
     return {.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = buffer};
   }
 
+  inline VkBuffer GetBuffer() const { return buffer; }
+  inline VmaAllocation GetAllocation() const { return allocation; }
+
   inline void *GetMappedData() const { return info.pMappedData; }
   inline size_t Size() const { return size; }
   inline size_t PhysicalSize() const { return size * sizeof(T); }
@@ -47,6 +50,7 @@ public:
   inline void UpdateDescriptor(DescriptorWriter &writer, VkDescriptorSet descriptorSet, uint32_t binding) const {
     writer.WriteBuffer(binding, buffer, PhysicalSize(), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
     writer.UpdateSet(descriptorSet);
+    writer.Clear();
   }
 
   inline void BindAsIndexBuffer(VkCommandBuffer const &commandBuffer) const

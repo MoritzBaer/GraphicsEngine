@@ -1,8 +1,8 @@
 #pragma once
 
 #include "Buffer.h"
-#include "CommandQueue.h"
 #include "Image.h"
+#include "VulkanUtil.h"
 
 namespace Engine::Graphics {
 
@@ -25,11 +25,11 @@ class BufferToImageCopyCommand : public Command {
   size_t srcOffset;     // In bytes
   VkOffset3D dstOffset; // In bytes
   VkExtent3D dstExtent; // In bytes
-  PipelineBarrierCommand imageTransition;
+  vkutil::PipelineBarrierCommand imageTransition;
 
 public:
   BufferToImageCopyCommand(VkBuffer source, VkImage destination, VkExtent3D destinationExtent,
-                           PipelineBarrierCommand const &imageTransition, size_t sourceOffset = 0,
+                           vkutil::PipelineBarrierCommand const &imageTransition, size_t sourceOffset = 0,
                            VkOffset3D destinationOffset = {0, 0, 0})
       : src(source), dst(destination), srcOffset(sourceOffset), dstOffset(destinationOffset),
         dstExtent(destinationExtent), imageTransition(imageTransition) {}

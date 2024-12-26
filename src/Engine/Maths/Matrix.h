@@ -177,6 +177,9 @@ public:
   inline VectorT<3, T> Cross(VectorT<3, T> const &other) const
     requires(m == 1 && n == 3);
 
+  inline T Volume() const
+    requires(m == 1);
+
   // "Properties" for easier access
 private:
   class Row {
@@ -530,6 +533,17 @@ inline VectorT<3, T> MatrixT<n, m, T>::Cross(VectorT<3, T> const &other) const
 {
   return VectorT<3, T>{data[Y] * other[Z] - data[Z] * other[Y], data[Z] * other[X] - data[X] * other[Z],
                        data[X] * other[Y] - data[Y] * other[X]};
+}
+
+template <uint8_t n, uint8_t m, typename T>
+inline T MatrixT<n, m, T>::Volume() const
+  requires(m == 1)
+{
+  T res = data[0];
+  for (int i = 1; i < n; i++) {
+    res *= data[i];
+  }
+  return res;
 }
 
 template <uint8_t n, uint8_t m, typename T> inline void MatrixT<n, m, T>::RowOp(uint8_t row1, uint8_t row2, T factor) {

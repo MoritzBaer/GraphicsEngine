@@ -33,15 +33,13 @@ private:
 
 public:
   uint32_t queueCapacity;
-  void Create();
-  void Destroy() const;
+  DeletionQueue();
+  ~DeletionQueue();
   void Push(Initializable *object, bool preInitialized = false);
   inline void Push(Initializable &object, bool preInitialized = false) { Push(&object, preInitialized); }
   void Push(Destroyable *object);
   inline void Push(Destroyable &object) { Push(&object); };
   void Flush();
 };
-
-inline DeletionQueue mainDeletionQueue;
 
 } // namespace Engine

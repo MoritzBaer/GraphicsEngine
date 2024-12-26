@@ -11,14 +11,24 @@
 #include <vector>
 
 namespace Engine::Graphics {
+
+class VertexBuffer {
+public:
+  virtual VkBuffer GetBuffer() const = 0;
+  virtual VmaAllocation GetAllocation() const = 0;
+};
+
 class AllocatedMesh {
 protected:
+  VertexBuffer *vertexBuffer;
   Buffer<uint32_t> indexBuffer;
   VkDeviceAddress vertexBufferAddress;
+  friend class GPUMemoryManager;
+  friend class GPUObjectManager;
 
 public:
-  AllocatedMesh(Buffer<uint32_t> const &indexBuffer, VkDeviceAddress vertexBufferAddress)
-      : indexBuffer(indexBuffer), vertexBufferAddress(vertexBufferAddress) {}
+  AllocatedMesh(VertexBuffer *vertexBuffer, Buffer<uint32_t> const &indexBuffer, VkDeviceAddress vertexBufferAddress)
+      : vertexBuffer(vertexBuffer), indexBuffer(indexBuffer), vertexBufferAddress(vertexBufferAddress) {}
   virtual ~AllocatedMesh() {};
 
   inline void BindAndDraw(VkCommandBuffer const &commandBuffer) const {
@@ -28,17 +38,13 @@ public:
   inline void AppendData(PushConstantsAggregate &aggregate) const { aggregate.PushData(&vertexBufferAddress); }
 };
 
-// T_GPU must have a constructor taking a T_CPU const &
-template <typename T_GPU> class AllocatedMeshT : public AllocatedMesh {
-  Buffer<T_GPU> vertexBuffer;
+template <typename T_GPU> class VertexBufferT : public VertexBuffer {
+  Buffer<T_GPU> buffer;
 
 public:
-  AllocatedMeshT(Buffer<T_GPU> const &vertexBuffer, Buffer<uint32_t> const &indexBuffer,
-                 VkDeviceAddress vertexBufferAddress)
-      : AllocatedMesh(indexBuffer, vertexBufferAddress), vertexBuffer(vertexBuffer) {}
-  AllocatedMeshT(AllocatedMeshT<T_GPU> const &other)
-      : AllocatedMeshT(other.vertexBuffer, other.indexBuffer, other.vertexBufferAddress) {}
-  ~AllocatedMeshT() {}
+  VertexBufferT(Buffer<T_GPU> const &buffer) : buffer(buffer) {}
+  inline VkBuffer GetBuffer() const override { return buffer.GetBuffer(); }
+  inline VmaAllocation GetAllocation() const override { return buffer.GetAllocation(); }
 };
 
 // Implementations

@@ -5,19 +5,37 @@
 #include "Debug/Profiling.h"
 #include "Editor/Display.h"
 #include "Graphics/Camera.h"
+#include "Graphics/ComputeEffect.h"
 #include "Graphics/MeshRenderer.h"
 #include "Graphics/Transform.h"
 
+using Engine::Graphics::ComputeEffect;
+using Engine::Graphics::ComputePushConstants;
+
+std::vector<ComputeEffect<ComputePushConstants>> InitializedComputeEffects(Engine::AssetManager &assetManager) {
+  PROFILE_FUNCTION()
+  std::vector<ComputeEffect<ComputePushConstants>> backgroundEffects = {
+      ComputeEffect<ComputePushConstants>{.name = "gradient_colour",
+                                          .constants{.data1 = {1, 0, 0, 1}, .data2 = {0, 0, 1, 1}}},
+      ComputeEffect<ComputePushConstants>{.name = "sky", .constants{.data1 = {0.02f, 0, 0.05f, 0.99f}}},
+  };
+
+  for (auto &effect : backgroundEffects) {
+    effect.effectShader = assetManager.LoadShader(effect.name + ".comp", Engine::Graphics::ShaderType::COMPUTE);
+  }
+
+  return backgroundEffects;
+}
+
 Game::Game(const char *name)
-    : mainWindow(Engine::WindowManager::CreateWindow(1600, 900, name)), instanceManager(name, mainWindow),
-      assetManager(this), shaderCompiler(instanceManager), ecs(), memoryAllocator(),
-      gpuObjectManager(instanceManager, memoryAllocator), renderer({1600, 900}, instanceManager, gpuObjectManager),
+    : mainWindow(Engine::WindowManager::CreateWindow(1600, 900, name)), mainDeletionQueue(),
+      instanceManager(name, mainWindow), assetManager(this), shaderCompiler(instanceManager), ecs(),
+      memoryAllocator(instanceManager), gpuObjectManager(instanceManager, memoryAllocator),
+      renderer({1600, 900}, instanceManager, gpuObjectManager, InitializedComputeEffects(assetManager)),
       sceneHierarchy(ecs), render(true), imGuiManager(mainWindow, renderer.GetSwapchainFormat(), instanceManager) {
 
   BEGIN_PROFILE_SESSION() {
     PROFILE_FUNCTION()
-
-    mainDeletionQueue.Create();
 
     // TODO: Remove once scene loading no longer happens in constructor
     ecs.RegisterComponent<Engine::Editor::Display>(); // Must be at the top so name is displayed above other
@@ -40,6 +58,7 @@ Game::Game(const char *name)
         [this](Engine::Maths::Dimension2 newWindowSize) { renderer.SetWindowSize(newWindowSize); });
 
     assetManager.InitStandins();
+    assetManager.LoadPrefab("speeder_without_guns.pfb");
 
     Engine::Time::Update();
   }
@@ -90,6 +109,8 @@ Game::~Game() {
   imGuiManager.~ImGUIManager();
   renderer.~Renderer();
   assetManager.~AssetManager();
+  gpuObjectManager.~GPUObjectManager();
+  memoryAllocator.~MemoryAllocator();
   instanceManager.~InstanceManager();
   WRITE_PROFILE_SESSION("Cleanup")
 }

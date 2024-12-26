@@ -17,12 +17,14 @@ class GPUObjectManager {
       const
 #endif
           &memoryAllocator;
+  CommandQueue dispatcherQueue;
   GPUDispatcher dispatcher;
 
 public:
   GPUObjectManager(InstanceManager &instanceManager, MemoryAllocator &memoryAllocator)
-      : instanceManager(instanceManager), memoryAllocator(memoryAllocator),
-        dispatcher(instanceManager, CreateCommandQueue()) {}
+      : instanceManager(instanceManager), memoryAllocator(memoryAllocator), dispatcherQueue(CreateCommandQueue()),
+        dispatcher(instanceManager, dispatcherQueue) {}
+  ~GPUObjectManager() { DestroyCommandQueue(dispatcherQueue); }
 
   template <uint8_t D>
   inline Image<D> CreateImage(VkImage image, Maths::Dimension<D> const &imageSize, VkFormat imageFormat,
@@ -33,7 +35,12 @@ public:
   inline AllocatedImage<D> CreateAllocatedImage(VkFormat format, Maths::Dimension<D> const &imageSize,
                                                 VkImageUsageFlags usage, VkImageAspectFlags aspectMask,
                                                 uint32_t mipLevels = 1, uint32_t arrayLayers = 1,
-                                                VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT) const;
+                                                VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT
+#ifndef NDEBUG
+                                                ,
+                                                char const *label = nullptr
+#endif
+  ) const;
 
   template <uint8_t D>
   inline Texture<D> CreateTexture(Maths::Dimension<D> const &imageSize, VkFilter magFilter = VK_FILTER_LINEAR,
@@ -69,29 +76,44 @@ public:
   }
 
   template <typename T>
-  Buffer<T> CreateBuffer(size_t size, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage)
+  Buffer<T> CreateBuffer(size_t size, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage
+#ifndef NDEBUG
+                         ,
+                         char const *label = nullptr
+#endif
+  )
 #ifdef NDEBUG
       const
 #endif
       ;
   template <typename T>
-  Buffer<T> CreateBuffer(T const *data, size_t size, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage)
+  Buffer<T> CreateBuffer(T const *data, size_t size, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage
+#ifndef NDEBUG
+                         ,
+                         char const *label = nullptr
+#endif
+  )
 #ifdef NDEBUG
       const
 #endif
   {
-    auto buffer = CreateBuffer<T>(size, usage, memoryUsage);
+    auto buffer = CreateBuffer<T>(size, usage, memoryUsage, label);
     buffer.SetData(data, size);
     return buffer;
   }
 
   template <typename T>
-  Buffer<T> CreateBuffer(T const &data, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage)
+  Buffer<T> CreateBuffer(T const &data, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage
+#ifndef NDEBUG
+                         ,
+                         char const *label = nullptr
+#endif
+  )
 #ifdef NDEBUG
       const
 #endif
   {
-    return CreateBuffer(&data, 1, usage, memoryUsage);
+    return CreateBuffer(&data, 1, usage, memoryUsage, label);
   } // namespace Engine::Graphics
 
   template <uint8_t D> inline void DestroyImage(Image<D> const &image) const {
@@ -130,11 +152,21 @@ public:
   template <typename T> inline VkDeviceAddress GetDeviceAddresss(Buffer<T> buffer) const;
 
   template <typename T_CPU, typename T_GPU>
-  inline AllocatedMeshT<T_GPU> AllocateMesh(MeshT<T_CPU> const &mesh)
+  inline AllocatedMesh AllocateMesh(MeshT<T_CPU> const &mesh)
 #ifdef NDEBUG
       const
 #endif
       ;
+
+  inline void DeallocateMesh(AllocatedMesh *mesh)
+#ifdef NDEBUG
+      const
+#endif
+  {
+    memoryAllocator.DestroyBuffer(mesh->indexBuffer.buffer, mesh->indexBuffer.allocation);
+    memoryAllocator.DestroyBuffer(mesh->vertexBuffer->GetBuffer(), mesh->vertexBuffer->GetAllocation());
+    delete mesh->vertexBuffer;
+  }
 
   inline CommandQueue CreateCommandQueue() const;
   inline void DestroyCommandQueue(CommandQueue const &queue) const;
@@ -193,7 +225,12 @@ template <uint8_t D>
 inline AllocatedImage<D> GPUObjectManager::CreateAllocatedImage(VkFormat format, Maths::Dimension<D> const &imageSize,
                                                                 VkImageUsageFlags usage, VkImageAspectFlags aspectMask,
                                                                 uint32_t mipLevels, uint32_t arrayLayers,
-                                                                VkSampleCountFlagBits msaaSamples) const {
+                                                                VkSampleCountFlagBits msaaSamples
+#ifndef NDEBUG
+                                                                ,
+                                                                char const *label
+#endif
+) const {
   VkImageCreateInfo imageCreateInfo{
       .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
       .imageType = Image<D>::IMAGE_TYPE,
@@ -208,9 +245,9 @@ inline AllocatedImage<D> GPUObjectManager::CreateAllocatedImage(VkFormat format,
 
   VkImage im;
   VmaAllocation allocation;
-  memoryAllocator.CreateImage(&imageCreateInfo, &im, &allocation);
-  return AllocatedImage<D>(CreateImage(im, imageSize, format, VK_IMAGE_LAYOUT_UNDEFINED, mipLevels, arrayLayers),
-                           allocation);
+  memoryAllocator.CreateImage(&imageCreateInfo, &im, &allocation, label);
+  return AllocatedImage<D>(
+      CreateImage(im, imageSize, format, VK_IMAGE_LAYOUT_UNDEFINED, aspectMask, mipLevels, arrayLayers), allocation);
 }
 
 template <uint8_t D>
@@ -231,7 +268,12 @@ inline Texture<D> GPUObjectManager::CreateTexture(Maths::Dimension<D> const &ima
                         VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                         VK_IMAGE_ASPECT_COLOR_BIT,
                         (mipped ? static_cast<uint32_t>(std::floor(std::log2(imageSize.maxEntry()))) : 0) + 1, 1,
-                        msaaSamples),
+                        msaaSamples
+#ifndef NDEBUG
+                        ,
+                        "TEXTURE"
+#endif
+                        ),
                     sampler);
 }
 
@@ -254,8 +296,8 @@ inline void GPUObjectManager::SetPixels(Texture<D> &target, T const *data, Maths
     const
 #endif
 {
-  Buffer<T> pixelBuffer = CreateBuffer(data, dimension[X] * dimension[Y] * dimension[Z],
-                                       VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+  Buffer<T> pixelBuffer =
+      CreateBuffer(data, dimension.Volume(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
   auto copy = GPUMemoryManager::CopyBufferToImage(pixelBuffer, target, dimension);
   auto transition = target.Image<D>::Transition(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -266,12 +308,16 @@ inline void GPUObjectManager::SetPixels(Texture<D> &target, T const *data, Maths
 }
 
 template <typename T>
-Buffer<T> GPUObjectManager::CreateBuffer(size_t size, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage)
+Buffer<T> GPUObjectManager::CreateBuffer(size_t size, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage
+#ifndef NDEBUG
+                                         ,
+                                         char const *label
+#endif
+)
 #ifdef NDEBUG
     const
 #endif
 {
-
   VkBufferCreateInfo bufferInfo{
       .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, .size = size * sizeof(T), .usage = usage};
   VkBuffer buffer;
@@ -281,7 +327,7 @@ Buffer<T> GPUObjectManager::CreateBuffer(size_t size, VkBufferUsageFlags usage, 
 
   VmaAllocationInfo info;
 
-  memoryAllocator.CreateBuffer(&bufferInfo, &allocInfo, &buffer, &allocation, &info);
+  memoryAllocator.CreateBuffer(&bufferInfo, &allocInfo, &buffer, &allocation, &info, label);
 
   return Buffer<T>(buffer, allocation, info, size);
 }
@@ -292,7 +338,7 @@ template <typename T> inline VkDeviceAddress GPUObjectManager::GetDeviceAddresss
 }
 
 template <typename T_CPU, typename T_GPU>
-inline AllocatedMeshT<T_GPU> GPUObjectManager::AllocateMesh(MeshT<T_CPU> const &mesh)
+inline AllocatedMesh GPUObjectManager::AllocateMesh(MeshT<T_CPU> const &mesh)
 #ifdef NDEBUG
     const
 #endif
@@ -302,17 +348,32 @@ inline AllocatedMeshT<T_GPU> GPUObjectManager::AllocateMesh(MeshT<T_CPU> const &
   indexBuffer =
       CreateBuffer<uint32_t>(mesh.indices.size(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                              // TODO: Replace with VMA_MEMORY_USAGE_AUTO + flags
-                             VMA_MEMORY_USAGE_GPU_ONLY);
-  vertexBuffer = CreateBuffer<VertexFormat>(mesh.vertices.size(),
-                                            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-                                                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                            VMA_MEMORY_USAGE_GPU_ONLY);
+                             VMA_MEMORY_USAGE_GPU_ONLY
+#ifndef NDEBUG
+                             ,
+                             "INDEX_BUFFER"
+#endif
+      );
+  vertexBuffer = CreateBuffer<VertexFormat>(
+      mesh.vertices.size(),
+      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+      VMA_MEMORY_USAGE_GPU_ONLY
+#ifndef NDEBUG
+      ,
+      "VERTEX_BUFFER"
+#endif
+  );
   auto vertexBufferAddress = GetDeviceAddresss(vertexBuffer);
 
   auto uploadReadyVertices(mesh.ReformattedVertices<VertexFormat>());
 
   Buffer<uint8_t> stagingBuffer = CreateBuffer<uint8_t>(vertexBuffer.PhysicalSize() + indexBuffer.PhysicalSize(),
-                                                        VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+                                                        VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY
+#ifndef NDEBUG
+                                                        ,
+                                                        "STAGING_BUFFER"
+#endif
+  );
 
   void *data = stagingBuffer.GetMappedData();
   memcpy(data, uploadReadyVertices.data(), vertexBuffer.PhysicalSize());
@@ -321,7 +382,7 @@ inline AllocatedMeshT<T_GPU> GPUObjectManager::AllocateMesh(MeshT<T_CPU> const &
   auto unstage = UnstageMeshCommand(stagingBuffer, vertexBuffer, indexBuffer);
   dispatcher.Dispatch(&unstage);
   DestroyBuffer(stagingBuffer);
-  return AllocatedMeshT<T_GPU>(vertexBuffer, indexBuffer, vertexBufferAddress);
+  return AllocatedMesh(new VertexBufferT<T_GPU>(vertexBuffer), indexBuffer, vertexBufferAddress);
 }
 
 } // namespace Engine::Graphics

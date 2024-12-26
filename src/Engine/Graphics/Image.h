@@ -1,6 +1,5 @@
 #pragma once
 
-#include "CommandQueue.h"
 #include "InstanceManager.h"
 #include "Maths/Dimension.h"
 #include "MemoryAllocator.h"
@@ -35,8 +34,8 @@ public:
   inline Image(Image<Dimension> const &other)
       : Image(other.image, other.imageView, other.imageDimension, other.imageFormat, other.currentLayout) {}
 
-  inline PipelineBarrierCommand Transition(VkImageLayout const &newLayout);
-  inline BlitImageCommand BlitTo(Image<Dimension> const &target) const;
+  inline vkutil::PipelineBarrierCommand Transition(VkImageLayout const &newLayout);
+  inline vkutil::BlitImageCommand BlitTo(Image<Dimension> const &target) const;
   inline VkRenderingAttachmentInfo BindAsColourAttachment(VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
                                                           VkClearColorValue const &clearColour = {0, 0, 0, 0}) const;
   inline VkRenderingAttachmentInfo BindAsDepthAttachment(VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
@@ -79,13 +78,14 @@ template <> const VkImageViewType Engine::Graphics::Image<2>::VIEW_TYPE = VK_IMA
 template <> const VkImageViewType Engine::Graphics::Image<3>::VIEW_TYPE = VK_IMAGE_VIEW_TYPE_3D;
 
 template <uint8_t Dimension>
-inline PipelineBarrierCommand Image<Dimension>::Transition(VkImageLayout const &newLayout) {
-  auto result = PipelineBarrierCommand({vkinit::ImageMemoryBarrier(image, currentLayout, newLayout)});
+inline vkutil::PipelineBarrierCommand Image<Dimension>::Transition(VkImageLayout const &newLayout) {
+  auto result = vkutil::PipelineBarrierCommand({vkinit::ImageMemoryBarrier(image, currentLayout, newLayout)});
   currentLayout = newLayout;
   return result;
 }
 
-template <uint8_t Dimension> inline BlitImageCommand Image<Dimension>::BlitTo(Image<Dimension> const &target) const {
+template <uint8_t Dimension>
+inline vkutil::BlitImageCommand Image<Dimension>::BlitTo(Image<Dimension> const &target) const {
   auto imageExtent = vkutil::DimensionToExtent(imageDimension);
   auto targetExtent = vkutil::DimensionToExtent(target.imageDimension);
   VkImageBlit2 blitRegion{
@@ -104,7 +104,7 @@ template <uint8_t Dimension> inline BlitImageCommand Image<Dimension>::BlitTo(Im
            static_cast<int32_t>(targetExtent.depth)},
       }};
 
-  return BlitImageCommand(image, target.image, {blitRegion});
+  return vkutil::BlitImageCommand(image, target.image, {blitRegion});
 }
 
 template <uint8_t Dimension>

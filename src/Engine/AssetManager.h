@@ -19,6 +19,7 @@ class AssetManager {
   std::unordered_map<std::string, Graphics::Material *> loadedMaterials;
   std::unordered_map<std::string, Graphics::Mesh> loadedMeshes;
   std::unordered_map<std::string, Graphics::Texture2D> loadedTextures;
+  std::unordered_map<std::string, Graphics::AllocatedMesh *> allocatedMeshes;
 
   Graphics::Pipeline *ParsePipeline(char const *pipelineData);
 

@@ -389,6 +389,13 @@ void InstanceManager::FillImGUIInitInfo(ImGui_ImplVulkan_InitInfo &initInfo) con
   GetGraphicsQueue(&initInfo.Queue);
 }
 
+bool InstanceManager::SupportsFormat(VkPhysicalDeviceImageFormatInfo2 const &formatInfo) const {
+  VkImageFormatProperties2 properties = {};
+  properties.sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2;
+
+  return vkGetPhysicalDeviceImageFormatProperties2(gpu, &formatInfo, &properties) == VK_SUCCESS;
+}
+
 void InstanceManager::CreateSwapchain(VkSurfaceFormatKHR const &surfaceFormat, VkPresentModeKHR const &presentMode,
                                       VkExtent2D const &extent, uint32_t const &imageCount,
                                       VkSwapchainKHR const &oldSwapchain, VkSwapchainKHR *swapchain) const {
@@ -585,9 +592,6 @@ InstanceManager::InstanceManager(const char *applicationName, Window const *wind
   window->CreateSurfaceOnWindow(vulkanInstance, &surface);
   PickPhysicalDevice();
   CreateLogicalDevice();
-
-  mainAllocator.Create(gpu, graphicsHandler, vulkanInstance);
-  mainDeletionQueue.Push(&mainAllocator);
 }
 
 SwapchainSupportDetails QuerySwapchainSupport(VkPhysicalDevice device, VkSurfaceKHR presentationSurface) {

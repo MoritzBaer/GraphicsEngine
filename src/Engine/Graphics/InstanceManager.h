@@ -1,5 +1,7 @@
 #pragma once
 
+#include "MemoryAllocator.h"
+#include "Util/DeletionQueue.h"
 #include "Util/Macros.h"
 #include "Window.h"
 #include "backends/imgui_impl_vulkan.h"
@@ -43,9 +45,15 @@ public:
   inline void GetGraphicsQueue(VkQueue *queue) const {
     vkGetDeviceQueue(graphicsHandler, GetGraphicsFamily(), 0, queue);
   }
+
   inline void GetPresentQueue(VkQueue *queue) const { vkGetDeviceQueue(graphicsHandler, GetPresentFamily(), 0, queue); }
 
   void FillImGUIInitInfo(ImGui_ImplVulkan_InitInfo &initInfo) const;
+  inline void CreateMemoryAllocator(MemoryAllocator &allocator) const {
+    allocator.Create(gpu, graphicsHandler, vulkanInstance);
+  }
+
+  bool SupportsFormat(VkPhysicalDeviceImageFormatInfo2 const &formatInfo) const;
 
   // Create vulkan objects
   void CreateSwapchain(
@@ -114,6 +122,10 @@ public:
   inline void FreeCommandBuffers(VkCommandPool const &commandPool, VkCommandBuffer const *buffers,
                                  uint32_t bufferCount = 1) const {
     vkFreeCommandBuffers(graphicsHandler, commandPool, bufferCount, buffers);
+  }
+  inline void FreeDescriptorSets(VkDescriptorPool const &descriptorPool, VkDescriptorSet const *descriptorSets,
+                                 uint32_t descriptorSetCount = 1) const {
+    vkFreeDescriptorSets(graphicsHandler, descriptorPool, descriptorSetCount, descriptorSets);
   }
 
   // Vulkan synchronization

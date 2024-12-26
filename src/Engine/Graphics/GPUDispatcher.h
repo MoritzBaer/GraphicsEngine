@@ -14,7 +14,7 @@ class GPUDispatcher {
   VkQueue dispatchQueue;
 
 public:
-  GPUDispatcher(InstanceManager &instanceManager, CommandQueue const &)
+  GPUDispatcher(InstanceManager &instanceManager, CommandQueue const &commandQueue)
       : instanceManager(instanceManager), commandQueue(commandQueue) {
     auto fenceInfo = vkinit::FenceCreateInfo();
     instanceManager.CreateFence(&fenceInfo, &fence);

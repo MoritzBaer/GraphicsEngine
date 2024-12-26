@@ -68,6 +68,10 @@ AssetManager::~AssetManager() {
     game->gpuObjectManager.DestroyTexture(texture.second);
   }
 
+  for (auto &mesh : allocatedMeshes) {
+    game->gpuObjectManager.DeallocateMesh(mesh.second);
+  }
+
   Graphics::PipelineBuilder pipelineBuilder = Graphics::PipelineBuilder(game->instanceManager);
   for (auto &pipeline : loadedPipelines) {
     pipelineBuilder.DestroyPipeline(pipeline.second);
@@ -126,8 +130,9 @@ Graphics::AllocatedMesh *AssetManager::LoadMesh(char const *meshName, bool flipU
       vertex.uv.y() = 1 - vertex.uv.y();
     }
   }
-  return new Graphics::AllocatedMeshT(game->gpuObjectManager.AllocateMesh<Graphics::Vertex, Graphics::VertexFormat>(
-      mesh)); // TODO: Decide if it would be better to store this in a map as well
+  _RETURN_ASSET(
+      meshName, allocatedMeshes,
+      new Graphics::AllocatedMesh(game->gpuObjectManager.AllocateMesh<Graphics::Vertex, Graphics::VertexFormat>(mesh)))
 }
 
 Graphics::Pipeline *AssetManager::ParsePipeline(char const *pipelineData) {
@@ -147,7 +152,8 @@ Graphics::Pipeline *AssetManager::ParsePipeline(char const *pipelineData) {
       .BindSetInShaders(1, Graphics::ShaderType::FRAGMENT)
       .SetInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
       .SetPolygonMode(VK_POLYGON_MODE_FILL)
-      .SetColourAttachmentFormat(VK_FORMAT_R16G16B16A16_SFLOAT)
+      .SetColourAttachmentFormat(VK_FORMAT_R8G8B8A8_SNORM) // FIXME: used to be VK_FORMAT_R16G16B16A16_SFLOAT, but that
+                                                           // gives a validation error
       .SetDepthFormat(VK_FORMAT_D32_SFLOAT)
       .SetDepthCompareOperation(VK_COMPARE_OP_LESS_OR_EQUAL)
       .EnableBlending(Graphics::PipelineBuilder::BlendMode::ALPHA)
@@ -155,14 +161,14 @@ Graphics::Pipeline *AssetManager::ParsePipeline(char const *pipelineData) {
       .Build();
 }
 
-Graphics::Material *ParseMAT(char const *materialname) {
+Graphics::Material *ParseMAT(char const *materialname, Game *context) {
   std::vector<char> materialData = Util::FileIO::ReadFile(materialname);
-  return json<Graphics::Material *>::deserialize(materialData);
+  return json<Graphics::Material *>::deserialize(materialData, context);
 }
 
 Graphics::Material *AssetManager::LoadMaterial(char const *materialName) {
   MAKE_FILE_PATH(materialName, MATERIAL_PATH);
-  _RETURN_ASSET(materialName, loadedMaterials, ParseMAT(filePath));
+  _RETURN_ASSET(materialName, loadedMaterials, ParseMAT(filePath, game));
 }
 
 Graphics::Pipeline const *AssetManager::LoadPipeline(char const *pipelineName) {
@@ -174,7 +180,7 @@ Core::Entity AssetManager::LoadPrefab(char const *prefabName) {
 
   auto prefabData = Util::FileIO::ReadFile(filePath);
   Core::Entity e = game->ecs.CreateEntity();
-  json<Core::Entity>::deserialize(prefabData, e);
+  json<Core::Entity>::deserialize(prefabData, e, game);
   game->sceneHierarchy.BuildHierarchy();
 
   return e;

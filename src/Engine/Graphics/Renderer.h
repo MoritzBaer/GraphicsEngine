@@ -3,6 +3,7 @@
 #include "Buffer.h"
 #include "Camera.h"
 #include "CommandQueue.h"
+#include "ComputeEffect.h"
 #include "DescriptorHandling.h"
 #include "DrawData.h"
 #include "GPUObjectManager.h"
@@ -34,6 +35,17 @@ class Renderer {
     Buffer<DrawData> uniformBuffer;
   };
 
+public:
+  struct CompiledEffect {
+    const char *name;
+    VkPipelineLayout pipelineLayout;
+    VkPipeline pipeline;
+    ComputePushConstants data;
+  };
+
+private:
+  uint8_t currentBackgroundEffect = 1;
+
   static const uint32_t MAX_FRAME_OVERLAP = 3;
 
   VkQueue graphicsQueue;
@@ -61,19 +73,25 @@ class Renderer {
   VkDescriptorSetLayout renderBufferDescriptorLayout;
   VkDescriptorSetLayout singleTextureDescriptorLayout;
 
+  std::vector<CompiledEffect> backgroundEffects;
+
   void CreateSwapchain();
   void DestroySwapchain();
   void InitDescriptors();
+  void CompileBackgroundEffects(std::vector<ComputeEffect<ComputePushConstants>> const &uncompiledEffects);
 
   void RecreateRenderBuffer();
   void DestroyRenderBuffer();
   void CreateFrameResources(FrameResources &resources);
   void DestroyFrameResources(FrameResources &resources);
 
+  VkFormat ChooseRenderBufferFormat();
+
   inline FrameResources const &CurrentResources() const { return frameResources[currentFrame % MAX_FRAME_OVERLAP]; }
 
 public:
-  Renderer(Maths::Dimension2 windowSize, InstanceManager &instanceManager, GPUObjectManager &gpuObjectManager);
+  Renderer(Maths::Dimension2 windowSize, InstanceManager &instanceManager, GPUObjectManager &gpuObjectManager,
+           std::vector<ComputeEffect<ComputePushConstants>> const &backgroundEffects);
   ~Renderer();
 
   void DrawFrame(Camera const *camera, SceneData const &sceneData,

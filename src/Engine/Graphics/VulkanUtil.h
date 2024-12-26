@@ -1,5 +1,7 @@
 #pragma once
 
+#include "CommandQueue.h"
+#include "ComputeEffect.h"
 #include "Maths/Dimension.h"
 #include "vulkan/vulkan.h"
 #include <vector>
@@ -101,12 +103,19 @@ inline VkSubmitInfo2 SubmitInfo(std::vector<VkSemaphoreSubmitInfo> const &semaph
 inline VkSubmitInfo2 SubmitInfo(VkSemaphoreSubmitInfo const &semaphoreWaitInfo,
                                 VkCommandBufferSubmitInfo const &commandBufferInfo,
                                 VkSemaphoreSubmitInfo const &semaphoreSignalInfo) {
-  return SubmitInfo({semaphoreWaitInfo}, {commandBufferInfo}, {semaphoreSignalInfo});
+  return {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+          .waitSemaphoreInfoCount = 1,
+          .pWaitSemaphoreInfos = &semaphoreWaitInfo,
+          .commandBufferInfoCount = 1,
+          .pCommandBufferInfos = &commandBufferInfo,
+          .signalSemaphoreInfoCount = 1,
+          .pSignalSemaphoreInfos = &semaphoreSignalInfo};
 }
 
 } // namespace Engine::Graphics::vkinit
 
 namespace Engine::Graphics::vkutil {
+
 template <uint8_t D> inline VkExtent3D DimensionToExtent(Maths::Dimension<D> dimension);
 template <uint8_t D> inline VkOffset3D DimensionToOffset(Maths::Dimension<D> dimension);
 
@@ -130,6 +139,89 @@ template <> inline VkOffset3D DimensionToOffset(Maths::Dimension<3> dimension) {
   return VkOffset3D{static_cast<int32_t>(dimension.x()), static_cast<int32_t>(dimension.y()),
                     static_cast<int32_t>(dimension.z())};
 }
+
+// +--------------+
+// |   COMMANDS   |
+// +--------------+
+
+class PipelineBarrierCommand : public Engine::Graphics::Command {
+  std::vector<VkImageMemoryBarrier2> imageMemoryBarriers;
+
+public:
+  PipelineBarrierCommand(std::vector<VkImageMemoryBarrier2> const &imageMemoryBarriers);
+  void QueueExecution(VkCommandBuffer const &queue) const;
+};
+
+class ClearColourCommand : public Command {
+  VkImage image;
+  VkImageLayout currentLayout;
+  VkClearColorValue clearColour;
+  std::vector<VkImageSubresourceRange> subresourceRanges;
+
+public:
+  ClearColourCommand(VkImage image, VkImageLayout currentLayout, VkClearColorValue const &clearValue,
+                     std::vector<VkImageSubresourceRange> const &subresourceRanges);
+  void QueueExecution(VkCommandBuffer const &queue) const;
+};
+
+class BlitImageCommand : public Command {
+  std::vector<VkImageBlit2> blitRegions;
+  VkImage source, destination;
+
+public:
+  BlitImageCommand(VkImage const &source, VkImage const &destination, std::vector<VkImageBlit2> const &blitRegions)
+      : blitRegions(blitRegions), source(source), destination(destination) {}
+  void QueueExecution(VkCommandBuffer const &queue) const;
+};
+
+class BindPipelineCommand : public Command {
+  VkPipelineBindPoint bindPoint;
+  VkPipeline pipeline;
+
+public:
+  BindPipelineCommand(VkPipeline const &pipeline, VkPipelineBindPoint const &bindPoint)
+      : pipeline(pipeline), bindPoint(bindPoint) {}
+  inline void QueueExecution(VkCommandBuffer const &queue) const { vkCmdBindPipeline(queue, bindPoint, pipeline); }
+};
+
+class BindDescriptorSetsCommand : public Command {
+  VkPipelineBindPoint bindPoint;
+  VkPipelineLayout layout;
+  std::vector<VkDescriptorSet> descriptors;
+
+public:
+  BindDescriptorSetsCommand(VkPipelineBindPoint const &bindPoint, VkPipelineLayout const &layout,
+                            std::vector<VkDescriptorSet> const &descriptors)
+      : bindPoint(bindPoint), layout(layout), descriptors(descriptors) {}
+  BindDescriptorSetsCommand(VkPipelineBindPoint const &bindPoint, VkPipelineLayout const &layout,
+                            VkDescriptorSet const &descriptor)
+      : bindPoint(bindPoint), layout(layout), descriptors{descriptor} {}
+  inline void QueueExecution(VkCommandBuffer const &queue) const {
+    vkCmdBindDescriptorSets(queue, bindPoint, layout, 0, static_cast<uint32_t>(descriptors.size()), descriptors.data(),
+                            0, nullptr);
+  }
+};
+
+class DispatchCommand : public Command {
+  uint32_t gx, gy, gz;
+
+public:
+  DispatchCommand(uint32_t workerGroupsX, uint32_t workerGroupsY, uint32_t workerGroupsZ)
+      : gx(workerGroupsX), gy(workerGroupsY), gz(workerGroupsZ) {}
+  inline void QueueExecution(VkCommandBuffer const &queue) const { vkCmdDispatch(queue, gx, gy, gz); }
+};
+
+template <typename T> class PushConstantsCommand : public Command {
+  T constants;
+  VkPipelineLayout pipelineLayout;
+
+public:
+  PushConstantsCommand(T const &constants, VkPipelineLayout const &pipelineLayout)
+      : constants(constants), pipelineLayout(pipelineLayout) {}
+  void QueueExecution(VkCommandBuffer const &queue) const {
+    vkCmdPushConstants(queue, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(T), &constants);
+  }
+};
 
 inline PipelineBarrierCommand TransitionImageCommand(VkImage image, VkImageLayout currentLayout,
                                                      VkImageLayout targetLayout) {

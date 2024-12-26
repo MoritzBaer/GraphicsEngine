@@ -8,7 +8,7 @@
 
 namespace Engine::Core {
 
-ECS::ECS() : aliveAndComponentFlags(), firstFreeEntity(), unusedEntityIDs(), componentArrays() {}
+ECS::ECS() : aliveAndComponentFlags(), firstFreeEntity(0), unusedEntityIDs(), componentArrays() {}
 ECS::~ECS() {
   for (_ComponentArray *array : componentArrays) {
     delete array;

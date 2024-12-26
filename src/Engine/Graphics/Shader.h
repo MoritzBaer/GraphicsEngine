@@ -1,8 +1,6 @@
 #pragma once
 
-#include "Image.h"
 #include "InstanceManager.h"
-#include "Util/DeletionQueue.h"
 #include "Util/Macros.h"
 #include "shaderc/shaderc.hpp"
 #include <deque>

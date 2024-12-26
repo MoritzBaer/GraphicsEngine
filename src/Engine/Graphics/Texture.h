@@ -36,6 +36,7 @@ inline void Texture<D>::UpdateDescriptors(DescriptorWriter &writer, VkDescriptor
                                           uint8_t binding, VkImageLayout layout) const {
   writer.WriteImage(binding, *this, layout, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
   writer.UpdateSet(descriptorSet);
+  writer.Clear();
 }
 
 } // namespace Engine::Graphics

@@ -1,7 +1,6 @@
 #include "Renderer.h"
 #include "AssetManager.h"
 #include "Buffer.h"
-#include "ComputeEffect.h"
 #include "Debug/Logging.h"
 #include "Debug/Profiling.h"
 #include "GLFW/glfw3.h"
@@ -16,17 +15,37 @@
 #include <vector>
 
 namespace Engine::Graphics {
+class ExecuteComputePipelineCommand : public Command {
+  vkutil::BindPipelineCommand bindPipeline;
+  vkutil::BindDescriptorSetsCommand bindDescriptors;
+  vkutil::DispatchCommand dispatch;
+  vkutil::PushConstantsCommand<ComputePushConstants> pushConstants;
 
-struct ComputePushConstants {
-  Maths::Vector4 data1, data2, data3, data4;
+public:
+  ExecuteComputePipelineCommand(VkPipeline const &pipeline, VkPipelineBindPoint const &bindPoint,
+                                VkPipelineLayout const &layout, std::vector<VkDescriptorSet> const &descriptors,
+                                ComputePushConstants const &pushConstants, uint32_t workerGroupsX,
+                                uint32_t workerGroupsY, uint32_t workerGroupsZ)
+      : bindPipeline(pipeline, bindPoint), bindDescriptors(bindPoint, layout, descriptors),
+        dispatch(workerGroupsX, workerGroupsY, workerGroupsZ), pushConstants(pushConstants, layout) {}
+  ExecuteComputePipelineCommand(VkPipeline const &pipeline, VkPipelineBindPoint const &bindPoint,
+                                VkPipelineLayout const &layout, VkDescriptorSet const &descriptor,
+                                ComputePushConstants const &pushConstants, uint32_t workerGroupsX,
+                                uint32_t workerGroupsY, uint32_t workerGroupsZ)
+      : bindPipeline(pipeline, bindPoint), bindDescriptors(bindPoint, layout, descriptor),
+        pushConstants(pushConstants, layout), dispatch(workerGroupsX, workerGroupsY, workerGroupsZ) {}
+  ExecuteComputePipelineCommand(Renderer::CompiledEffect const &effect, VkPipelineBindPoint const &bindPoint,
+                                VkDescriptorSet const &descriptor, uint32_t workerGroupsX, uint32_t workerGroupsY,
+                                uint32_t workerGroupsZ)
+      : bindPipeline(effect.pipeline, bindPoint), bindDescriptors(bindPoint, effect.pipelineLayout, descriptor),
+        pushConstants(effect.data, effect.pipelineLayout), dispatch(workerGroupsX, workerGroupsY, workerGroupsZ) {}
+  inline void QueueExecution(VkCommandBuffer const &queue) const {
+    bindPipeline.QueueExecution(queue);
+    bindDescriptors.QueueExecution(queue);
+    pushConstants.QueueExecution(queue);
+    dispatch.QueueExecution(queue);
+  }
 };
-
-std::vector<ComputeEffect<ComputePushConstants>> backgroundEffects = {
-    ComputeEffect<ComputePushConstants>{.name = "gradient_colour",
-                                        .constants{.data1 = {1, 0, 0, 1}, .data2 = {0, 0, 1, 1}}},
-    ComputeEffect<ComputePushConstants>{.name = "sky", .constants{.data1 = {0.02f, 0, 0.05f, 0.99f}}},
-};
-uint8_t currentBackgroundEffect = 1;
 
 class ImGUIDrawCommand : public Command {
   Image2 const &targetImage;
@@ -68,9 +87,10 @@ public:
   void QueueExecution(VkCommandBuffer const &) const;
 };
 
-Renderer::Renderer(Maths::Dimension2 windowSize, InstanceManager &instanceManager, GPUObjectManager &gpuObjectManager)
+Renderer::Renderer(Maths::Dimension2 windowSize, InstanceManager &instanceManager, GPUObjectManager &gpuObjectManager,
+                   std::vector<ComputeEffect<ComputePushConstants>> const &uncompiledBackgroundEffects)
     : instanceManager(instanceManager), descriptorLayoutBuilder(&instanceManager), descriptorWriter(&instanceManager),
-      gpuObjectManager(gpuObjectManager) {
+      gpuObjectManager(gpuObjectManager), backgroundEffects(uncompiledBackgroundEffects.size()) {
   PROFILE_FUNCTION()
   instanceManager.GetGraphicsQueue(&graphicsQueue);
   instanceManager.GetPresentQueue(&presentQueue);
@@ -82,6 +102,34 @@ Renderer::Renderer(Maths::Dimension2 windowSize, InstanceManager &instanceManage
     CreateFrameResources(frameResources[i]);
   }
   InitDescriptors();
+  CompileBackgroundEffects(uncompiledBackgroundEffects);
+}
+
+void Renderer::CompileBackgroundEffects(std::vector<ComputeEffect<ComputePushConstants>> const &uncompiledEffects) {
+  PROFILE_FUNCTION()
+  VkPushConstantRange pushConstants{
+      .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT, .offset = 0, .size = sizeof(ComputePushConstants)};
+
+  VkPipelineLayoutCreateInfo computeLayoutInfo{.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+                                               .setLayoutCount = 1,
+                                               .pSetLayouts = &renderBufferDescriptorLayout,
+                                               .pushConstantRangeCount = 1,
+                                               .pPushConstantRanges = &pushConstants};
+
+  VkPipelineLayout computePipelineLayout;
+  instanceManager.CreatePipelineLayout(&computeLayoutInfo, &computePipelineLayout);
+
+  VkComputePipelineCreateInfo pipelineInfo{.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+                                           .layout = computePipelineLayout};
+
+  for (int i = 0; i < uncompiledEffects.size(); i++) {
+    pipelineInfo.stage = uncompiledEffects[i].effectShader.GetStageInfo();
+
+    backgroundEffects[i].name = uncompiledEffects[i].name.c_str();
+    backgroundEffects[i].pipelineLayout = computePipelineLayout;
+    backgroundEffects[i].data = uncompiledEffects[i].constants;
+    instanceManager.CreateComputePipeline(pipelineInfo, &backgroundEffects[i].pipeline);
+  }
 }
 
 Renderer::~Renderer() {
@@ -94,6 +142,7 @@ Renderer::~Renderer() {
   for (int i = 0; i < MAX_FRAME_OVERLAP; i++) {
     DestroyFrameResources(frameResources[i]);
   }
+  DestroyRenderBuffer();
   descriptorAllocator.DestroyPools();
   instanceManager.DestroyDescriptorSetLayout(renderBufferDescriptorLayout);
 }
@@ -192,7 +241,7 @@ void Renderer::DrawFrame(Camera const *camera, SceneData const &sceneData,
 
     // Commands for drawing background
     auto transitionBufferToWriteable = renderBuffer.colourImage.Transition(VK_IMAGE_LAYOUT_GENERAL);
-    auto computeRun = ExecuteComputePipelineCommand<ComputePushConstants>(
+    auto computeRun = ExecuteComputePipelineCommand(
         backgroundEffects[currentBackgroundEffect], VK_PIPELINE_BIND_POINT_COMPUTE, renderBufferDescriptors,
         std::ceil<uint32_t>(windowDimension[X] / 16u), std::ceil<uint32_t>(windowDimension[Y] / 16u), 1);
 
@@ -274,9 +323,14 @@ void Renderer::DrawFrame(Camera const *camera, SceneData const &sceneData,
   currentFrame++;
 }
 
-void Renderer::DestroyRenderBuffer() {}
+void Renderer::DestroyRenderBuffer() {
+  gpuObjectManager.DestroyAllocatedImage(renderBuffer.colourImage);
+  gpuObjectManager.DestroyAllocatedImage(renderBuffer.depthImage);
+  renderBufferInitialized = false;
+}
 
 void Renderer::CreateFrameResources(FrameResources &resources) {
+
   VkFenceCreateInfo fenceInfo = vkinit::FenceCreateInfo();
 
   VkSemaphoreCreateInfo semaphoreInfo{.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
@@ -286,7 +340,6 @@ void Renderer::CreateFrameResources(FrameResources &resources) {
   instanceManager.CreateSemaphore(&semaphoreInfo, &resources.swapchainSemaphore);
 
   resources.commandQueue = gpuObjectManager.CreateCommandQueue();
-  resources.deletionQueue.Create();
 
   std::vector<DescriptorAllocator::PoolSizeRatio> frame_sizes = {
       {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 3},
@@ -295,14 +348,13 @@ void Renderer::CreateFrameResources(FrameResources &resources) {
       {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
   };
 
-  descriptorAllocator = DescriptorAllocator(&instanceManager);
-  descriptorAllocator.InitPools(10, frame_sizes);
+  resources.descriptorAllocator = DescriptorAllocator(&instanceManager);
+  resources.descriptorAllocator.InitPools(10, frame_sizes);
   resources.uniformBuffer =
       gpuObjectManager.CreateBuffer<DrawData>(1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 }
 
 void Renderer::DestroyFrameResources(FrameResources &resources) {
-  resources.deletionQueue.Destroy();
   gpuObjectManager.DestroyCommandQueue(resources.commandQueue);
   instanceManager.DestroySemaphore(resources.swapchainSemaphore);
   instanceManager.DestroySemaphore(resources.renderSemaphore);
@@ -311,15 +363,34 @@ void Renderer::DestroyFrameResources(FrameResources &resources) {
   gpuObjectManager.DestroyBuffer(resources.uniformBuffer);
 }
 
+std::vector<VkFormat> formatsByPreference = {VK_FORMAT_R8G8B8A8_SRGB, VK_FORMAT_R8G8B8A8_SNORM};
+
+VkImageUsageFlags renderBufferUsage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                                      VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+VkFormat Renderer::ChooseRenderBufferFormat() {
+  VkPhysicalDeviceImageFormatInfo2 formatInfo{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2,
+                                              .type = VK_IMAGE_TYPE_2D,
+                                              .tiling = VK_IMAGE_TILING_OPTIMAL,
+                                              .usage = renderBufferUsage};
+  for (auto format : formatsByPreference) {
+    formatInfo.format = format;
+    if (instanceManager.SupportsFormat(formatInfo)) {
+      return format;
+    }
+  }
+  ENGINE_ERROR("No suitable format found for render buffer!")
+  return VK_FORMAT_UNDEFINED;
+}
+
 void Renderer::RecreateRenderBuffer() {
   VkExtent3D renderBufferExtent = {windowDimension.x(), windowDimension.y(), 1};
 
   if (renderBufferInitialized) {
     DestroyRenderBuffer();
   }
-  renderBuffer.colourImage = gpuObjectManager.CreateAllocatedImage(
-      VK_FORMAT_R8G8B8A8_SRGB, renderBufferDimension, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-      VK_IMAGE_ASPECT_COLOR_BIT);
+  renderBuffer.colourImage = gpuObjectManager.CreateAllocatedImage(ChooseRenderBufferFormat(), renderBufferDimension,
+                                                                   renderBufferUsage, VK_IMAGE_ASPECT_COLOR_BIT);
   renderBuffer.depthImage =
       gpuObjectManager.CreateAllocatedImage(VK_FORMAT_D32_SFLOAT, renderBufferDimension,
                                             VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -329,6 +400,7 @@ void Renderer::InitDescriptors() {
   PROFILE_FUNCTION()
   std::vector<DescriptorAllocator::PoolSizeRatio> ratios{{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1}};
 
+  descriptorAllocator = DescriptorAllocator(&instanceManager);
   descriptorAllocator.InitPools(10, ratios);
 
   descriptorLayoutBuilder.AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
@@ -345,10 +417,10 @@ void Renderer::InitDescriptors() {
 void Renderer::GetImGUISection() {
   ImGui::BeginGroup();
   ImGui::Text("Background effects");
-  if (ImGui::BeginCombo("Choose an effect", backgroundEffects[currentBackgroundEffect].name.c_str())) {
+  if (ImGui::BeginCombo("Choose an effect", backgroundEffects[currentBackgroundEffect].name)) {
     for (int i = 0; i < backgroundEffects.size(); i++) {
       bool isSelected = currentBackgroundEffect == i;
-      if (ImGui::Selectable(backgroundEffects[i].name.c_str(), isSelected)) {
+      if (ImGui::Selectable(backgroundEffects[i].name, isSelected)) {
         currentBackgroundEffect = i;
       }
       if (isSelected) {
@@ -358,10 +430,10 @@ void Renderer::GetImGUISection() {
 
     ImGui::EndCombo();
   }
-  ImGui::InputFloat4("data1", (float *)&backgroundEffects[currentBackgroundEffect].constants.data1);
-  ImGui::InputFloat4("data2", (float *)&backgroundEffects[currentBackgroundEffect].constants.data2);
-  ImGui::InputFloat4("data3", (float *)&backgroundEffects[currentBackgroundEffect].constants.data3);
-  ImGui::InputFloat4("data4", (float *)&backgroundEffects[currentBackgroundEffect].constants.data4);
+  ImGui::InputFloat4("data1", (float *)&backgroundEffects[currentBackgroundEffect].data.data1);
+  ImGui::InputFloat4("data2", (float *)&backgroundEffects[currentBackgroundEffect].data.data2);
+  ImGui::InputFloat4("data3", (float *)&backgroundEffects[currentBackgroundEffect].data.data3);
+  ImGui::InputFloat4("data4", (float *)&backgroundEffects[currentBackgroundEffect].data.data4);
 
   ImGui::SliderFloat("Render scale", &renderScale, 0.1f, 1.0f, "%.3f");
 
