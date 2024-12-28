@@ -52,7 +52,8 @@ template <> struct json<Engine::Graphics::Material *> {
 
 namespace Engine {
 AssetManager::AssetManager(Game *game)
-    : game(game), loadedShaders(), loadedPipelines(), loadedMaterials(), loadedMeshes(), loadedTextures() {}
+    : game(game), loadedShaders(), loadedPipelines(), loadedMaterials(), loadedMeshes(), loadedTextures(),
+      numberOfAssetTypes(0), assetCaches() {}
 
 Graphics::Shader AssetManager::LoadShader(char const *shaderName, Graphics::ShaderType shaderType) {
   PROFILE_FUNCTION()
@@ -64,6 +65,10 @@ Graphics::Shader AssetManager::LoadShader(char const *shaderName, Graphics::Shad
 }
 
 AssetManager::~AssetManager() {
+  for (int c = 0; c < numberOfAssetTypes; c++) {
+    assetCaches[c]->Clear();
+    delete assetCaches[c];
+  }
   for (auto &texture : loadedTextures) {
     game->gpuObjectManager.DestroyTexture(texture.second);
   }
@@ -124,15 +129,7 @@ Graphics::Mesh AssetManager::LoadMeshFromOBJ(char const *meshName) {
 }
 
 Graphics::AllocatedMesh *AssetManager::LoadMesh(char const *meshName, bool flipUVs) {
-  Graphics::Mesh mesh = LoadMeshFromOBJ(meshName);
-  if (flipUVs) {
-    for (auto &vertex : mesh.vertices) {
-      vertex.uv.y() = 1 - vertex.uv.y();
-    }
-  }
-  _RETURN_ASSET(
-      meshName, allocatedMeshes,
-      new Graphics::AllocatedMesh(game->gpuObjectManager.AllocateMesh<Graphics::Vertex, Graphics::VertexFormat>(mesh)))
+  return LoadAsset<Graphics::AllocatedMesh *>(meshName);
 }
 
 Graphics::Pipeline *AssetManager::ParsePipeline(char const *pipelineData) {

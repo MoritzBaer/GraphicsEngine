@@ -92,7 +92,7 @@
                             },
                             {
                                 "Engine::Graphics::MeshRenderer": {
-                                    "mesh": "guns.obj",
+                                    "mesh": "guns",
                                     "material": "guns.mat"
                                 }
                             },

@@ -123,10 +123,6 @@ public:
                                  uint32_t bufferCount = 1) const {
     vkFreeCommandBuffers(graphicsHandler, commandPool, bufferCount, buffers);
   }
-  inline void FreeDescriptorSets(VkDescriptorPool const &descriptorPool, VkDescriptorSet const *descriptorSets,
-                                 uint32_t descriptorSetCount = 1) const {
-    vkFreeDescriptorSets(graphicsHandler, descriptorPool, descriptorSetCount, descriptorSets);
-  }
 
   // Vulkan synchronization
   void WaitForFences(VkFence const *fences, uint32_t fenceCount = 1, bool waitForAll = true,

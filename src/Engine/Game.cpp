@@ -59,6 +59,7 @@ Game::Game(const char *name)
 
     assetManager.InitStandins();
     assetManager.LoadPrefab("speeder_without_guns.pfb");
+    assetManager.LoadAsset<Engine::Graphics::AllocatedMesh *>("cube");
 
     Engine::Time::Update();
   }

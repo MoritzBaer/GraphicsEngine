@@ -138,11 +138,11 @@ Renderer::~Renderer() {
   }
   instanceManager.DestroyPipelineLayout(backgroundEffects[0].pipelineLayout);
   DestroySwapchain();
-  descriptorAllocator.ClearDescriptors();
   for (int i = 0; i < MAX_FRAME_OVERLAP; i++) {
     DestroyFrameResources(frameResources[i]);
   }
   DestroyRenderBuffer();
+  descriptorAllocator.ClearDescriptors();
   descriptorAllocator.DestroyPools();
   instanceManager.DestroyDescriptorSetLayout(renderBufferDescriptorLayout);
 }
@@ -235,7 +235,9 @@ void Renderer::DrawFrame(Camera const *camera, SceneData const &sceneData,
     RecreateSwapchain();
     return;
   }
+
   frameResources[resourceIndex].descriptorAllocator.ClearDescriptors();
+
   {
     PROFILE_SCOPE("Generate commands")
 
@@ -319,7 +321,7 @@ void Renderer::DrawFrame(Camera const *camera, SceneData const &sceneData,
 
   VULKAN_ASSERT(vkQueuePresentKHR(presentQueue, &presentInfo), "Failed to present image!")
 
-  frameResources[currentFrame % MAX_FRAME_OVERLAP].deletionQueue.Flush();
+  frameResources[resourceIndex].deletionQueue.Flush();
   currentFrame++;
 }
 
@@ -359,6 +361,7 @@ void Renderer::DestroyFrameResources(FrameResources &resources) {
   instanceManager.DestroySemaphore(resources.swapchainSemaphore);
   instanceManager.DestroySemaphore(resources.renderSemaphore);
   instanceManager.DestroyFence(resources.renderFence);
+  descriptorAllocator.ClearDescriptors();
   descriptorAllocator.DestroyPools();
   gpuObjectManager.DestroyBuffer(resources.uniformBuffer);
 }

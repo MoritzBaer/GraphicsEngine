@@ -593,8 +593,13 @@ template <uint8_t n, uint8_t m, typename T>
 inline bool MatrixT<n, m, T>::operator==(MatrixT<n, m, T> const &other) const {
   for (int row = 0; row < n; row++) {
     for (int col = 0; col < m; col++) {
-      if (abs(data[MATRIX_NM_AT_IJ(row, col)] - other.data[MATRIX_NM_AT_IJ(row, col)]) > EPS)
-        return false;
+      if constexpr (std::is_integral<T>::value) {
+        if (data[MATRIX_NM_AT_IJ(row, col)] != other.data[MATRIX_NM_AT_IJ(row, col)])
+          return false;
+      } else {
+        if (std::abs(data[MATRIX_NM_AT_IJ(row, col)] - other.data[MATRIX_NM_AT_IJ(row, col)]) > EPS)
+          return false;
+      }
     }
   }
   return true;

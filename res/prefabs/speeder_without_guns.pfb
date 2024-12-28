@@ -27,7 +27,7 @@
         },
         {
             "Engine::Graphics::MeshRenderer": {
-                "mesh": "speeder.obj",
+                "mesh": "speeder",
                 "material": "speeder.mat"
             }
         },
