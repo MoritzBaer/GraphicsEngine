@@ -60,7 +60,9 @@ Game::Game(const char *name)
         [this](Engine::Maths::Dimension2 newWindowSize) { renderer.SetWindowSize(newWindowSize); });
 
     assetManager.InitStandins();
-    assetManager.LoadPrefab("speeder");
+    assetManager.LoadAsset<Engine::Core::Entity>("speeder");
+
+    auto cube = assetManager.LoadAsset<Engine::Core::Entity>("cube");
 
     sceneHierarchy.BuildHierarchy();
 

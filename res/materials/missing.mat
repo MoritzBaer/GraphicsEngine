@@ -1,0 +1,11 @@
+{
+    "pipelineName": "dummy",
+    "instanceData": {
+        "Engine::AlbedoAndBumpData": {
+            "albedoTexture": "missing",
+            "bumpTexture": "missing",
+            "specularStrength": 0,
+            "phongExponent": 0
+        }
+    }
+}

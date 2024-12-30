@@ -131,23 +131,3 @@ Quaternion Transform::WorldRotation() const {
 }
 
 } // namespace Engine::Graphics
-OBJECT_PARSER(
-    Engine::Graphics::Transform,
-    FIELD_PARSER(position) FIELD_PARSER(rotation) FIELD_PARSER(scale) if (key == "children") {
-      std::vector<Engine::Core::Entity> childrenEntities{};
-      begin = json<std::vector<Engine::Core::Entity>>::parse_tokenstream(begin, end, childrenEntities);
-      for (auto childEntity : childrenEntities) {
-        childEntity.GetComponent<Engine::Graphics::Transform>()->SetParent(&output);
-      }
-    } else)
-
-OBJECT_SERIALIZER(
-    Engine::Graphics::Transform,
-    FIELD_SERIALIZER(position) FIELD_SERIALIZER(rotation) FIELD_SERIALIZER(scale) *output++ = ',';
-    output = serialize_to_json("children", output); *output++ = ':'; *output++ = ' '; *output++ = '[';
-    for (int c = 0; c < object.children.size(); c++) {
-      if (c > 0) {
-        *output++ = ',';
-      }
-      output = json<Engine::Core::Entity>::serialize(object.children[c]->entity, output);
-    } *output++ = ']';)

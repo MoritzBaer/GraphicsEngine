@@ -22,6 +22,3 @@ ENGINE_COMPONENT_DECLARATION(Display), public Publishable {
 };
 
 } // namespace Engine::Editor
-
-OBJECT_PARSER(Engine::Editor::Display, FIELD_PARSER(label))
-OBJECT_SERIALIZER(Engine::Editor::Display, FIELD_SERIALIZER(label))

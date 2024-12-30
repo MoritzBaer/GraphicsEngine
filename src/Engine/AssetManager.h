@@ -17,11 +17,6 @@ namespace Engine {
 class AssetManager {
   uint8_t numberOfAssetTypes;
   Game *game;
-  std::unordered_map<std::string, Graphics::Pipeline *> loadedPipelines;
-  std::unordered_map<std::string, Graphics::Material *> loadedMaterials;
-  std::unordered_map<std::string, Graphics::Mesh> loadedMeshes;
-  std::unordered_map<std::string, Graphics::Texture2D> loadedTextures;
-  std::unordered_map<std::string, Graphics::AllocatedMesh *> allocatedMeshes;
 
   Graphics::Pipeline *ParsePipeline(char const *pipelineData);
 
@@ -56,6 +51,7 @@ class AssetManager {
   };
 
   template <typename T> void DestroyAsset(T &asset) const;
+  template <typename T> void InitCacheIfNecessary();
 
 public:
   AssetManager(Game *game);
@@ -68,32 +64,20 @@ public:
   template <typename T> inline T LoadAsset(char const *assetName);
   template <typename T> inline T LoadAsset(std::string const &assetName) { return LoadAsset<T>(assetName.c_str()); };
 
-  // Graphics::Shader LoadShader(char const *shaderName, Graphics::ShaderType shaderType);
-  // inline Graphics::Shader LoadShader(std::string const &shaderName, Graphics::ShaderType shaderType) {
-  //   return LoadShader(shaderName.c_str(), shaderType);
-  // }
-  // Graphics::Shader LoadShaderWithInferredType(char const *shaderName);
-  // inline Graphics::Shader LoadShaderWithInferredType(std::string const &shaderName) {
-  //   LoadShaderWithInferredType(shaderName.c_str());
-  // };
-
   void InitStandins();
-
-  Graphics::Mesh LoadMeshFromOBJ(char const *meshName);
-  Graphics::AllocatedMesh *LoadMesh(char const *meshName, bool flipUVs = false);
-  Graphics::Material *LoadMaterial(char const *materialName);
-  Graphics::Pipeline const *LoadPipeline(char const *pipelineName);
-  Core::Entity LoadPrefab(char const *prefabName);
-  Graphics::Texture2D LoadTexture(char const *textureName);
 };
 
-template <typename T> inline T AssetManager::LoadAsset(char const *assetName) {
+template <typename T> inline void AssetManager::InitCacheIfNecessary() {
   if (AssetTypeID<T>::id == static_cast<typeID>(-1)) {
     AssetTypeID<T>::id = numberOfAssetTypes++;
   }
   if (!assetCaches[AssetTypeID<T>::id]) {
     assetCaches[AssetTypeID<T>::id] = new AssetCacheT<T>(this);
   }
+}
+
+template <typename T> inline T AssetManager::LoadAsset(char const *assetName) {
+  InitCacheIfNecessary<T>();
 
   auto cache = dynamic_cast<AssetCacheT<T> *>(assetCaches[AssetTypeID<T>::id]);
   if (cache->HasAsset(assetName)) {

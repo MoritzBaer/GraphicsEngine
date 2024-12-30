@@ -1,6 +1,7 @@
 #include "AssetManager.h"
 
 #include "Game.h"
+#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 namespace Engine {
@@ -27,6 +28,10 @@ template <>
 Graphics::Texture2D AssetManager::ConvertDSO<Graphics::Texture2D>(AssetDSO<Graphics::Texture2D> const *dso) {
   auto const *pixels =
       reinterpret_cast<uint32_t *>(dso->data); // TODO: Fix issues occurring when fewer channels are used
+  if (!pixels) {
+    return dynamic_cast<AssetCacheT<Graphics::Texture2D> *>(assetCaches[AssetTypeID<Graphics::Texture2D>::id])
+        ->LoadAsset("missing");
+  }
   return game->gpuObjectManager.CreateTexture(Maths::Dimension2(dso->width, dso->height), pixels, VK_FILTER_LINEAR,
                                               VK_FILTER_LINEAR);
 }
