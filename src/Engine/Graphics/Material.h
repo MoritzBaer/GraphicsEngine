@@ -93,7 +93,8 @@ public:
     Reset();
   }
 
-  PipelineBuilder &SetShaderStages(Graphics::Shader const &vertexShader, Graphics::Shader const &fragmentShader);
+  PipelineBuilder &SetShaderStages(Graphics::Shader<Graphics::ShaderType::VERTEX> const &vertexShader,
+                                   Graphics::Shader<Graphics::ShaderType::FRAGMENT> const &fragmentShader);
   PipelineBuilder &SetInputTopology(VkPrimitiveTopology const &topology);
   PipelineBuilder &SetPolygonMode(VkPolygonMode const &polygonMode);
   PipelineBuilder &SetCullMode(VkCullModeFlags const &cullMode, VkFrontFace const &frontFace);
@@ -104,18 +105,24 @@ public:
   PipelineBuilder &SetDepthCompareOperation(VkCompareOp const &compareOp);
   PipelineBuilder &EnableBlending(BlendMode const &mode);
   PipelineBuilder &AddDescriptorBinding(uint32_t set, uint32_t binding, VkDescriptorType descriptorType);
-  PipelineBuilder &AddPushConstant(size_t size, size_t offset, ShaderType shaderType);
-  template <typename... ShaderTypes> PipelineBuilder &BindSetInShaders(uint8_t set, ShaderTypes... shaderTypes);
+  template <ShaderType Type> PipelineBuilder &AddPushConstant(size_t size, size_t offset);
+  template <ShaderType Type> PipelineBuilder &BindSetInShader(uint8_t set);
 
   Pipeline *Build();
 
-  void DestroyPipeline(Pipeline const &pipeline) const;
+  static void DestroyPipeline(Pipeline const &pipeline, InstanceManager const *im);
 };
 
-template <typename... ShaderTypes>
-inline PipelineBuilder &PipelineBuilder::BindSetInShaders(uint8_t set, ShaderTypes... shaderTypes) {
-  descriptorSets[set].descriptorSetStages =
-      descriptorSets[set].descriptorSetStages | (ConvertToShaderStage(shaderTypes) | ...);
+template <ShaderType Type> inline PipelineBuilder &PipelineBuilder::BindSetInShader(uint8_t set) {
+  descriptorSets[set].descriptorSetStages = descriptorSets[set].descriptorSetStages | StageConstants<Type>::stageFlags;
+  return *this;
+}
+
+template <ShaderType Type> inline PipelineBuilder &PipelineBuilder::AddPushConstant(size_t size, size_t offset) {
+  pushConstantRanges.push_back(
+      VkPushConstantRange{.stageFlags = static_cast<VkShaderStageFlags>(StageConstants<Type>::stageFlags),
+                          .offset = static_cast<uint32_t>(offset),
+                          .size = static_cast<uint32_t>(size)});
   return *this;
 }
 

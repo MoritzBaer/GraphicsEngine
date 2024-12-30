@@ -40,46 +40,20 @@ public:
   }
 };
 
+void ShaderCompiler::AssertPreprocessingWorked(shaderc_compilation_status status, const char *shaderName,
+                                               const char *message) {
+  ENGINE_ASSERT(status == shaderc_compilation_status::shaderc_compilation_status_success, "-- Preprocessing {} --\n{}",
+                shaderName, message);
+}
+
+void ShaderCompiler::AssertCompilationWorked(shaderc_compilation_status status, const char *shaderName,
+                                             const char *message) {
+  ENGINE_ASSERT(status == shaderc_compilation_status::shaderc_compilation_status_success, "-- Compiling {} --\n{}",
+                shaderName, message);
+}
+
 ShaderCompiler::ShaderCompiler(InstanceManager &instanceManager) : instanceManager(instanceManager) {
   options.SetIncluder(std::make_unique<ShaderIncluder>());
-}
-
-Shader ShaderCompiler::CompileShaderCode(const char *shaderName, std::vector<char> const &shaderCode, ShaderType type) {
-  Shader result;
-  result.type = type;
-
-  auto preprocessedCode =
-      compiler.PreprocessGlsl(shaderCode.data(), shaderCode.size(), ConvertToShaderKind(type), shaderName, options);
-
-  ENGINE_ASSERT(preprocessedCode.GetCompilationStatus() ==
-                    shaderc_compilation_status::shaderc_compilation_status_success,
-                "-- Preprocessing {} --\n{}", shaderName, preprocessedCode.GetErrorMessage())
-
-  auto compilationResult = compiler.CompileGlslToSpv(std::string(preprocessedCode.begin(), preprocessedCode.end()),
-                                                     ConvertToShaderKind(type), shaderName, options);
-
-  ENGINE_ASSERT(compilationResult.GetCompilationStatus() ==
-                    shaderc_compilation_status::shaderc_compilation_status_success,
-                "-- Compiling {} --\n{}", shaderName, compilationResult.GetErrorMessage())
-
-  std::vector<uint32_t> bytecode(compilationResult.cbegin(), compilationResult.cend());
-
-  VkShaderModuleCreateInfo shaderModuleCreateInfo{.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-                                                  .codeSize = static_cast<uint32_t>(bytecode.size()) * sizeof(uint32_t),
-                                                  .pCode = bytecode.data()};
-
-  instanceManager.CreateShaderModule(&shaderModuleCreateInfo, &result.shaderModule);
-
-  return result;
-}
-
-void ShaderCompiler::DestroyShader(Shader &shader) { instanceManager.DestroyShaderModule(shader.shaderModule); }
-
-VkPipelineShaderStageCreateInfo Shader::GetStageInfo() const {
-  return {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-          .stage = ConvertToShaderStage(type),
-          .module = shaderModule,
-          .pName = "main"};
 }
 
 } // namespace Engine::Graphics

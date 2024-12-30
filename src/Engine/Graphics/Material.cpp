@@ -61,8 +61,9 @@ PipelineBuilder &PipelineBuilder::Reset() {
   return *this;
 }
 
-PipelineBuilder &PipelineBuilder::SetShaderStages(Graphics::Shader const &vertexShader,
-                                                  Graphics::Shader const &fragmentShader) {
+PipelineBuilder &
+PipelineBuilder::SetShaderStages(Graphics::Shader<Graphics::ShaderType::VERTEX> const &vertexShader,
+                                 Graphics::Shader<Graphics::ShaderType::FRAGMENT> const &fragmentShader) {
   shaderStageInfos[static_cast<size_t>(ShaderType::VERTEX)] = vertexShader.GetStageInfo();
   shaderStageInfos[static_cast<size_t>(ShaderType::FRAGMENT)] = fragmentShader.GetStageInfo();
   return *this;
@@ -139,15 +140,6 @@ PipelineBuilder &PipelineBuilder::AddDescriptorBinding(uint32_t set, uint32_t bi
   return *this;
 }
 
-PipelineBuilder &PipelineBuilder::AddPushConstant(size_t size, size_t offset, ShaderType shaderType) {
-  // TODO: Allow multiple shader stages
-  pushConstantRanges.push_back(
-      VkPushConstantRange{.stageFlags = static_cast<VkShaderStageFlags>(ConvertToShaderStage(shaderType)),
-                          .offset = static_cast<uint32_t>(offset),
-                          .size = static_cast<uint32_t>(size)});
-  return *this;
-}
-
 Pipeline *PipelineBuilder::Build() {
   std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
   for (uint32_t i = 0; i < descriptorSets.size(); i++) {
@@ -205,11 +197,11 @@ Pipeline *PipelineBuilder::Build() {
   return new Pipeline(pipelineLayout, descriptorSetLayouts, pipeline);
 }
 
-void PipelineBuilder::DestroyPipeline(Pipeline const &pipeline) const {
-  instanceManager.DestroyPipeline(pipeline.pipeline);
-  instanceManager.DestroyPipelineLayout(pipeline.layout);
+void PipelineBuilder::DestroyPipeline(Pipeline const &pipeline, InstanceManager const *instanceManager) {
+  instanceManager->DestroyPipeline(pipeline.pipeline);
+  instanceManager->DestroyPipelineLayout(pipeline.layout);
   for (auto layout : pipeline.descriptorLayouts) {
-    instanceManager.DestroyDescriptorSetLayout(layout);
+    instanceManager->DestroyDescriptorSetLayout(layout);
   }
 }
 

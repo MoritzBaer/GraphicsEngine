@@ -1,0 +1,4 @@
+{
+  "vertexShaderName": "phong",
+  "fragmentShaderName": "phong"
+}

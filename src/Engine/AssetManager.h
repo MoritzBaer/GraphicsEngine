@@ -17,7 +17,6 @@ namespace Engine {
 class AssetManager {
   uint8_t numberOfAssetTypes;
   Game *game;
-  std::unordered_map<std::string, Graphics::Shader> loadedShaders;
   std::unordered_map<std::string, Graphics::Pipeline *> loadedPipelines;
   std::unordered_map<std::string, Graphics::Material *> loadedMaterials;
   std::unordered_map<std::string, Graphics::Mesh> loadedMeshes;
@@ -56,7 +55,7 @@ class AssetManager {
     }
   };
 
-  template <typename T> void DestroyAsset(T asset) const;
+  template <typename T> void DestroyAsset(T &asset) const;
 
 public:
   AssetManager(Game *game);
@@ -65,17 +64,18 @@ public:
   template <typename T> struct AssetDSO;
   template <typename T> std::string GetAssetPath(char const *assetName) const;
   template <typename T> AssetDSO<T> *ParseAsset(std::string const &assetSource) const;
-  template <typename T> T ConvertDSO(AssetDSO<T> const *dso) const;
+  template <typename T> T ConvertDSO(AssetDSO<T> const *dso);
   template <typename T> inline T LoadAsset(char const *assetName);
+  template <typename T> inline T LoadAsset(std::string const &assetName) { return LoadAsset<T>(assetName.c_str()); };
 
-  Graphics::Shader LoadShader(char const *shaderName, Graphics::ShaderType shaderType);
-  inline Graphics::Shader LoadShader(std::string const &shaderName, Graphics::ShaderType shaderType) {
-    return LoadShader(shaderName.c_str(), shaderType);
-  }
-  Graphics::Shader LoadShaderWithInferredType(char const *shaderName);
-  inline Graphics::Shader LoadShaderWithInferredType(std::string const &shaderName) {
-    LoadShaderWithInferredType(shaderName.c_str());
-  };
+  // Graphics::Shader LoadShader(char const *shaderName, Graphics::ShaderType shaderType);
+  // inline Graphics::Shader LoadShader(std::string const &shaderName, Graphics::ShaderType shaderType) {
+  //   return LoadShader(shaderName.c_str(), shaderType);
+  // }
+  // Graphics::Shader LoadShaderWithInferredType(char const *shaderName);
+  // inline Graphics::Shader LoadShaderWithInferredType(std::string const &shaderName) {
+  //   LoadShaderWithInferredType(shaderName.c_str());
+  // };
 
   void InitStandins();
 

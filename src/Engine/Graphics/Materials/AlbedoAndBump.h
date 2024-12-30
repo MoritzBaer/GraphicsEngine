@@ -53,7 +53,7 @@ struct AlbedoAndBump : public Material {
 template <>
 template <class TokenIterator>
 inline constexpr TokenIterator json<Engine::Graphics::Materials::AlbedoAndBump>::parse_tokenstream(
-    TokenIterator begin, TokenIterator end, Engine::Graphics::Materials::AlbedoAndBump &output, void *context) {
+    TokenIterator begin, TokenIterator end, Engine::Graphics::Materials::AlbedoAndBump &output) {
   if (begin->type == Token::Type::LBrace) {
     begin++;
     std::string key;
@@ -61,18 +61,17 @@ inline constexpr TokenIterator json<Engine::Graphics::Materials::AlbedoAndBump>:
     do {
       begin = parse_key(begin, end, key);
       if (key == "specularStrength") {
-        begin =
-            json<decltype(output.specularStrength)>::parse_tokenstream(begin, end, output.specularStrength, context);
+        begin = json<decltype(output.specularStrength)>::parse_tokenstream(begin, end, output.specularStrength);
       } else if (key == "phongExponent") {
-        begin = json<decltype(output.phongExponent)>::parse_tokenstream(begin, end, output.phongExponent, context);
+        begin = json<decltype(output.phongExponent)>::parse_tokenstream(begin, end, output.phongExponent);
       } else if (key == "albedo") {
         std::string albedoPath;
-        begin = json<std::string>::parse_tokenstream(begin, end, albedoPath, context);
-        output.albedo = static_cast<Game *>(context)->assetManager.LoadTexture(albedoPath.c_str());
+        begin = json<std::string>::parse_tokenstream(begin, end, albedoPath);
+        // output.albedo = static_cast<Game *>(context)->assetManager.LoadTexture(albedoPath.c_str());
       } else if (key == "normal") {
         std::string normalPath;
-        begin = json<std::string>::parse_tokenstream(begin, end, normalPath, context);
-        output.normal = static_cast<Game *>(context)->assetManager.LoadTexture(normalPath.c_str());
+        begin = json<std::string>::parse_tokenstream(begin, end, normalPath);
+        // output.normal = static_cast<Game *>(context)->assetManager.LoadTexture(normalPath.c_str());
       } else {
         throw std::runtime_error("Unexpected key in "
                                  "Engine::Graphics::Materials::AlbedoAndBump"

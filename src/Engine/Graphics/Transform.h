@@ -135,7 +135,7 @@ OBJECT_PARSER(
     Engine::Graphics::Transform,
     FIELD_PARSER(position) FIELD_PARSER(rotation) FIELD_PARSER(scale) if (key == "children") {
       std::vector<Engine::Core::Entity> childrenEntities{};
-      begin = json<std::vector<Engine::Core::Entity>>::parse_tokenstream(begin, end, childrenEntities, context);
+      begin = json<std::vector<Engine::Core::Entity>>::parse_tokenstream(begin, end, childrenEntities);
       for (auto childEntity : childrenEntities) {
         childEntity.GetComponent<Engine::Graphics::Transform>()->SetParent(&output);
       }

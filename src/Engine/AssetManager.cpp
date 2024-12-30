@@ -52,17 +52,8 @@ template <> struct json<Engine::Graphics::Material *> {
 
 namespace Engine {
 AssetManager::AssetManager(Game *game)
-    : game(game), loadedShaders(), loadedPipelines(), loadedMaterials(), loadedMeshes(), loadedTextures(),
-      numberOfAssetTypes(0), assetCaches() {}
-
-Graphics::Shader AssetManager::LoadShader(char const *shaderName, Graphics::ShaderType shaderType) {
-  PROFILE_FUNCTION()
-  MAKE_FILE_PATH(shaderName, SHADER_PATH)
-  _INSERT_ASSET_IF_NEW(shaderName, loadedShaders,
-                       game->shaderCompiler.CompileShaderCode(shaderName, Util::FileIO::ReadFile(filePath), shaderType))
-  Graphics::Shader &loadedShader = loadedShaders[shaderName];
-  return loadedShader;
-}
+    : game(game), loadedPipelines(), loadedMaterials(), loadedMeshes(), loadedTextures(), numberOfAssetTypes(0),
+      assetCaches() {}
 
 AssetManager::~AssetManager() {
   for (int c = 0; c < numberOfAssetTypes; c++) {
@@ -76,32 +67,6 @@ AssetManager::~AssetManager() {
   for (auto &mesh : allocatedMeshes) {
     game->gpuObjectManager.DeallocateMesh(mesh.second);
   }
-
-  Graphics::PipelineBuilder pipelineBuilder = Graphics::PipelineBuilder(game->instanceManager);
-  for (auto &pipeline : loadedPipelines) {
-    pipelineBuilder.DestroyPipeline(pipeline.second);
-  }
-
-  for (auto &shader : loadedShaders) {
-    game->shaderCompiler.DestroyShader(shader.second);
-  }
-}
-
-Graphics::Shader AssetManager::LoadShaderWithInferredType(char const *shaderName) {
-  char const *extension = strrchr(shaderName, '.');
-
-  if (strcmp(extension, ".vert") == 0) {
-    return LoadShader(shaderName, Graphics::ShaderType::VERTEX);
-  } else if (strcmp(extension, ".frag") == 0) {
-    return LoadShader(shaderName, Graphics::ShaderType::FRAGMENT);
-  } else if (strcmp(extension, ".comp") == 0) {
-    return LoadShader(shaderName, Graphics::ShaderType::COMPUTE);
-  } else if (strcmp(extension, ".geom") == 0) {
-    return LoadShader(shaderName, Graphics::ShaderType::GEOMETRY);
-  }
-
-  ENGINE_ERROR("Could not infer shader type from file extension: {}!", extension);
-  return Graphics::Shader();
 }
 
 void AssetManager::InitStandins() {
@@ -132,44 +97,12 @@ Graphics::AllocatedMesh *AssetManager::LoadMesh(char const *meshName, bool flipU
   return LoadAsset<Graphics::AllocatedMesh *>(meshName);
 }
 
-Graphics::Pipeline *AssetManager::ParsePipeline(char const *pipelineData) {
-  // Dummy implementation // TODO: implement properly
-  Graphics::Shader vertexShader = LoadShaderWithInferredType("phong.vert");
-  Graphics::Shader fragmentShader = LoadShaderWithInferredType("phong.frag");
-
-  size_t uniformSize = sizeof(VkDeviceAddress) + sizeof(Matrix4);
-
-  Graphics::PipelineBuilder pipelineBuilder = Graphics::PipelineBuilder(game->instanceManager);
-  return pipelineBuilder.AddPushConstant(uniformSize, 0, Graphics::ShaderType::VERTEX)
-      .AddDescriptorBinding(0, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-      .AddDescriptorBinding(1, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-      .AddDescriptorBinding(1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-      .SetShaderStages(vertexShader, fragmentShader)
-      .BindSetInShaders(0, Graphics::ShaderType::VERTEX, Graphics::ShaderType::FRAGMENT)
-      .BindSetInShaders(1, Graphics::ShaderType::FRAGMENT)
-      .SetInputTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-      .SetPolygonMode(VK_POLYGON_MODE_FILL)
-      .SetColourAttachmentFormat(VK_FORMAT_R8G8B8A8_SNORM) // FIXME: used to be VK_FORMAT_R16G16B16A16_SFLOAT, but that
-                                                           // gives a validation error
-      .SetDepthFormat(VK_FORMAT_D32_SFLOAT)
-      .SetDepthCompareOperation(VK_COMPARE_OP_LESS_OR_EQUAL)
-      .EnableBlending(Graphics::PipelineBuilder::BlendMode::ALPHA)
-      .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE)
-      .Build();
-}
-
-Graphics::Material *ParseMAT(char const *materialname, Game *context) {
-  std::vector<char> materialData = Util::FileIO::ReadFile(materialname);
-  return json<Graphics::Material *>::deserialize(materialData, context);
-}
-
 Graphics::Material *AssetManager::LoadMaterial(char const *materialName) {
-  MAKE_FILE_PATH(materialName, MATERIAL_PATH);
-  _RETURN_ASSET(materialName, loadedMaterials, ParseMAT(filePath, game));
+  return LoadAsset<Graphics::Material *>(materialName);
 }
 
-Graphics::Pipeline const *AssetManager::LoadPipeline(char const *pipelineName) {
-  _RETURN_ASSET(pipelineName, loadedPipelines, ParsePipeline(pipelineName));
+Graphics::Texture2D AssetManager::LoadTexture(char const *textureName) {
+  return LoadAsset<Graphics::Texture2D>(textureName);
 }
 
 Core::Entity AssetManager::LoadPrefab(char const *prefabName) {
@@ -177,72 +110,10 @@ Core::Entity AssetManager::LoadPrefab(char const *prefabName) {
 
   auto prefabData = Util::FileIO::ReadFile(filePath);
   Core::Entity e = game->ecs.CreateEntity();
-  json<Core::Entity>::deserialize(prefabData, e, game);
+  json<Core::Entity>::deserialize(prefabData, e);
   game->sceneHierarchy.BuildHierarchy();
 
   return e;
 }
 
-Graphics::Texture2D AssetManager::LoadTexture(char const *textureName) {
-  MAKE_FILE_PATH(textureName, TEXTURE_PATH)
-  // TODO: Only load file if texture is not already loaded
-
-  int width, height, channels;
-  stbi_uc *pixelChannels = stbi_load(filePath, &width, &height, &channels, STBI_rgb_alpha);
-  uint32_t *pixels =
-      reinterpret_cast<uint32_t *>(pixelChannels); // TODO: Fix issues occurring when fewer channels are used
-
-  if (pixels) {
-    _RETURN_ASSET(textureName, loadedTextures,
-                  game->gpuObjectManager.CreateTexture(Maths::Dimension2(width, height), pixels, VK_FILTER_LINEAR,
-                                                       VK_FILTER_LINEAR))
-  } else {
-    return loadedTextures["missing"];
-  }
-}
-
 } // namespace Engine
-
-template <class Container>
-Engine::Graphics::Material *json<Engine::Graphics::Material *>::deserialize(Container const &materialData,
-                                                                            void *context) {
-  using namespace Engine;
-
-  auto pl = static_cast<Game *>(context)->assetManager.LoadPipeline("dummy");
-  std::vector<Token> tokens{};
-  tokenize(std::begin(materialData), std::end(materialData), std::back_inserter(tokens));
-
-  auto tokenIt = tokens.begin();
-
-  if (tokenIt++->type != Token::Type::LBrace) {
-    ENGINE_ERROR("Expected '{{' at start of material data, got '{}'", token_type_to_string((tokenIt - 1)->type));
-    return nullptr;
-  }
-
-  if (tokenIt->type != Token::Type::String) {
-    ENGINE_ERROR("Expected identifier after '{{', got '{}'", token_type_to_string(tokenIt->type));
-    return nullptr;
-  }
-
-  std::string materialType;
-  tokenIt = parse_key(tokenIt, tokens.end(), materialType);
-  Graphics::Material *mat = nullptr;
-
-  if (materialType == "Engine::Graphics::Materials::AlbedoAndBump") {
-    auto pl = static_cast<Game *>(context)->assetManager.LoadPipeline("dummy"); // TODO: Think of sensible system
-    mat = new Graphics::Materials::AlbedoAndBump(pl, static_cast<Game *>(context)->assetManager.LoadTexture("white"),
-                                                 static_cast<Game *>(context)->assetManager.LoadTexture("normalUp"));
-    tokenIt = json<Graphics::Materials::AlbedoAndBump>::parse_tokenstream(
-        tokenIt, tokens.end(), *dynamic_cast<Graphics::Materials::AlbedoAndBump *>(mat), context);
-  } else {
-    ENGINE_ERROR("Unknown material type '{}'", materialType);
-    return nullptr;
-  }
-
-  if (tokenIt++->type != Token::Type::RBrace) {
-    ENGINE_ERROR("Expected '}}' at end of material data, got '{}'", token_type_to_string((tokenIt - 1)->type));
-    return nullptr;
-  }
-
-  return mat;
-}

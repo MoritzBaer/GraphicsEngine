@@ -12,14 +12,13 @@
 
 #define COMPONENT_OPTION(Name)                                                                                         \
   if (key == #Name) {                                                                                                  \
-    begin = json<Name>::parse_tokenstream(begin, end, *output.AddComponent<Name>(), context);                          \
+    begin = json<Name>::parse_tokenstream(begin, end, *output.AddComponent<Name>());                                   \
   } else
 
 template <>
 template <class TokenIterator>
 inline constexpr TokenIterator json<Engine::Core::Entity>::parse_tokenstream(TokenIterator begin, TokenIterator end,
-                                                                             Engine::Core::Entity &output,
-                                                                             void *context) {
+                                                                             Engine::Core::Entity &output) {
   if (begin->type == Token::Type::LBrace) {
     begin++;
     std::string key;
@@ -36,11 +35,16 @@ inline constexpr TokenIterator json<Engine::Core::Entity>::parse_tokenstream(Tok
               begin++;
               std::string key;
               begin = parse_key(begin, end, key);
-              COMPONENT_OPTION(Engine::Graphics::MeshRenderer)
-              COMPONENT_OPTION(Engine::Graphics::Transform)
-              COMPONENT_OPTION(Engine::Editor::Display) {
-                throw std::runtime_error("Unexpected key in components: " + key);
-              }
+              if (key == "Engine::Graphics::MeshRenderer") {
+                begin = json<Engine::Graphics::MeshRenderer>::parse_tokenstream(
+                    begin, end, *output.AddComponent<Engine::Graphics::MeshRenderer>());
+              } else if (key == "Engine::Graphics::Transform") {
+                begin = json<Engine::Graphics::Transform>::parse_tokenstream(
+                    begin, end, *output.AddComponent<Engine::Graphics::Transform>());
+              } else
+                COMPONENT_OPTION(Engine::Editor::Display) {
+                  throw std::runtime_error("Unexpected key in components: " + key);
+                }
               if (begin->type != Token::Type::RBrace) {
                 throw std::runtime_error("Expected right brace, got " + token_type_to_string(begin->type) + ".");
               }

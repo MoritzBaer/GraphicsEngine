@@ -1,8 +1,11 @@
 {
-    "Engine::Graphics::Materials::AlbedoAndBump": {
-        "albedo": "speeder_t.png",
-        "normal": "speeder_n.png",
-        "specularStrength": 0.4,
-        "phongExponent": 8
+    "pipelineName": "dummy",
+    "instanceData": {
+        "Engine::AlbedoAndBumpData": {
+            "albedoTexture": "speeder_t.png",
+            "bumpTexture": "speeder_n.png",
+            "specularStrength": 0.4,
+            "phongExponent": 8
+        }
     }
 }

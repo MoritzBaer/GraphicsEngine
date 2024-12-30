@@ -7,7 +7,7 @@
 namespace Engine::Graphics {
 template <typename T> struct ComputeEffect {
   std::string name;
-  Shader effectShader;
+  Shader<ShaderType::COMPUTE> effectShader;
   T constants;
 };
 struct ComputePushConstants {

@@ -352,14 +352,14 @@ inline Graphics::Mesh CalculateTangentSpace(Graphics::MeshT<OBJVertex> &objMesh)
 
 template <>
 Graphics::AllocatedMesh *
-AssetManager::ConvertDSO<Graphics::AllocatedMesh *>(AssetDSO<Graphics::AllocatedMesh *> const *dso) const {
+AssetManager::ConvertDSO<Graphics::AllocatedMesh *>(AssetDSO<Graphics::AllocatedMesh *> const *dso) {
   auto objMesh = DeduplicateVertices(dso);
   auto const &mesh = CalculateTangentSpace(objMesh);
   return new Graphics::AllocatedMesh(
       game->gpuObjectManager.AllocateMesh<Graphics::Vertex, Graphics::VertexFormat>(mesh));
 }
 
-template <> void AssetManager::DestroyAsset<Graphics::AllocatedMesh *>(Graphics::AllocatedMesh *asset) const {
+template <> void AssetManager::DestroyAsset<Graphics::AllocatedMesh *>(Graphics::AllocatedMesh *&asset) const {
   game->gpuObjectManager.DeallocateMesh(asset);
 }
 

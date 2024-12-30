@@ -11,6 +11,8 @@
 
 using Engine::Graphics::ComputeEffect;
 using Engine::Graphics::ComputePushConstants;
+using Engine::Graphics::Shader;
+using Engine::Graphics::ShaderType;
 
 std::vector<ComputeEffect<ComputePushConstants>> InitializedComputeEffects(Engine::AssetManager &assetManager) {
   PROFILE_FUNCTION()
@@ -21,7 +23,7 @@ std::vector<ComputeEffect<ComputePushConstants>> InitializedComputeEffects(Engin
   };
 
   for (auto &effect : backgroundEffects) {
-    effect.effectShader = assetManager.LoadShader(effect.name + ".comp", Engine::Graphics::ShaderType::COMPUTE);
+    effect.effectShader = assetManager.LoadAsset<Shader<ShaderType::COMPUTE>>(effect.name.c_str());
   }
 
   return backgroundEffects;
@@ -58,8 +60,8 @@ Game::Game(const char *name)
         [this](Engine::Maths::Dimension2 newWindowSize) { renderer.SetWindowSize(newWindowSize); });
 
     assetManager.InitStandins();
+    auto speederMat = assetManager.LoadAsset<Engine::Graphics::Material *>("speeder");
     assetManager.LoadPrefab("speeder_without_guns.pfb");
-    assetManager.LoadAsset<Engine::Graphics::AllocatedMesh *>("cube");
 
     Engine::Time::Update();
   }
