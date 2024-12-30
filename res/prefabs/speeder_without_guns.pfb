@@ -1,7 +1,7 @@
 {
     "components": [
         {
-            "Engine::Graphics::Transform": {
+            "Engine::TransformDSO": {
                 "position": {
                     "data": [
                         0,
@@ -26,13 +26,13 @@
             }
         },
         {
-            "Engine::Graphics::MeshRenderer": {
-                "mesh": "speeder",
-                "material": "speeder.mat"
+            "Engine::MeshRendererDSO": {
+                "meshName": "speeder",
+                "materialName": "speeder"
             }
         },
         {
-            "Engine::Editor::Display": {
+            "Engine::DisplayDSO": {
                 "label": "speeder_body"
             }
         }

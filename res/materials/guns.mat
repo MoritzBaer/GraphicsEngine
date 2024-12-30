@@ -1,8 +1,11 @@
 {
-    "Engine::Graphics::Materials::AlbedoAndBump": {
-        "albedo": "guns_t.png",
-        "normal": "guns_n.png",
-        "specularStrength": 0.6,
-        "phongExponent": 512
+    "pipelineName": "dummy",
+    "instanceData": {
+        "Engine::AlbedoAndBumpData": {
+            "albedoTexture": "guns_t.png",
+            "bumpTexture": "guns_n.png",
+            "specularStrength": 0.6,
+            "phongExponent": 512
+        }
     }
 }

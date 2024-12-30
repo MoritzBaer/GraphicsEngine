@@ -106,6 +106,7 @@ Graphics::Texture2D AssetManager::LoadTexture(char const *textureName) {
 }
 
 Core::Entity AssetManager::LoadPrefab(char const *prefabName) {
+  return LoadAsset<Core::Entity>(prefabName);
   MAKE_FILE_PATH(prefabName, PREFAB_PATH);
 
   auto prefabData = Util::FileIO::ReadFile(filePath);

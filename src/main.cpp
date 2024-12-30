@@ -6,7 +6,7 @@ int main() {
 
   Game game("Test Project");
 
-  for (int i = 0; i < 200; i++)
+  for (int i = 0; i < 2000; i++)
     game.CalculateFrame();
 
   Engine::WindowManager::Cleanup();

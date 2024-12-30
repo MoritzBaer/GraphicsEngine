@@ -60,8 +60,9 @@ Game::Game(const char *name)
         [this](Engine::Maths::Dimension2 newWindowSize) { renderer.SetWindowSize(newWindowSize); });
 
     assetManager.InitStandins();
-    auto speederMat = assetManager.LoadAsset<Engine::Graphics::Material *>("speeder");
-    assetManager.LoadPrefab("speeder_without_guns.pfb");
+    assetManager.LoadPrefab("speeder");
+
+    sceneHierarchy.BuildHierarchy();
 
     Engine::Time::Update();
   }

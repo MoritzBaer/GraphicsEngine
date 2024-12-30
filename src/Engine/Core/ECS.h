@@ -64,6 +64,7 @@ public:
   EntityId _CreateEntity();
   inline Entity CreateEntity();
   void DestroyEntity(EntityId e);
+  inline void DestroyEntity(Entity e);
 
   template <class C> void RegisterComponent(); // Components can only be registered after initialization
 
@@ -85,6 +86,7 @@ public:
 
 class Entity { // Wrapper for internal entity, convenience only
   EntityId id;
+  friend class ECS;
   ECS *parentECS;
 
 public:
@@ -136,6 +138,8 @@ template <class C> struct Component : public _Component {
 
 inline ECS::EntityIterator ECS::begin() { return EntityIterator(0, this); }
 inline ECS::EntityIterator ECS::end() { return EntityIterator(firstFreeEntity, this); }
+
+inline void ECS::DestroyEntity(Entity e) { DestroyEntity(e.id); }
 
 template <class C> inline ECS::ComponentArray<C>::~ComponentArray() {
   for (auto c : components) {
