@@ -16,7 +16,7 @@ void AssetManager::InitStandins() {
   InitCacheIfNecessary<Graphics::Texture2D>();
 
   auto textureCache =
-      dynamic_cast<AssetCacheT<Graphics::Texture2D> *>(assetCaches[AssetTypeID<Graphics::Texture2D>::id]);
+      dynamic_cast<AssetCacheT<Graphics::Texture2D> *>(assetCaches[AssetTypeID<Graphics::Texture2D>::value]);
 
   uint32_t white = 0xFFFFFFFF;
   uint32_t normalUp = 0xFFFF8080;

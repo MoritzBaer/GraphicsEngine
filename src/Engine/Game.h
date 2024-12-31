@@ -12,24 +12,26 @@
 
 struct Game {
   Engine::Window *mainWindow;
-  Engine::DeletionQueue mainDeletionQueue;
   Engine::Graphics::InstanceManager instanceManager;
-  Engine::AssetManager assetManager;
-  Engine::Graphics::ShaderCompiler shaderCompiler;
-  Engine::Core::ECS ecs;
-  Engine::Core::SceneHierarchy sceneHierarchy;
-  Engine::Graphics::GPUObjectManager gpuObjectManager;
+  Engine::DeletionQueue mainDeletionQueue;
   Engine::Graphics::MemoryAllocator memoryAllocator;
+  Engine::Graphics::GPUObjectManager gpuObjectManager;
+  Engine::Graphics::ShaderCompiler shaderCompiler;
+  Engine::Core::SceneHierarchy sceneHierarchy;
+  Engine::AssetManager assetManager;
   Engine::Graphics::Renderer renderer;
   Engine::Graphics::ImGUIManager imGuiManager;
+  Engine::Core::ECS ecs;
 
   Engine::Core::Entity mainCam;
-  bool render;
+  bool rendering;
+  bool running;
 
   // TODO: Make CreateWindow use dimension, pass dimension to Game()
   Game(const char *name);
 
   void CalculateFrame();
+  inline bool IsRunning() { return running; }
 
   ~Game();
 };

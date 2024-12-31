@@ -29,12 +29,15 @@ std::vector<ComputeEffect<ComputePushConstants>> InitializedComputeEffects(Engin
   return backgroundEffects;
 }
 
+using namespace Engine;
+
 Game::Game(const char *name)
     : mainWindow(Engine::WindowManager::CreateWindow(1600, 900, name)), mainDeletionQueue(),
       instanceManager(name, mainWindow), assetManager(this), shaderCompiler(instanceManager), ecs(),
       memoryAllocator(instanceManager), gpuObjectManager(instanceManager, memoryAllocator),
       renderer({1600, 900}, instanceManager, gpuObjectManager, InitializedComputeEffects(assetManager)),
-      sceneHierarchy(ecs), render(true), imGuiManager(mainWindow, renderer.GetSwapchainFormat(), instanceManager) {
+      sceneHierarchy(ecs), rendering(true), running(true),
+      imGuiManager(mainWindow, renderer.GetSwapchainFormat(), instanceManager) {
 
   BEGIN_PROFILE_SESSION() {
     PROFILE_FUNCTION()
@@ -53,16 +56,19 @@ Game::Game(const char *name)
     camTransform->position = {0, 0, 5};
     camTransform->LookAt({0, 0, 0});
 
-    // mainWindow->SetCloseCallback([]() { Quit(); });
-    mainWindow->SetMinimizeCallback([this]() { render = false; });
-    mainWindow->SetRestoreCallback([this]() { render = true; });
+    mainWindow->SetCloseCallback([this]() { running = false; });
+    mainWindow->SetMinimizeCallback([this]() { rendering = false; });
+    mainWindow->SetRestoreCallback([this]() { rendering = true; });
     mainWindow->SetResizeCallback(
         [this](Engine::Maths::Dimension2 newWindowSize) { renderer.SetWindowSize(newWindowSize); });
 
     assetManager.InitStandins();
-    assetManager.LoadAsset<Engine::Core::Entity>("speeder");
+    assetManager.LoadAsset<Core::Entity>("speeder");
 
-    auto cube = assetManager.LoadAsset<Engine::Core::Entity>("cube");
+    assetManager.LoadAsset<Core::Entity>("cube");
+    assetManager.LoadAsset<Core::Entity>("cube");
+    assetManager.LoadAsset<Core::Entity>("cube").Duplicate().GetComponent<Engine::Graphics::Transform>()->position = {
+        -3, 0, -4};
 
     sceneHierarchy.BuildHierarchy();
 
@@ -79,7 +85,7 @@ void Game::CalculateFrame() {
 
     Engine::WindowManager::HandleEventsOnAllWindows();
 
-    if (render) {
+    if (rendering) {
       auto renderersWithTransforms = ecs.FilterEntities<Engine::Graphics::MeshRenderer, Engine::Graphics::Transform>();
       for (auto &[_, transform] : renderersWithTransforms) {
         if (transform->parent)
@@ -110,13 +116,6 @@ Game::~Game() {
   PROFILE_FUNCTION()
 
   instanceManager.WaitUntilDeviceIdle();
-  ecs.~ECS();
   mainDeletionQueue.Flush();
-  imGuiManager.~ImGUIManager();
-  renderer.~Renderer();
-  assetManager.~AssetManager();
-  gpuObjectManager.~GPUObjectManager();
-  memoryAllocator.~MemoryAllocator();
-  instanceManager.~InstanceManager();
   WRITE_PROFILE_SESSION("Cleanup")
 }

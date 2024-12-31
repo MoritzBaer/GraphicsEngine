@@ -13,6 +13,7 @@ namespace Engine::Graphics {
 ENGINE_COMPONENT_DECLARATION(Transform), public Editor::Publishable {
 private:
   // TODO: Change publication so only the displayed entity's transform has to hold this data
+  // Probably should work quite nicely as a trait
   struct {
     Vector3 eulerAngles;
     Vector3 oldEulerAngles;
@@ -62,6 +63,16 @@ public:
     rotationPublication.UpdateRotation(rotation);
     return {PUBLISH(position), PUBLISH_RANGE(rotationPublication.eulerAngles, -(float)PI, (float)PI, 0.001f),
             PUBLISH_RANGE(scale, 0.001f, 10000.0f, 0.01f * scale.Length())};
+  }
+
+  inline void CopyFrom(Core::Component const *other) override {
+    if (auto otherTransform = dynamic_cast<Transform const *>(other)) {
+      position = otherTransform->position;
+      rotation = otherTransform->rotation;
+      scale = otherTransform->scale;
+    } else {
+      ENGINE_ERROR("Tried to copy Transform from different type!");
+    }
   }
 };
 

@@ -22,7 +22,7 @@ class AssetManager {
 
   typedef uint8_t typeID;
   template <typename T> struct AssetTypeID {
-    inline static typeID id = -1;
+    inline static typeID value = -1;
   };
 
   class AssetCache {
@@ -37,12 +37,12 @@ class AssetManager {
     AssetManager const *manager;
 
   public:
-    AssetCacheT(AssetManager const *manager) : manager(manager), cache() {}
-    bool HasAsset(char const *assetName) { return cache.find(assetName) != cache.end(); }
-    T LoadAsset(char const *assetName) { return cache[assetName]; }
-    void InsertAsset(char const *assetName, T asset) { cache.insert({assetName, asset}); }
+    inline AssetCacheT(AssetManager const *manager) : manager(manager), cache() {}
+    inline bool HasAsset(char const *assetName) { return cache.find(assetName) != cache.end(); }
+    T LoadAsset(char const *assetName);
+    inline void InsertAsset(char const *assetName, T asset) { cache.insert({assetName, asset}); }
 
-    void Clear() override {
+    inline void Clear() override {
       for (auto &pair : cache) {
         manager->DestroyAsset(pair.second);
       }
@@ -51,7 +51,7 @@ class AssetManager {
   };
 
   template <typename T> void DestroyAsset(T &asset) const;
-  template <typename T> void InitCacheIfNecessary();
+  template <typename T> inline void InitCacheIfNecessary();
 
 public:
   AssetManager(Game *game);
@@ -67,19 +67,24 @@ public:
   void InitStandins();
 };
 
+template <typename T> inline T AssetManager::AssetCacheT<T>::LoadAsset(char const *assetName) {
+  auto cachedAsset = cache.find(assetName);
+  return cachedAsset->second;
+}
+
 template <typename T> inline void AssetManager::InitCacheIfNecessary() {
-  if (AssetTypeID<T>::id == static_cast<typeID>(-1)) {
-    AssetTypeID<T>::id = numberOfAssetTypes++;
+  if (AssetTypeID<T>::value == static_cast<typeID>(-1)) {
+    AssetTypeID<T>::value = numberOfAssetTypes++;
   }
-  if (!assetCaches[AssetTypeID<T>::id]) {
-    assetCaches[AssetTypeID<T>::id] = new AssetCacheT<T>(this);
+  if (!assetCaches[AssetTypeID<T>::value]) {
+    assetCaches[AssetTypeID<T>::value] = new AssetCacheT<T>(this);
   }
 }
 
 template <typename T> inline T AssetManager::LoadAsset(char const *assetName) {
   InitCacheIfNecessary<T>();
 
-  auto cache = dynamic_cast<AssetCacheT<T> *>(assetCaches[AssetTypeID<T>::id]);
+  auto cache = dynamic_cast<AssetCacheT<T> *>(assetCaches[AssetTypeID<T>::value]);
   if (cache->HasAsset(assetName)) {
     return cache->LoadAsset(assetName);
   }

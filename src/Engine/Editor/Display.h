@@ -19,6 +19,14 @@ ENGINE_COMPONENT_DECLARATION(Display), public Publishable {
     std::fill(label.begin(), label.end(), 0);
     strcpy(label.data(), newLabel);
   }
+
+  inline void CopyFrom(Core::Component const *other) override {
+    if (auto otherDisplay = dynamic_cast<Display const *>(other)) {
+      AssignLabel(otherDisplay->label.data());
+    } else {
+      ENGINE_ERROR("Tried to copy Display from different type!");
+    }
+  }
 };
 
 } // namespace Engine::Editor

@@ -116,11 +116,11 @@ void DescriptorAllocator::ClearDescriptors() {
   for (auto pool : readyPools) {
     instanceManager->ClearDescriptorPool(pool);
   }
-  auto &im = *instanceManager;
-  std::transform(fullPools.begin(), fullPools.end(), std::back_inserter(readyPools), [&im](VkDescriptorPool pool) {
-    im.ClearDescriptorPool(pool);
-    return pool;
-  });
+  for (auto pool : fullPools) {
+    instanceManager->ClearDescriptorPool(pool);
+    readyPools.push_back(pool);
+  }
+  fullPools.clear();
 }
 
 void DescriptorAllocator::DestroyPools() {

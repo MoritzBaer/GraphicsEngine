@@ -9,6 +9,14 @@ ENGINE_COMPONENT_DECLARATION(Camera) {
   ENGINE_COMPONENT_CONSTRUCTOR(Camera) {
     projection = Maths::Transformations::Perspective(0.01f, 100.0f, 45.0f, 16.0f / 9.0f);
   }
+
+  inline void CopyFrom(Core::Component const *other) override {
+    if (auto otherCamera = dynamic_cast<Camera const *>(other)) {
+      projection = otherCamera->projection;
+    } else {
+      ENGINE_ERROR("Tried to copy Camera from different type!");
+    }
+  }
 };
 
 } // namespace Engine::Graphics

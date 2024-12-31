@@ -10,6 +10,13 @@
 
 namespace Engine {
 
+template <> inline Core::Entity AssetManager::AssetCacheT<Core::Entity>::LoadAsset(const char *assetName) {
+  ENGINE_SUCCESS("Using specialized asset cache!!!") // FIXME: Would be nice to get this to work, but this can also be
+                                                     // deferred to scene loading ¯\_(ツ)_/¯
+  auto cachedPrefab = cache.find(assetName);
+  return manager->game->ecs.DuplicateEntity(cachedPrefab->second);
+}
+
 struct ComponentDSO {
   virtual void Dummy() {} // Dummy function to allow dynamic_cast
 };

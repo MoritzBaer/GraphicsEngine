@@ -44,6 +44,15 @@ public:
   }
 
   ~MeshRenderer() {}
+
+  inline void CopyFrom(Core::Component const *other) override {
+    if (auto otherMeshRenderer = dynamic_cast<MeshRenderer const *>(other)) {
+      mesh = otherMeshRenderer->mesh;
+      material = otherMeshRenderer->material;
+    } else {
+      ENGINE_ERROR("Tried to copy MeshRenderer from different type!");
+    }
+  }
 };
 
 // Implementations

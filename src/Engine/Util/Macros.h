@@ -4,12 +4,14 @@
 #define __FILE_NAME__ (__FILE__ + SOURCE_PATH_SIZE)
 
 #define ENGINE_MESSAGE(format, ...)                                                                                    \
-  { Debug::Logging::PrintMessage("Engine", format " ({}: l.{})", __VA_ARGS__, __FILE_NAME__, __LINE__); }
+  { Debug::Logging::PrintMessage("Engine", format " ({}({},0))", __VA_ARGS__, __FILE_NAME__, __LINE__); }
 #define ENGINE_WARNING(format, ...)                                                                                    \
-  { Debug::Logging::PrintWarning("Engine", format " ({}: l.{})", __VA_ARGS__, __FILE_NAME__, __LINE__); }
+  { Debug::Logging::PrintWarning("Engine", format " ({}({},0))", __VA_ARGS__, __FILE_NAME__, __LINE__); }
+#define ENGINE_SUCCESS(format, ...)                                                                                    \
+  { Debug::Logging::PrintSuccess("Engine", format " ({}({},0))", __VA_ARGS__, __FILE_NAME__, __LINE__); }
 #define ENGINE_ERROR(format, ...)                                                                                      \
   {                                                                                                                    \
-    Debug::Logging::PrintError("Engine", format " ({}: l.{})", __VA_ARGS__, __FILE_NAME__, __LINE__);                  \
+    Debug::Logging::PrintError("Engine", format " ({}({},0))", __VA_ARGS__, __FILE_NAME__, __LINE__);                  \
     __debugbreak();                                                                                                    \
   }
 

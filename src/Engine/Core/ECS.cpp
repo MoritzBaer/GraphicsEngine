@@ -7,10 +7,44 @@
 #define KILL(entity) aliveAndComponentFlags[entity] = 0;
 
 namespace Engine::Core {
+Component *ECS::AddComponent(EntityId e, ComponentIndex componentIndex) {
+  if (!(aliveAndComponentFlags[e] & ALIVE_FLAG)) {
+    ENGINE_ERROR("Tried to attach component to dead entity!") return nullptr;
+  }
+  if (HasComponent(e, componentIndex)) {
+    ENGINE_ERROR("Tried to attach same component twice!") return nullptr;
+  }
+  aliveAndComponentFlags[e] |= uint64_t(1) << componentIndex;
+  return componentArrays[componentIndex]->AddComponent(e);
+}
+
+Component *ECS::GetComponent(EntityId e, ComponentIndex componentIndex) {
+  if (!(aliveAndComponentFlags[e] & ALIVE_FLAG)) {
+    ENGINE_ERROR("Tried to query component off dead entity!") return nullptr;
+  }
+  if (!HasComponent(e, componentIndex)) {
+    ENGINE_ERROR("Tried to query component the entity does not have!") return nullptr;
+  }
+  return componentArrays[componentIndex]->GetComponent(e);
+}
+
+bool ECS::HasComponent(EntityId e, ComponentIndex componentIndex) {
+  return aliveAndComponentFlags[e] & (uint64_t(1) << componentIndex);
+}
+
+void ECS::RemoveComponent(EntityId e, ComponentIndex componentIndex) {
+  if (!(aliveAndComponentFlags[e] & ALIVE_FLAG)) {
+    ENGINE_ERROR("Tried to query component off dead entity!");
+  }
+  if (!HasComponent(e, componentIndex)) {
+    ENGINE_ERROR("Tried to query component the entity does not have!");
+  }
+  componentArrays[componentIndex]->RemoveComponent(e);
+}
 
 ECS::ECS() : aliveAndComponentFlags(), firstFreeEntity(0), unusedEntityIDs(), componentArrays() {}
 ECS::~ECS() {
-  for (_ComponentArray *array : componentArrays) {
+  for (ComponentArray *array : componentArrays) {
     delete array;
   }
 }
@@ -31,6 +65,17 @@ EntityId ECS::_CreateEntity() {
   return newEntity;
 }
 
+Entity ECS::DuplicateEntity(EntityId e) {
+  EntityId newEntity = _CreateEntity();
+  for (int i = 0; i < componentArrays.size(); i++) {
+    if (aliveAndComponentFlags[e] & (uint64_t(1) << i)) {
+      AddComponent(newEntity, i)->CopyFrom(GetComponent(e, i));
+    }
+  }
+  ENGINE_ASSERT(aliveAndComponentFlags[e] == aliveAndComponentFlags[newEntity], "Entity duplication failed!")
+  return Entity(newEntity, this);
+}
+
 void ECS::DestroyEntity(EntityId e) {
   unusedEntityIDs.push(e);
   for (int i = 0; i < componentArrays.size(); i++) {
@@ -41,8 +86,8 @@ void ECS::DestroyEntity(EntityId e) {
   KILL(e)
 }
 
-std::vector<_Component *> ECS::GetComponents(EntityId e) {
-  std::vector<_Component *> result;
+std::vector<Component *> ECS::GetComponents(EntityId e) {
+  std::vector<Component *> result;
   for (int i = 0; i < componentArrays.size(); i++) {
     if (aliveAndComponentFlags[e] & (uint64_t(1) << i)) {
       result.push_back(componentArrays[i]->GetComponent(e));

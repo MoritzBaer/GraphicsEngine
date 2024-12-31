@@ -361,8 +361,8 @@ void Renderer::DestroyFrameResources(FrameResources &resources) {
   instanceManager.DestroySemaphore(resources.swapchainSemaphore);
   instanceManager.DestroySemaphore(resources.renderSemaphore);
   instanceManager.DestroyFence(resources.renderFence);
-  descriptorAllocator.ClearDescriptors();
-  descriptorAllocator.DestroyPools();
+  resources.descriptorAllocator.ClearDescriptors();
+  resources.descriptorAllocator.DestroyPools();
   gpuObjectManager.DestroyBuffer(resources.uniformBuffer);
 }
 

@@ -514,11 +514,8 @@ VkResult InstanceManager::AllocateDescriptorSets(std::vector<VkDescriptorSetLayo
                                              .pSetLayouts = layouts.data()};
 
   VkResult allocationResult = vkAllocateDescriptorSets(graphicsHandler, &allocationInfo, descriptorSets);
-  if (allocationResult == VK_ERROR_OUT_OF_POOL_MEMORY) {
-    ENGINE_WARNING("Descriptor pool is out of memory!")
-  } else if (allocationResult == VK_ERROR_FRAGMENTED_POOL) {
-    ENGINE_WARNING("Descriptor pool is too fragmented!")
-  } else if (allocationResult != VK_SUCCESS) {
+  if (allocationResult != VK_SUCCESS && allocationResult != VK_ERROR_OUT_OF_POOL_MEMORY &&
+      allocationResult == VK_ERROR_FRAGMENTED_POOL) {
     ENGINE_ERROR("Failed to allocate descriptor sets!")
   }
   return allocationResult;
