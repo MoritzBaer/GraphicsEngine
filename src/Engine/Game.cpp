@@ -32,12 +32,12 @@ std::vector<ComputeEffect<ComputePushConstants>> InitializedComputeEffects(Engin
 using namespace Engine;
 
 Game::Game(const char *name)
-    : mainWindow(Engine::WindowManager::CreateWindow(1600, 900, name)), mainDeletionQueue(),
+    : mainWindow(Engine::WindowManager::CreateWindow({1600, 900}, name)), mainDeletionQueue(),
       instanceManager(name, mainWindow), assetManager(&gpuObjectManager, &ecs, &shaderCompiler, &instanceManager),
-      shaderCompiler(instanceManager), ecs(), memoryAllocator(instanceManager),
-      gpuObjectManager(instanceManager, memoryAllocator),
-      renderer({1600, 900}, instanceManager, gpuObjectManager, InitializedComputeEffects(assetManager)),
-      sceneHierarchy(ecs), rendering(true), running(true),
+      shaderCompiler(&instanceManager), ecs(), memoryAllocator(instanceManager),
+      gpuObjectManager(&instanceManager, &memoryAllocator),
+      renderer({1600, 900}, &instanceManager, &gpuObjectManager, InitializedComputeEffects(assetManager)),
+      sceneHierarchy(&ecs), rendering(true), running(true),
       imGuiManager(mainWindow, renderer.GetSwapchainFormat(), instanceManager) {
 
   BEGIN_PROFILE_SESSION() {

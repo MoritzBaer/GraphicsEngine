@@ -32,11 +32,11 @@ void WindowManager::Cleanup() {
   instance = nullptr;
 }
 
-Window *WindowManager::CreateWindow(uint32_t width, uint32_t height, const char *title) {
+Window *WindowManager::CreateWindow(Maths::Dimension2 const &windowSize, const char *title) {
   if (instance == nullptr) {
     Init();
   }
-  instance->openWindows.push_back(new Window(width, height, title));
+  instance->openWindows.push_back(new Window(windowSize, title));
   return instance->openWindows.back();
 }
 

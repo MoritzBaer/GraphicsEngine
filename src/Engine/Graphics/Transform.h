@@ -3,6 +3,7 @@
 #include <string>
 
 #include "Core/ECS.h"
+#include "Debug/Logging.h"
 #include "Editor/Publishable.h"
 #include "Maths/Transformations.h"
 #include "json-parsing.h"

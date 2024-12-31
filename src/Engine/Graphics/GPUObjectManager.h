@@ -11,17 +11,17 @@
 namespace Engine::Graphics {
 
 class GPUObjectManager {
-  InstanceManager const &instanceManager;
+  InstanceManager const *instanceManager;
   MemoryAllocator
 #ifdef NDEBUG
       const
 #endif
-          &memoryAllocator;
+          *memoryAllocator;
   CommandQueue dispatcherQueue;
   GPUDispatcher dispatcher;
 
 public:
-  GPUObjectManager(InstanceManager &instanceManager, MemoryAllocator &memoryAllocator)
+  GPUObjectManager(InstanceManager const *instanceManager, MemoryAllocator *memoryAllocator)
       : instanceManager(instanceManager), memoryAllocator(memoryAllocator), dispatcherQueue(CreateCommandQueue()),
         dispatcher(instanceManager, dispatcherQueue) {}
   ~GPUObjectManager() { DestroyCommandQueue(dispatcherQueue); }
@@ -117,7 +117,7 @@ public:
   } // namespace Engine::Graphics
 
   template <uint8_t D> inline void DestroyImage(Image<D> const &image) const {
-    instanceManager.DestroyImageView(image.imageView);
+    instanceManager->DestroyImageView(image.imageView);
   }
 
   template <uint8_t D>
@@ -127,7 +127,7 @@ public:
 #endif
   {
     DestroyImage(image);
-    memoryAllocator.DestroyImage(image.image, image.allocation);
+    memoryAllocator->DestroyImage(image.image, image.allocation);
   } // namespace Engine::Graphics
 
   template <uint8_t D>
@@ -136,7 +136,7 @@ public:
       const
 #endif
   {
-    instanceManager.DestroySampler(texture.sampler);
+    instanceManager->DestroySampler(texture.sampler);
     DestroyAllocatedImage(texture);
   }
 
@@ -146,7 +146,7 @@ public:
       const
 #endif
   {
-    memoryAllocator.DestroyBuffer(buffer.buffer, buffer.allocation);
+    memoryAllocator->DestroyBuffer(buffer.buffer, buffer.allocation);
   }
 
   template <typename T> inline VkDeviceAddress GetDeviceAddresss(Buffer<T> buffer) const;
@@ -163,8 +163,8 @@ public:
       const
 #endif
   {
-    memoryAllocator.DestroyBuffer(mesh->indexBuffer.buffer, mesh->indexBuffer.allocation);
-    memoryAllocator.DestroyBuffer(mesh->vertexBuffer->GetBuffer(), mesh->vertexBuffer->GetAllocation());
+    memoryAllocator->DestroyBuffer(mesh->indexBuffer.buffer, mesh->indexBuffer.allocation);
+    memoryAllocator->DestroyBuffer(mesh->vertexBuffer->GetBuffer(), mesh->vertexBuffer->GetAllocation());
     delete mesh->vertexBuffer;
   }
 
@@ -176,12 +176,12 @@ inline CommandQueue GPUObjectManager::CreateCommandQueue() const {
   VkCommandPoolCreateInfo commandPoolInfo{
       .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
       .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-      .queueFamilyIndex = instanceManager.GetGraphicsFamily(),
+      .queueFamilyIndex = instanceManager->GetGraphicsFamily(),
   };
 
   VkCommandPool commandPool;
 
-  instanceManager.CreateCommandPool(&commandPoolInfo, &commandPool);
+  instanceManager->CreateCommandPool(&commandPoolInfo, &commandPool);
 
   VkCommandBufferAllocateInfo commandBufferInfo{
       .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -192,14 +192,14 @@ inline CommandQueue GPUObjectManager::CreateCommandQueue() const {
 
   VkCommandBuffer mainBuffer;
 
-  instanceManager.AllocateCommandBuffers(&commandBufferInfo, &mainBuffer);
+  instanceManager->AllocateCommandBuffers(&commandBufferInfo, &mainBuffer);
 
   return CommandQueue(commandPool, mainBuffer);
 }
 
 inline void GPUObjectManager::DestroyCommandQueue(CommandQueue const &queue) const {
-  instanceManager.FreeCommandBuffers(queue.commandPool, &queue.mainBuffer);
-  instanceManager.DestroyCommandPool(queue.commandPool);
+  instanceManager->FreeCommandBuffers(queue.commandPool, &queue.mainBuffer);
+  instanceManager->DestroyCommandPool(queue.commandPool);
 }
 
 template <uint8_t D>
@@ -217,7 +217,7 @@ inline Image<D> GPUObjectManager::CreateImage(VkImage image, Maths::Dimension<D>
                                                                  .baseArrayLayer = 0,
                                                                  .layerCount = arrayLayers}};
 
-  instanceManager.CreateImageView(&imageViewCreateInfo, &imageView);
+  instanceManager->CreateImageView(&imageViewCreateInfo, &imageView);
   return Image<D>(image, imageView, imageSize, imageFormat, currentLayout);
 }
 
@@ -245,7 +245,7 @@ inline AllocatedImage<D> GPUObjectManager::CreateAllocatedImage(VkFormat format,
 
   VkImage im;
   VmaAllocation allocation;
-  memoryAllocator.CreateImage(&imageCreateInfo, &im, &allocation, label);
+  memoryAllocator->CreateImage(&imageCreateInfo, &im, &allocation, label);
   return AllocatedImage<D>(
       CreateImage(im, imageSize, format, VK_IMAGE_LAYOUT_UNDEFINED, aspectMask, mipLevels, arrayLayers), allocation);
 }
@@ -262,7 +262,7 @@ inline Texture<D> GPUObjectManager::CreateTexture(Maths::Dimension<D> const &ima
       .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO, .magFilter = magFilter, .minFilter = minFilter};
 
   VkSampler sampler;
-  instanceManager.CreateSampler(&samplerInfo, &sampler);
+  instanceManager->CreateSampler(&samplerInfo, &sampler);
   return Texture<D>(CreateAllocatedImage(
                         format, imageSize,
                         VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
@@ -327,14 +327,14 @@ Buffer<T> GPUObjectManager::CreateBuffer(size_t size, VkBufferUsageFlags usage, 
 
   VmaAllocationInfo info;
 
-  memoryAllocator.CreateBuffer(&bufferInfo, &allocInfo, &buffer, &allocation, &info, label);
+  memoryAllocator->CreateBuffer(&bufferInfo, &allocInfo, &buffer, &allocation, &info, label);
 
   return Buffer<T>(buffer, allocation, info, size);
 }
 
 template <typename T> inline VkDeviceAddress GPUObjectManager::GetDeviceAddresss(Buffer<T> buffer) const {
   auto info = buffer.GetDeviceAddresssInfo();
-  return instanceManager.GetBufferDeviceAddress(&info);
+  return instanceManager->GetBufferDeviceAddress(&info);
 }
 
 template <typename T_CPU, typename T_GPU>

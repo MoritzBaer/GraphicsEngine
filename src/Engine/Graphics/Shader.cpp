@@ -52,7 +52,7 @@ void ShaderCompiler::AssertCompilationWorked(shaderc_compilation_status status, 
                 shaderName, message);
 }
 
-ShaderCompiler::ShaderCompiler(InstanceManager &instanceManager) : instanceManager(instanceManager) {
+ShaderCompiler::ShaderCompiler(InstanceManager const *instanceManager) : instanceManager(instanceManager), options() {
   options.SetIncluder(std::make_unique<ShaderIncluder>());
 }
 

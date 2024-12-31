@@ -3,9 +3,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include "GLFW/glfw3.h"
 #include "Maths/Dimension.h"
-#include "vulkan/vulkan.h"
 #include <functional>
-#include <unordered_map>
 
 #define CALLBACK_WITH_SETTER(name, ...)                                                                                \
 private:                                                                                                               \
@@ -26,8 +24,7 @@ public:
 
 private:
   GLFWwindow *glfwWindow;
-  uint32_t width;
-  uint32_t height;
+  Maths::Dimension2 canvasSize;
   bool minimized;
 
   Window(GLFWwindow *glfwWindow) : glfwWindow(glfwWindow) {}
@@ -35,7 +32,7 @@ private:
   template <WindowManager *windowManager> static void GLFWResizeCallback(GLFWwindow *glfwWindow, int width, int height);
 
 public:
-  Window(uint32_t width, uint32_t height, const char *title);
+  Window(Maths::Dimension2 const &windowSize, const char *title);
   ~Window();
 
   void CallCallbacks();

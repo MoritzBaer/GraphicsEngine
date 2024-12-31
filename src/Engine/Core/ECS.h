@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Debug/Logging.h"
 #include "Util/Macros.h"
 
 #include <array>

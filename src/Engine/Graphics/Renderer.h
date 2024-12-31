@@ -1,18 +1,13 @@
 #pragma once
 
-#include "Buffer.h"
-#include "Camera.h"
-#include "CommandQueue.h"
-#include "ComputeEffect.h"
-#include "DescriptorHandling.h"
-#include "DrawData.h"
-#include "GPUObjectManager.h"
-#include "Graphics/ImGUIManager.h"
-#include "Image.h"
-#include "Maths/Dimension.h"
-#include "Shader.h"
-#include "Util/DeletionQueue.h"
-#include "Util/Macros.h"
+#include "Graphics/Buffer.h"
+#include "Graphics/Camera.h"
+#include "Graphics/ComputeEffect.h"
+#include "Graphics/DescriptorHandling.h"
+#include "Graphics/DrawData.h"
+#include "Graphics/GPUObjectManager.h"
+#include "Graphics/InstanceManager.h"
+#include "Graphics/MeshRenderer.h"
 #include "vulkan/vulkan.h"
 #include <array>
 #include <vector>
@@ -22,8 +17,8 @@ namespace Engine::Graphics {
 class MeshRenderer;
 
 class Renderer {
-  InstanceManager &instanceManager;
-  GPUObjectManager &gpuObjectManager;
+  InstanceManager const *instanceManager;
+  GPUObjectManager *gpuObjectManager;
 
   struct FrameResources {
     CommandQueue commandQueue;
@@ -90,18 +85,16 @@ private:
   inline FrameResources const &CurrentResources() const { return frameResources[currentFrame % MAX_FRAME_OVERLAP]; }
 
 public:
-  Renderer(Maths::Dimension2 windowSize, InstanceManager &instanceManager, GPUObjectManager &gpuObjectManager,
+  Renderer(Maths::Dimension2 const &windowSize, InstanceManager const *instanceManager,
+           GPUObjectManager *gpuObjectManager,
            std::vector<ComputeEffect<ComputePushConstants>> const &backgroundEffects);
   ~Renderer();
 
   void DrawFrame(Camera const *camera, SceneData const &sceneData,
                  std::span<MeshRenderer const *> const &objectsToDraw);
-  //{
-  //  Debug::Logging::PrintMessage("DEBUG", "Drawing frame!");
-  //};
 
   inline void RecreateSwapchain() {
-    instanceManager.WaitUntilDeviceIdle();
+    instanceManager->WaitUntilDeviceIdle();
     DestroySwapchain();
     CreateSwapchain();
   }

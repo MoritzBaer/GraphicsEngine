@@ -3,6 +3,7 @@
 #include <array>
 
 #include "Core/ECS.h"
+#include "Debug/Logging.h"
 #include "Publishable.h"
 #include "json-parsing.h"
 

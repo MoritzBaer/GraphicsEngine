@@ -6,10 +6,10 @@
 
 namespace Engine::Core {
 class SceneHierarchy {
-  ECS &ecs;
+  ECS *ecs;
 
 public:
-  SceneHierarchy(ECS &ecs) : ecs(ecs) {}
+  SceneHierarchy(ECS *ecs) : ecs(ecs) {}
   struct TreeNode;
 
   void BuildHierarchy();

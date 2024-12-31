@@ -16,7 +16,7 @@ Engine::Core::SceneHierarchy::TreeNode Engine::Core::SceneHierarchy::BuildNode(E
 
 void Engine::Core::SceneHierarchy::BuildHierarchy() {
   roots = std::vector<TreeNode>();
-  for (auto e : ecs) {
+  for (auto e : *ecs) {
     if (!e.HasComponent<Graphics::Transform>() || !e.GetComponent<Graphics::Transform>()->parent) {
       roots.push_back(BuildNode(e));
     }

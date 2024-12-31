@@ -13,7 +13,7 @@ class WindowManager {
   void DeleteAllWindows();
 
 public:
-  static Window *CreateWindow(uint32_t width, uint32_t height, const char *title);
+  static Window *CreateWindow(Maths::Dimension2 const &windowSize, const char *title);
   static void DestroyWindow(Window *window);
 
   inline static void CallResizeCallbackOnCorrectWindow(Window const *window, Maths::Dimension2 const &size) {

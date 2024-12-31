@@ -15,7 +15,6 @@ template <ShaderType Type> class Shader {
 private:
   friend class ShaderCompiler;
 
-  ShaderType type;
   // TODO: store entry point
   VkShaderModule shaderModule;
 
@@ -27,13 +26,13 @@ public:
 class ShaderCompiler {
   shaderc::Compiler compiler;
   shaderc::CompileOptions options;
-  InstanceManager &instanceManager;
+  InstanceManager const *instanceManager;
 
   void AssertPreprocessingWorked(shaderc_compilation_status status, const char *shaderName, const char *message);
   void AssertCompilationWorked(shaderc_compilation_status status, const char *shaderName, const char *message);
 
 public:
-  ShaderCompiler(InstanceManager &instanceManager);
+  ShaderCompiler(InstanceManager const *instanceManager);
 
   template <ShaderType Type>
   inline Shader<Type> CompileShaderCode(const char *shaderName, std::vector<char> const &shaderCode) {
@@ -74,13 +73,12 @@ template <ShaderType Type> inline VkPipelineShaderStageCreateInfo Shader<Type>::
 }
 
 template <ShaderType Type> inline void ShaderCompiler::DestroyShader(Shader<Type> &shader) {
-  instanceManager.DestroyShaderModule(shader.shaderModule);
+  instanceManager->DestroyShaderModule(shader.shaderModule);
 }
 
 template <ShaderType Type>
 inline Shader<Type> ShaderCompiler::CompileShaderCode(const char *shaderName, std::string const &shaderCode) {
   Shader<Type> result;
-  result.type = Type;
 
   auto preprocessedCode =
       compiler.PreprocessGlsl(shaderCode.data(), shaderCode.size(), StageConstants<Type>::kind, shaderName, options);
@@ -99,7 +97,7 @@ inline Shader<Type> ShaderCompiler::CompileShaderCode(const char *shaderName, st
                                                   .codeSize = static_cast<uint32_t>(bytecode.size()) * sizeof(uint32_t),
                                                   .pCode = bytecode.data()};
 
-  instanceManager.CreateShaderModule(&shaderModuleCreateInfo, &result.shaderModule);
+  instanceManager->CreateShaderModule(&shaderModuleCreateInfo, &result.shaderModule);
 
   return result;
 }

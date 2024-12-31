@@ -14,8 +14,9 @@ template <WindowManager *windowManager> void Window::GLFWResizeCallback(GLFWwind
   WindowManager::CallResizeCallbackOnCorrectWindow(nullptr, &comparison, Maths::Dimension2(width, height));
 }
 
-Window::Window(uint32_t width, uint32_t height, const char *title) : width(width), height(height), minimized(false) {
-  glfwWindow = glfwCreateWindow(width, height, title, nullptr, nullptr);
+Window::Window(Maths::Dimension2 const &windowSize, const char *title)
+    : canvasSize(windowSize), minimized(false),
+      glfwWindow(glfwCreateWindow(windowSize[WIDTH], windowSize[HEIGHT], title, nullptr, nullptr)) {
   glfwSetFramebufferSizeCallback(glfwWindow, &WindowManager::CallResizeCallbackOnCorrectWindow);
 }
 

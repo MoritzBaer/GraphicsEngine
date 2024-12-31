@@ -11,9 +11,9 @@
 #include "WindowManager.h"
 
 struct Game {
+  Engine::DeletionQueue mainDeletionQueue;
   Engine::Window *mainWindow;
   Engine::Graphics::InstanceManager instanceManager;
-  Engine::DeletionQueue mainDeletionQueue;
   Engine::Graphics::MemoryAllocator memoryAllocator;
   Engine::Graphics::GPUObjectManager gpuObjectManager;
   Engine::Graphics::ShaderCompiler shaderCompiler;
