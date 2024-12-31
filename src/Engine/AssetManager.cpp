@@ -3,7 +3,12 @@
 #include "Game.h"
 
 namespace Engine {
-AssetManager::AssetManager(Game *game) : game(game), numberOfAssetTypes(0), assetCaches() {}
+AssetManager::AssetManager(Graphics::GPUObjectManager *gpuObjectManager, Core::ECS *ecs,
+                           Graphics::ShaderCompiler *shaderCompiler, Graphics::InstanceManager *instanceManager)
+    : numberOfAssetTypes(0), ecs(ecs), gpuObjectManager(gpuObjectManager), shaderCompiler(shaderCompiler),
+      instanceManager(instanceManager), assetCaches() {
+  InitStandins();
+}
 
 AssetManager::~AssetManager() {
   for (int c = 0; c < numberOfAssetTypes; c++) {
@@ -20,8 +25,8 @@ void AssetManager::InitStandins() {
 
   uint32_t white = 0xFFFFFFFF;
   uint32_t normalUp = 0xFFFF8080;
-  textureCache->InsertAsset("white", game->gpuObjectManager.CreateTexture(Maths::Dimension2(1, 1), &white));
-  textureCache->InsertAsset("normalUp", game->gpuObjectManager.CreateTexture(Maths::Dimension2(1, 1), &normalUp));
+  textureCache->InsertAsset("white", gpuObjectManager->CreateTexture(Maths::Dimension2(1, 1), &white));
+  textureCache->InsertAsset("normalUp", gpuObjectManager->CreateTexture(Maths::Dimension2(1, 1), &normalUp));
 
   // Load error texture
   std::vector<uint32_t> errorTextureData(16 * 16, 0xFFFF00FF);
@@ -31,8 +36,8 @@ void AssetManager::InitStandins() {
     }
   }
   textureCache->InsertAsset("missing",
-                            game->gpuObjectManager.CreateTexture(Maths::Dimension2(16, 16), errorTextureData.data(),
-                                                                 VK_FILTER_NEAREST, VK_FILTER_NEAREST));
+                            gpuObjectManager->CreateTexture(Maths::Dimension2(16, 16), errorTextureData.data(),
+                                                            VK_FILTER_NEAREST, VK_FILTER_NEAREST));
 }
 
 } // namespace Engine

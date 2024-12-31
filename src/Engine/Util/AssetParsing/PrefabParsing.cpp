@@ -14,7 +14,7 @@ template <> inline Core::Entity AssetManager::AssetCacheT<Core::Entity>::LoadAss
   ENGINE_SUCCESS("Using specialized asset cache!!!") // FIXME: Would be nice to get this to work, but this can also be
                                                      // deferred to scene loading ¯\_(ツ)_/¯
   auto cachedPrefab = cache.find(assetName);
-  return manager->game->ecs.DuplicateEntity(cachedPrefab->second);
+  return manager->ecs->DuplicateEntity(cachedPrefab->second);
 }
 
 struct ComponentDSO {
@@ -59,7 +59,7 @@ AssetManager::AssetDSO<Core::Entity> *AssetManager::ParseAsset<Core::Entity>(std
 }
 
 template <> Core::Entity AssetManager::ConvertDSO<Core::Entity>(AssetDSO<Core::Entity> const *dso) {
-  Core::Entity entity = game->ecs.CreateEntity();
+  Core::Entity entity = ecs->CreateEntity();
   for (auto component : dso->components) {
     if (auto transformDSO = dynamic_cast<TransformDSO *>(component)) {
       auto transform = entity.AddComponent<Graphics::Transform>();
@@ -74,8 +74,8 @@ template <> Core::Entity AssetManager::ConvertDSO<Core::Entity>(AssetDSO<Core::E
       }
     } else if (auto meshRendererDSO = dynamic_cast<MeshRendererDSO *>(component)) {
       auto meshRenderer = entity.AddComponent<Graphics::MeshRenderer>();
-      meshRenderer->mesh = game->assetManager.LoadAsset<Graphics::AllocatedMesh *>(meshRendererDSO->meshName);
-      meshRenderer->material = game->assetManager.LoadAsset<Graphics::Material *>(meshRendererDSO->materialName);
+      meshRenderer->mesh = LoadAsset<Graphics::AllocatedMesh *>(meshRendererDSO->meshName);
+      meshRenderer->material = LoadAsset<Graphics::Material *>(meshRendererDSO->materialName);
     } else if (auto cameraDSO = dynamic_cast<CameraDSO *>(component)) {
       auto camera = entity.AddComponent<Graphics::Camera>();
       camera->projection =
@@ -90,7 +90,7 @@ template <> Core::Entity AssetManager::ConvertDSO<Core::Entity>(AssetDSO<Core::E
   return entity;
 }
 
-template <> void AssetManager::DestroyAsset<Core::Entity>(Core::Entity &asset) const { game->ecs.DestroyEntity(asset); }
+template <> void AssetManager::DestroyAsset<Core::Entity>(Core::Entity &asset) const { ecs->DestroyEntity(asset); }
 
 } // namespace Engine
 

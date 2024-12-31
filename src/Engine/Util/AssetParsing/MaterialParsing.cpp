@@ -40,68 +40,60 @@ std::string AssetManager::GetAssetPath<Graphics::Shader<Graphics::ShaderType::FR
 }
 
 // Parsing
-template <Graphics::ShaderType Type>
-AssetManager::AssetDSO<Graphics::Shader<Type>> *ParseShader(std::string const &assetSource) {
-  return new AssetManager::AssetDSO<Graphics::Shader<Type>>(assetSource);
-}
 template <>
 AssetManager::AssetDSO<Graphics::Shader<Graphics::ShaderType::COMPUTE>> *
 AssetManager::ParseAsset<Graphics::Shader<Graphics::ShaderType::COMPUTE>>(std::string const &assetSource) const {
-  return ParseShader<Graphics::ShaderType::COMPUTE>(assetSource);
+  return new AssetManager::AssetDSO<Graphics::Shader<Graphics::ShaderType::COMPUTE>>(assetSource);
 }
 template <>
 AssetManager::AssetDSO<Graphics::Shader<Graphics::ShaderType::FRAGMENT>> *
 AssetManager::ParseAsset<Graphics::Shader<Graphics::ShaderType::FRAGMENT>>(std::string const &assetSource) const {
-  return ParseShader<Graphics::ShaderType::FRAGMENT>(assetSource);
+  return new AssetManager::AssetDSO<Graphics::Shader<Graphics::ShaderType::FRAGMENT>>(assetSource);
 }
 template <>
 AssetManager::AssetDSO<Graphics::Shader<Graphics::ShaderType::GEOMETRY>> *
 AssetManager::ParseAsset<Graphics::Shader<Graphics::ShaderType::GEOMETRY>>(std::string const &assetSource) const {
-  return ParseShader<Graphics::ShaderType::GEOMETRY>(assetSource);
+  return new AssetManager::AssetDSO<Graphics::Shader<Graphics::ShaderType::GEOMETRY>>(assetSource);
 }
 template <>
 AssetManager::AssetDSO<Graphics::Shader<Graphics::ShaderType::VERTEX>> *
 AssetManager::ParseAsset<Graphics::Shader<Graphics::ShaderType::VERTEX>>(std::string const &assetSource) const {
-  return ParseShader<Graphics::ShaderType::VERTEX>(assetSource);
+  return new AssetManager::AssetDSO<Graphics::Shader<Graphics::ShaderType::VERTEX>>(assetSource);
 }
 
 // Conversions
 template <>
 Graphics::Shader<Graphics::ShaderType::COMPUTE>
 AssetManager::ConvertDSO(AssetDSO<Graphics::Shader<Graphics::ShaderType::COMPUTE>> const *dso) {
-  return game->shaderCompiler.CompileShaderCode<Graphics::ShaderType::COMPUTE>("unnamed shader",
-                                                                               dso->shaderSource.c_str());
+  return shaderCompiler->CompileShaderCode<Graphics::ShaderType::COMPUTE>("unnamed shader", dso->shaderSource.c_str());
 }
 template <>
 Graphics::Shader<Graphics::ShaderType::VERTEX>
 AssetManager::ConvertDSO(AssetDSO<Graphics::Shader<Graphics::ShaderType::VERTEX>> const *dso) {
-  return game->shaderCompiler.CompileShaderCode<Graphics::ShaderType::VERTEX>("unnamed shader",
-                                                                              dso->shaderSource.c_str());
+  return shaderCompiler->CompileShaderCode<Graphics::ShaderType::VERTEX>("unnamed shader", dso->shaderSource.c_str());
 }
 template <>
 Graphics::Shader<Graphics::ShaderType::GEOMETRY>
 AssetManager::ConvertDSO(AssetDSO<Graphics::Shader<Graphics::ShaderType::GEOMETRY>> const *dso) {
-  return game->shaderCompiler.CompileShaderCode<Graphics::ShaderType::GEOMETRY>("unnamed shader",
-                                                                                dso->shaderSource.c_str());
+  return shaderCompiler->CompileShaderCode<Graphics::ShaderType::GEOMETRY>("unnamed shader", dso->shaderSource.c_str());
 }
 template <>
 Graphics::Shader<Graphics::ShaderType::FRAGMENT>
 AssetManager::ConvertDSO(AssetDSO<Graphics::Shader<Graphics::ShaderType::FRAGMENT>> const *dso) {
-  return game->shaderCompiler.CompileShaderCode<Graphics::ShaderType::FRAGMENT>("unnamed shader",
-                                                                                dso->shaderSource.c_str());
+  return shaderCompiler->CompileShaderCode<Graphics::ShaderType::FRAGMENT>("unnamed shader", dso->shaderSource.c_str());
 }
 
 template <> void AssetManager::DestroyAsset(Graphics::Shader<Graphics::ShaderType::COMPUTE> &asset) const {
-  game->shaderCompiler.DestroyShader<Graphics::ShaderType::COMPUTE>(asset);
+  shaderCompiler->DestroyShader<Graphics::ShaderType::COMPUTE>(asset);
 }
 template <> void AssetManager::DestroyAsset(Graphics::Shader<Graphics::ShaderType::VERTEX> &asset) const {
-  game->shaderCompiler.DestroyShader<Graphics::ShaderType::VERTEX>(asset);
+  shaderCompiler->DestroyShader<Graphics::ShaderType::VERTEX>(asset);
 }
 template <> void AssetManager::DestroyAsset(Graphics::Shader<Graphics::ShaderType::GEOMETRY> &asset) const {
-  game->shaderCompiler.DestroyShader<Graphics::ShaderType::GEOMETRY>(asset);
+  shaderCompiler->DestroyShader<Graphics::ShaderType::GEOMETRY>(asset);
 }
 template <> void AssetManager::DestroyAsset(Graphics::Shader<Graphics::ShaderType::FRAGMENT> &asset) const {
-  game->shaderCompiler.DestroyShader<Graphics::ShaderType::FRAGMENT>(asset);
+  shaderCompiler->DestroyShader<Graphics::ShaderType::FRAGMENT>(asset);
 }
 
 // Pipelines
@@ -128,7 +120,7 @@ Graphics::Pipeline *AssetManager::ConvertDSO<Graphics::Pipeline *>(AssetDSO<Grap
 
   size_t uniformSize = sizeof(VkDeviceAddress) + sizeof(Maths::Matrix4);
 
-  Graphics::PipelineBuilder pipelineBuilder = Graphics::PipelineBuilder(game->instanceManager);
+  Graphics::PipelineBuilder pipelineBuilder = Graphics::PipelineBuilder(instanceManager);
   return pipelineBuilder.AddPushConstant<Graphics::ShaderType::VERTEX>(uniformSize, 0)
       .AddDescriptorBinding(0, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
       .AddDescriptorBinding(1, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
@@ -149,7 +141,7 @@ Graphics::Pipeline *AssetManager::ConvertDSO<Graphics::Pipeline *>(AssetDSO<Grap
 }
 
 template <> void AssetManager::DestroyAsset<Graphics::Pipeline *>(Graphics::Pipeline *&asset) const {
-  Graphics::PipelineBuilder::DestroyPipeline(*asset, &game->instanceManager);
+  Graphics::PipelineBuilder::DestroyPipeline(*asset, instanceManager);
   delete asset;
 }
 

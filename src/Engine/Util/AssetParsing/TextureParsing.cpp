@@ -32,12 +32,12 @@ Graphics::Texture2D AssetManager::ConvertDSO<Graphics::Texture2D>(AssetDSO<Graph
     return dynamic_cast<AssetCacheT<Graphics::Texture2D> *>(assetCaches[AssetTypeID<Graphics::Texture2D>::value])
         ->LoadAsset("missing");
   }
-  return game->gpuObjectManager.CreateTexture(Maths::Dimension2(dso->width, dso->height), pixels, VK_FILTER_LINEAR,
-                                              VK_FILTER_LINEAR);
+  return gpuObjectManager->CreateTexture(Maths::Dimension2(dso->width, dso->height), pixels, VK_FILTER_LINEAR,
+                                         VK_FILTER_LINEAR);
 }
 
 template <> void AssetManager::DestroyAsset<Graphics::Texture2D>(Graphics::Texture2D &asset) const {
-  game->gpuObjectManager.DestroyTexture(asset);
+  gpuObjectManager->DestroyTexture(asset);
 }
 
 } // namespace Engine

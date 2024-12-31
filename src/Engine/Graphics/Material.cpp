@@ -133,7 +133,7 @@ PipelineBuilder &PipelineBuilder::AddDescriptorBinding(uint32_t set, uint32_t bi
     auto oldSetCount = descriptorSets.size();
     descriptorSets.resize(set + 1);
     for (auto i = oldSetCount; i < descriptorSets.size(); i++) {
-      descriptorSets[i].layoutBuilder = DescriptorLayoutBuilder(&instanceManager);
+      descriptorSets[i].layoutBuilder = DescriptorLayoutBuilder(instanceManager);
     }
   }
   descriptorSets[set].layoutBuilder.AddBinding(binding, descriptorType);
@@ -154,7 +154,7 @@ Pipeline *PipelineBuilder::Build() {
                                         .pSetLayouts = descriptorSetLayouts.data(),
                                         .pushConstantRangeCount = static_cast<uint32_t>(pushConstantRanges.size()),
                                         .pPushConstantRanges = pushConstantRanges.data()};
-  instanceManager.CreatePipelineLayout(&layoutInfo, &pipelineLayout);
+  instanceManager->CreatePipelineLayout(&layoutInfo, &pipelineLayout);
 
   VkPipelineViewportStateCreateInfo viewportInfo{
       .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO, .viewportCount = 1, .scissorCount = 1};
@@ -192,7 +192,7 @@ Pipeline *PipelineBuilder::Build() {
                                             .layout = pipelineLayout};
 
   VkPipeline pipeline;
-  instanceManager.CreateGraphicsPipeline(pipelineInfo, &pipeline);
+  instanceManager->CreateGraphicsPipeline(pipelineInfo, &pipeline);
 
   return new Pipeline(pipelineLayout, descriptorSetLayouts, pipeline);
 }

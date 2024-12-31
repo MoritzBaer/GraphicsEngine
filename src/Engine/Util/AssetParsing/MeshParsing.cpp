@@ -1,7 +1,8 @@
 #include "AssetManager.h"
+
 #include "Debug/Logging.h"
 #include "Debug/Profiling.h"
-#include "Game.h"
+#include "Graphics/AllocatedMesh.h"
 
 namespace Engine {
 
@@ -125,6 +126,8 @@ template <> struct AssetManager::AssetDSO<Graphics::AllocatedMesh *> {
   std::vector<Maths::Vector3> vertexNormals;
   std::vector<Maths::Vector2> vertexUVs;
   std::vector<Maths::VectorT<3, Maths::VectorT<3, uint32_t>>> triangles;
+
+  inline Graphics::MeshT<OBJVertex> DeduplicateVertices() const;
 };
 
 template <> std::string AssetManager::GetAssetPath<Graphics::AllocatedMesh *>(char const *assetName) const {
@@ -274,19 +277,18 @@ AssetManager::ParseAsset<Graphics::AllocatedMesh *>(std::string const &assetSour
   return dso;
 }
 
-inline Graphics::MeshT<OBJVertex>
-DeduplicateVertices(AssetManager::AssetDSO<Graphics::AllocatedMesh *> const *parsedOBJ) {
+inline Graphics::MeshT<OBJVertex> AssetManager::AssetDSO<Graphics::AllocatedMesh *>::DeduplicateVertices() const {
   Graphics::MeshT<OBJVertex> objMesh;
   std::unordered_map<Maths::VectorT<3, uint32_t>, uint32_t> vertexIndices{};
 
-  for (auto const &triangle : parsedOBJ->triangles) {
+  for (auto const &triangle : triangles) {
     for (int v = 0; v < 3; v++) {
       auto const &idTriple = triangle[v];
       if (vertexIndices.find(idTriple) == vertexIndices.end()) {
         vertexIndices.emplace(idTriple, static_cast<uint32_t>(objMesh.vertices.size()));
-        objMesh.vertices.push_back(OBJVertex{.position = parsedOBJ->vertexPositions[idTriple[0] - 1],
-                                             .uv = parsedOBJ->vertexUVs[idTriple[1] - 1],
-                                             .normal = parsedOBJ->vertexNormals[idTriple[2] - 1]});
+        objMesh.vertices.push_back(OBJVertex{.position = vertexPositions[idTriple[0] - 1],
+                                             .uv = vertexUVs[idTriple[1] - 1],
+                                             .normal = vertexNormals[idTriple[2] - 1]});
       }
       objMesh.indices.push_back(vertexIndices[idTriple]);
     }
@@ -353,14 +355,13 @@ inline Graphics::Mesh CalculateTangentSpace(Graphics::MeshT<OBJVertex> &objMesh)
 template <>
 Graphics::AllocatedMesh *
 AssetManager::ConvertDSO<Graphics::AllocatedMesh *>(AssetDSO<Graphics::AllocatedMesh *> const *dso) {
-  auto objMesh = DeduplicateVertices(dso);
+  auto objMesh = dso->DeduplicateVertices();
   auto const &mesh = CalculateTangentSpace(objMesh);
-  return new Graphics::AllocatedMesh(
-      game->gpuObjectManager.AllocateMesh<Graphics::Vertex, Graphics::VertexFormat>(mesh));
+  return new Graphics::AllocatedMesh(gpuObjectManager->AllocateMesh<Graphics::Vertex, Graphics::VertexFormat>(mesh));
 }
 
 template <> void AssetManager::DestroyAsset<Graphics::AllocatedMesh *>(Graphics::AllocatedMesh *&asset) const {
-  game->gpuObjectManager.DeallocateMesh(asset);
+  gpuObjectManager->DeallocateMesh(asset);
 }
 
 } // namespace Engine

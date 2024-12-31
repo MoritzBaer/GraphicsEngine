@@ -64,7 +64,7 @@ class PipelineBuilder {
     DescriptorSet() : descriptorLayout(), layoutBuilder(nullptr), descriptorSetStages() {}
   };
 
-  InstanceManager &instanceManager;
+  InstanceManager *instanceManager;
 
   VkPipelineInputAssemblyStateCreateInfo inputAssembly;
   VkPipelineRasterizationStateCreateInfo rasterizer;
@@ -85,10 +85,10 @@ public:
   enum class BlendMode { ALPHA, ADDITIVE };
   PipelineBuilder &Reset();
 
-  PipelineBuilder(InstanceManager &instanceManager)
+  PipelineBuilder(InstanceManager *instanceManager)
       : instanceManager(instanceManager), descriptorSets(4), shaderStageInfos(), pushConstantRanges() {
     for (int i = 0; i < 4; i++) {
-      descriptorSets[i].layoutBuilder = DescriptorLayoutBuilder(&instanceManager);
+      descriptorSets[i].layoutBuilder = DescriptorLayoutBuilder(instanceManager);
     }
     Reset();
   }

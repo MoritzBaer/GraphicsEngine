@@ -1,24 +1,20 @@
 #pragma once
 
 #include "Core/ECS.h"
-#include "Graphics/AllocatedMesh.h"
-#include "Graphics/Material.h"
-#include "Graphics/Shader.h"
-#include "Graphics/Texture.h"
+#include "Graphics/GPUObjectManager.h"
 #include "Util/FileIO.h"
 #include "Util/Macros.h"
 #include <string>
 #include <unordered_map>
 
-struct Game;
-
 namespace Engine {
 
 class AssetManager {
   uint8_t numberOfAssetTypes;
-  Game *game;
-
-  Graphics::Pipeline *ParsePipeline(char const *pipelineData);
+  Core::ECS *ecs;
+  Graphics::GPUObjectManager *gpuObjectManager;
+  Graphics::ShaderCompiler *shaderCompiler;
+  Graphics::InstanceManager *instanceManager;
 
   typedef uint8_t typeID;
   template <typename T> struct AssetTypeID {
@@ -50,21 +46,25 @@ class AssetManager {
     }
   };
 
-  template <typename T> void DestroyAsset(T &asset) const;
-  template <typename T> inline void InitCacheIfNecessary();
-
 public:
-  AssetManager(Game *game);
-  ~AssetManager();
-
   template <typename T> struct AssetDSO;
+
+private:
   template <typename T> std::string GetAssetPath(char const *assetName) const;
   template <typename T> AssetDSO<T> *ParseAsset(std::string const &assetSource) const;
   template <typename T> T ConvertDSO(AssetDSO<T> const *dso);
+  template <typename T> void DestroyAsset(T &asset) const;
+
+  template <typename T> inline void InitCacheIfNecessary();
+  void InitStandins();
+
+public:
+  AssetManager(Graphics::GPUObjectManager *gpuObjectManager, Core::ECS *ecs, Graphics::ShaderCompiler *shaderCompiler,
+               Graphics::InstanceManager *instanceManager);
+  ~AssetManager();
+
   template <typename T> inline T LoadAsset(char const *assetName);
   template <typename T> inline T LoadAsset(std::string const &assetName) { return LoadAsset<T>(assetName.c_str()); };
-
-  void InitStandins();
 };
 
 template <typename T> inline T AssetManager::AssetCacheT<T>::LoadAsset(char const *assetName) {

@@ -18,10 +18,10 @@ struct Game {
   Engine::Graphics::GPUObjectManager gpuObjectManager;
   Engine::Graphics::ShaderCompiler shaderCompiler;
   Engine::Core::SceneHierarchy sceneHierarchy;
+  Engine::Core::ECS ecs;
   Engine::AssetManager assetManager;
   Engine::Graphics::Renderer renderer;
   Engine::Graphics::ImGUIManager imGuiManager;
-  Engine::Core::ECS ecs;
 
   Engine::Core::Entity mainCam;
   bool rendering;

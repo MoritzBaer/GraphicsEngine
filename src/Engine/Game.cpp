@@ -33,8 +33,9 @@ using namespace Engine;
 
 Game::Game(const char *name)
     : mainWindow(Engine::WindowManager::CreateWindow(1600, 900, name)), mainDeletionQueue(),
-      instanceManager(name, mainWindow), assetManager(this), shaderCompiler(instanceManager), ecs(),
-      memoryAllocator(instanceManager), gpuObjectManager(instanceManager, memoryAllocator),
+      instanceManager(name, mainWindow), assetManager(&gpuObjectManager, &ecs, &shaderCompiler, &instanceManager),
+      shaderCompiler(instanceManager), ecs(), memoryAllocator(instanceManager),
+      gpuObjectManager(instanceManager, memoryAllocator),
       renderer({1600, 900}, instanceManager, gpuObjectManager, InitializedComputeEffects(assetManager)),
       sceneHierarchy(ecs), rendering(true), running(true),
       imGuiManager(mainWindow, renderer.GetSwapchainFormat(), instanceManager) {
@@ -62,7 +63,6 @@ Game::Game(const char *name)
     mainWindow->SetResizeCallback(
         [this](Engine::Maths::Dimension2 newWindowSize) { renderer.SetWindowSize(newWindowSize); });
 
-    assetManager.InitStandins();
     assetManager.LoadAsset<Core::Entity>("speeder");
 
     assetManager.LoadAsset<Core::Entity>("cube");
