@@ -5,8 +5,8 @@
 namespace Engine {
 AssetManager::AssetManager(Graphics::GPUObjectManager *gpuObjectManager, Core::ECS *ecs,
                            Graphics::ShaderCompiler *shaderCompiler, Graphics::InstanceManager *instanceManager)
-    : numberOfAssetTypes(0), ecs(ecs), gpuObjectManager(gpuObjectManager), shaderCompiler(shaderCompiler),
-      instanceManager(instanceManager), assetCaches() {
+    : ecs(ecs), gpuObjectManager(gpuObjectManager), shaderCompiler(shaderCompiler), instanceManager(instanceManager),
+      assetCaches() {
   InitStandins();
 }
 

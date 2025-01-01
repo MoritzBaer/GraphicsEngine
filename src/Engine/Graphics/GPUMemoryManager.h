@@ -25,11 +25,11 @@ class BufferToImageCopyCommand : public Command {
   size_t srcOffset;     // In bytes
   VkOffset3D dstOffset; // In bytes
   VkExtent3D dstExtent; // In bytes
-  vkutil::PipelineBarrierCommand imageTransition;
+  vkutil::PipelineBarrierCommand const *imageTransition;
 
 public:
   BufferToImageCopyCommand(VkBuffer source, VkImage destination, VkExtent3D destinationExtent,
-                           vkutil::PipelineBarrierCommand const &imageTransition, size_t sourceOffset = 0,
+                           vkutil::PipelineBarrierCommand const *imageTransition, size_t sourceOffset = 0,
                            VkOffset3D destinationOffset = {0, 0, 0})
       : src(source), dst(destination), srcOffset(sourceOffset), dstOffset(destinationOffset),
         dstExtent(destinationExtent), imageTransition(imageTransition) {}
@@ -61,12 +61,12 @@ public:
   }
   template <typename T1, uint8_t D>
   // Image can't be const because it needs to be transitioned
-  static BufferToImageCopyCommand
+  static BufferToImageCopyCommand *
   CopyBufferToImage(Buffer<T1> const &source, Image<D> &destination, Maths::Dimension<D> destinationExtent,
                     size_t sourceOffset = 0, Maths::Dimension<D> destinationOffset = Maths::Dimension<D>::Zero()) {
-    return BufferToImageCopyCommand(source.buffer, destination.image, vkutil::DimensionToExtent(destinationExtent),
-                                    destination.Transition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL), sourceOffset,
-                                    vkutil::DimensionToOffset(destinationOffset));
+    return new BufferToImageCopyCommand(source.buffer, destination.image, vkutil::DimensionToExtent(destinationExtent),
+                                        destination.Transition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL), sourceOffset,
+                                        vkutil::DimensionToOffset(destinationOffset));
   }
 };
 
@@ -78,7 +78,8 @@ inline void BufferCopyCommand::QueueExecution(VkCommandBuffer const &queue) cons
 }
 
 inline void BufferToImageCopyCommand::QueueExecution(VkCommandBuffer const &queue) const {
-  imageTransition.QueueExecution(queue);
+  imageTransition->QueueExecution(queue);
+  delete imageTransition;
   VkBufferImageCopy copy{.bufferOffset = srcOffset,
                          .bufferRowLength = 0,
                          .bufferImageHeight = 0,

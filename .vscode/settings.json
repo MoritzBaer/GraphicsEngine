@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "*.sc": "latex",
+        "*.pfb": "json",
+        "*.mat": "json",
         "xutility": "cpp",
         "initializer_list": "cpp",
         "iosfwd": "cpp",
@@ -82,7 +84,8 @@
         "deque": "cpp",
         "ranges": "cpp",
         "strstream": "cpp",
-        "hash_set": "cpp"
+        "hash_set": "cpp",
+        "expected": "cpp"
     },
     "cmake.configureSettings": {
         "CMAKE_BUILD_TYPE": "${buildType}",

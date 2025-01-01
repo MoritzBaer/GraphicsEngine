@@ -8,6 +8,7 @@
 #include "Graphics/GPUObjectManager.h"
 #include "Graphics/InstanceManager.h"
 #include "Graphics/MeshRenderer.h"
+#include "Graphics/RenderingStrategy.h"
 #include "vulkan/vulkan.h"
 #include <array>
 #include <vector>
@@ -19,6 +20,7 @@ class MeshRenderer;
 class Renderer {
   InstanceManager const *instanceManager;
   GPUObjectManager *gpuObjectManager;
+  RenderingStrategy *renderingStrategy;
 
   struct FrameResources {
     CommandQueue commandQueue;
@@ -90,8 +92,7 @@ public:
            std::vector<ComputeEffect<ComputePushConstants>> const &backgroundEffects);
   ~Renderer();
 
-  void DrawFrame(Camera const *camera, SceneData const &sceneData,
-                 std::span<MeshRenderer const *> const &objectsToDraw);
+  void DrawFrame(RenderingRequest const &request);
 
   inline void RecreateSwapchain() {
     instanceManager->WaitUntilDeviceIdle();
@@ -99,6 +100,7 @@ public:
     CreateSwapchain();
   }
 
+  inline void SetRenderingStrategy(RenderingStrategy *newStrategy) { renderingStrategy = newStrategy; }
   inline void SetWindowSize(Maths::Dimension2 newSize) {
     windowDimension = newSize;
     RecreateSwapchain();

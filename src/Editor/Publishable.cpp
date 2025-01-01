@@ -1,9 +1,9 @@
 #include "Publishable.h"
 
 #include "Debug/Logging.h"
+#include "Editor/Macros.h"
 #include "Maths/Dimension.h"
 #include "Maths/Quaternion.h"
-#include "Util/Macros.h"
 #include "imgui.h"
 
 #define DEDUCED_TYPE_IMPLEMENTATION_NUMERIC(objectType, publicationType)                                               \
@@ -17,16 +17,16 @@
                        .referencedPointer = &value};                                                                   \
   }
 
-namespace Engine::Editor::_Publication {
+namespace Editor::_Publication {
 
-using Maths::Dimension1;
-using Maths::Dimension2;
-using Maths::Dimension3;
-using Maths::Dimension4;
-using Maths::Quaternion;
-using Maths::Vector2;
-using Maths::Vector3;
-using Maths::Vector4;
+using Engine::Maths::Dimension1;
+using Engine::Maths::Dimension2;
+using Engine::Maths::Dimension3;
+using Engine::Maths::Dimension4;
+using Engine::Maths::Quaternion;
+using Engine::Maths::Vector2;
+using Engine::Maths::Vector3;
+using Engine::Maths::Vector4;
 
 DEDUCED_TYPE_IMPLEMENTATION_NUMERIC(int, INTEGER1)
 
@@ -46,9 +46,9 @@ DEDUCED_TYPE_IMPLEMENTATION_NUMERIC(Quaternion, FLOAT4)
 DEDUCED_TYPE_IMPLEMENTATION_NUMERIC(const char *,
                                     TEXT) // HACK: Text isn't a numeric type, but there are no text-specific styles
 
-} // namespace Engine::Editor::_Publication
+} // namespace Editor::_Publication
 
-namespace Engine::Editor {
+namespace Editor {
 
 #define DRAW_DRAG_INT(func, ranged)                                                                                    \
   if (ranged) {                                                                                                        \
@@ -74,7 +74,7 @@ namespace Engine::Editor {
     func(publication.label, (float *)publication.referencedPointer, publication.floatRange.min,                        \
          publication.floatRange.max);                                                                                  \
   } else {                                                                                                             \
-    ENGINE_ERROR("Publication labelled {} was styled as slider but the RANGE flag has not been set!",                  \
+    EDITOR_ERROR("Publication labelled {} was styled as slider but the RANGE flag has not been set!",                  \
                  publication.label)                                                                                    \
   }
 
@@ -87,11 +87,11 @@ namespace Engine::Editor {
     DRAW_SLIDER_INT(sliderFunc, publication.flags &Publication::Flags::RANGE);                                         \
     break;                                                                                                             \
   case Publication::Style::STEPPER:                                                                                    \
-    ENGINE_WARNING("Publication labelled {} was styled as STEPPER, which has not yet been implemented!",               \
+    EDITOR_WARNING("Publication labelled {} was styled as STEPPER, which has not yet been implemented!",               \
                    publication.label)                                                                                  \
     break;                                                                                                             \
   default:                                                                                                             \
-    ENGINE_ERROR("Publication labelled {} has been given an inväalid style!", publication.label)                       \
+    EDITOR_ERROR("Publication labelled {} has been given an inväalid style!", publication.label)                       \
     break;                                                                                                             \
   }
 
@@ -104,15 +104,15 @@ namespace Engine::Editor {
     DRAW_SLIDER_FLOAT(sliderFunc, publication.flags &Publication::Flags::RANGE);                                       \
     break;                                                                                                             \
   case Publication::Style::STEPPER:                                                                                    \
-    ENGINE_WARNING("Publication labelled {} was styled as STEPPER, which has not yet been implemented!",               \
+    EDITOR_WARNING("Publication labelled {} was styled as STEPPER, which has not yet been implemented!",               \
                    publication.label)                                                                                  \
     break;                                                                                                             \
   default:                                                                                                             \
-    ENGINE_ERROR("Publication labelled {} has been given an inväalid style!", publication.label)                       \
+    EDITOR_ERROR("Publication labelled {} has been given an inväalid style!", publication.label)                       \
     break;                                                                                                             \
   }
 
-void Engine::Editor::DrawPublication(Publication const &publication) {
+void Editor::DrawPublication(Publication const &publication) {
   switch (publication.type) {
   case Publication::Type::INTEGER1:
     SWITCH_PUBLICATION_STYLE_INT(ImGui::DragInt, ImGui::SliderInt)
@@ -154,27 +154,27 @@ void Engine::Editor::DrawPublication(Publication const &publication) {
     ImGui::ColorEdit4(publication.label, (float *)publication.referencedPointer, ImGuiColorEditFlags_NoInputs);
     break;
   case Publication::Type::TEXTURE_SELECT:
-    ENGINE_WARNING("Publication labelled {} has Type TEXTURE_SELECT, which has not yet been implemented!",
+    EDITOR_WARNING("Publication labelled {} has Type TEXTURE_SELECT, which has not yet been implemented!",
                    publication.label)
     break;
   case Publication::Type::SHADER_SELECT:
-    ENGINE_WARNING("Publication labelled {} has Type SHADER_SELECT, which has not yet been implemented!",
+    EDITOR_WARNING("Publication labelled {} has Type SHADER_SELECT, which has not yet been implemented!",
                    publication.label)
     break;
   case Publication::Type::MESH_SELECT:
-    ENGINE_WARNING("Publication labelled {} has Type MESH_SELECT, which has not yet been implemented!",
+    EDITOR_WARNING("Publication labelled {} has Type MESH_SELECT, which has not yet been implemented!",
                    publication.label)
     break;
   case Publication::Type::PREFAB_SELECT:
-    ENGINE_WARNING("Publication labelled {} has Type PREFAB_SELECT, which has not yet been implemented!",
+    EDITOR_WARNING("Publication labelled {} has Type PREFAB_SELECT, which has not yet been implemented!",
                    publication.label)
     break;
   case Publication::Type::MATERIAL_SELECT:
-    ENGINE_WARNING("Publication labelled {} has Type MATERIAL_SELECT, which has not yet been implemented!",
+    EDITOR_WARNING("Publication labelled {} has Type MATERIAL_SELECT, which has not yet been implemented!",
                    publication.label)
     break;
   case Publication::Type::ENUM:
-    ENGINE_WARNING("Publication labelled {} has Type ENUM, which has not yet been implemented!", publication.label)
+    EDITOR_WARNING("Publication labelled {} has Type ENUM, which has not yet been implemented!", publication.label)
     break;
   case Publication::Type::COMPOSITE:
     if (ImGui::TreeNodeEx(publication.label, ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -189,7 +189,7 @@ void Engine::Editor::DrawPublication(Publication const &publication) {
   }
 }
 
-void Engine::Editor::DrawPublishable(Publishable *publishable) {
+void Editor::DrawPublishable(Publishable *publishable) {
   ImGui::BeginGroup();
   ImGui::Text(publishable->typeLabel);
   auto pubs = publishable->GetPublications();
@@ -199,4 +199,4 @@ void Engine::Editor::DrawPublishable(Publishable *publishable) {
   ImGui::EndGroup();
 }
 
-} // namespace Engine::Editor
+} // namespace Editor

@@ -1,8 +1,6 @@
 #include "Renderer.h"
 #include "Debug/Logging.h"
 #include "Debug/Profiling.h"
-#include "GLFW/glfw3.h"
-#include "Graphics/ImGUIManager.h"
 #include "UniformAggregate.h"
 #include "VulkanUtil.h"
 #include <algorithm>
@@ -39,46 +37,6 @@ public:
     pushConstants.QueueExecution(queue);
     dispatch.QueueExecution(queue);
   }
-};
-
-class ImGUIDrawCommand : public Command {
-  Image2 const &targetImage;
-
-public:
-  ImGUIDrawCommand(Image2 const &targetImage) : targetImage(targetImage) {}
-  void QueueExecution(VkCommandBuffer const &queue) const;
-};
-
-class DrawGeometryCommand : public Command {
-  VkImageView drawImageView;
-  VkImageView depthImageView;
-  VkExtent2D drawExtent;
-  VkPipeline graphicsPipeline;
-  // TODO: Add geometry data as well
-public:
-  DrawGeometryCommand(VkImageView const &view, VkExtent2D const &extent, VkImageView const &depthView,
-                      VkPipeline const &graphicsPipeline)
-      : drawImageView(view), depthImageView(depthView), drawExtent(extent), graphicsPipeline(graphicsPipeline) {}
-  void QueueExecution(VkCommandBuffer const &) const;
-};
-
-class MultimeshDrawCommand : public Command {
-  Image<2> const &drawImage;
-  Image<2> const &depthImage;
-  Maths::Dimension2 renderAreaSize;
-  Maths::Dimension2 renderAreaOffset;
-  DescriptorAllocator &descriptorAllocator;
-  DescriptorWriter &descriptorWriter;
-  Buffer<DrawData> uniformBuffer;
-  std::span<MeshRenderer const *> singleMeshes;
-
-public:
-  MultimeshDrawCommand(Image<2> const &drawImage, Image<2> const &depthImage, DescriptorAllocator &descriptorAllocator,
-                       DescriptorWriter &descriptorWriter, Maths::Dimension2 const &renderAreaSize,
-                       Buffer<DrawData> const &uniformBuffer, std::span<MeshRenderer const *> const &meshes)
-      : drawImage(drawImage), depthImage(depthImage), singleMeshes(meshes), uniformBuffer(uniformBuffer),
-        renderAreaSize(renderAreaSize), descriptorAllocator(descriptorAllocator), descriptorWriter(descriptorWriter) {}
-  void QueueExecution(VkCommandBuffer const &) const;
 };
 
 Renderer::Renderer(Maths::Dimension2 const &windowSize, InstanceManager const *instanceManager,
@@ -210,8 +168,7 @@ void Renderer::DestroySwapchain() {
   instanceManager->DestroySwapchain(swapchain);
 }
 
-void Renderer::DrawFrame(Camera const *camera, SceneData const &sceneData,
-                         std::span<MeshRenderer const *> const &objectsToDraw) {
+void Renderer::DrawFrame(RenderingRequest const &request) {
 
   PROFILE_FUNCTION()
   uint32_t resourceIndex = currentFrame % MAX_FRAME_OVERLAP;
@@ -236,65 +193,31 @@ void Renderer::DrawFrame(Camera const *camera, SceneData const &sceneData,
   {
     PROFILE_SCOPE("Generate commands")
 
+    std::vector<Command const *> commands;
+
     // Commands for drawing background
     auto transitionBufferToWriteable = renderBuffer.colourImage.Transition(VK_IMAGE_LAYOUT_GENERAL);
-    auto computeRun = ExecuteComputePipelineCommand(
+    auto computeRun = new ExecuteComputePipelineCommand(
         backgroundEffects[currentBackgroundEffect], VK_PIPELINE_BIND_POINT_COMPUTE, renderBufferDescriptors,
         std::ceil<uint32_t>(windowDimension[X] / 16u), std::ceil<uint32_t>(windowDimension[Y] / 16u), 1);
 
-    // Commands for drawing geometry
-    auto transitionBufferToRenderTarget = renderBuffer.colourImage.Transition(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    auto transitionBufferToDepthStencil =
-        renderBuffer.depthImage.Transition(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+    commands.push_back(transitionBufferToWriteable);
+    commands.push_back(computeRun);
 
-    Dimension2 scaledDrawDimension = Dimension2(std::min(windowDimension.x(), renderBufferDimension.x()),
-                                                std::min(windowDimension.y(), renderBufferDimension.y())) *
-                                     renderScale;
-
-    Maths::Matrix4 view = camera->entity.GetComponent<Transform>()->WorldToModelMatrix();
-    Maths::Matrix4 projection = camera->projection;
-
-    DrawData uniformData{
-        .view = view,
-        .projection = projection,
-        .viewProjection = projection * view,
-        .sceneData = sceneData,
-    };
-
-    frameResources[resourceIndex].uniformBuffer.SetData(uniformData);
-    DescriptorWriter descriptorWriter{instanceManager};
-    auto drawMeshes = MultimeshDrawCommand(
-        renderBuffer.colourImage, renderBuffer.depthImage, frameResources[resourceIndex].descriptorAllocator,
-        descriptorWriter, scaledDrawDimension, frameResources[resourceIndex].uniformBuffer, objectsToDraw);
-
-    // Commands for copying render to swapchain
-    auto transitionBufferToTransferSrc = renderBuffer.colourImage.Transition(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-    auto transitionPresenterToTransferDst =
-        swapchainImages[swapchainImageIndex].Transition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    auto copyBufferToPresenter = renderBuffer.colourImage.BlitTo(swapchainImages[swapchainImageIndex]);
-
-    // Commands for rendering ImGUI
-    auto transitionPresenterToColourAttachment =
-        swapchainImages[swapchainImageIndex].Transition(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
-    auto renderImGUI = ImGUIDrawCommand(swapchainImages[swapchainImageIndex]);
+    DescriptorWriter descriptorWriter(instanceManager);
+    auto strategyCommands = renderingStrategy->GetRenderingCommands(
+        request, renderBuffer.colourImage, renderBuffer.depthImage, windowDimension,
+        frameResources[resourceIndex].uniformBuffer, frameResources[resourceIndex].descriptorAllocator,
+        descriptorWriter, swapchainImages[swapchainImageIndex]);
+    commands.insert(commands.end(), strategyCommands.begin(), strategyCommands.end());
 
     // Command for presenting
     auto transitionPresenterToPresent =
         swapchainImages[swapchainImageIndex].Transition(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
-    commandBufferSubmitInfo = frameResources[resourceIndex].commandQueue.EnqueueCommandSequence(
-        {// Draw background
-         &transitionBufferToWriteable, &computeRun,
+    commands.push_back(transitionPresenterToPresent);
 
-         // Draw geometry
-         &transitionBufferToRenderTarget, &transitionBufferToDepthStencil, &drawMeshes,
-
-         // Copy render to swapchain
-         &transitionBufferToTransferSrc, &transitionPresenterToTransferDst, &copyBufferToPresenter,
-
-         // Render ImGui directly to swapchain
-         &transitionPresenterToColourAttachment, &renderImGUI, &transitionPresenterToPresent});
+    commandBufferSubmitInfo = frameResources[resourceIndex].commandQueue.EnqueueCommandSequence(commands);
   }
 
   auto semaphoreWaitInfo = vkinit::SemaphoreSubmitInfo(frameResources[resourceIndex].swapchainSemaphore,
@@ -436,96 +359,6 @@ void Renderer::GetImGUISection() {
   ImGui::SliderFloat("Render scale", &renderScale, 0.1f, 1.0f, "%.3f");
 
   ImGui::EndGroup();
-}
-
-void DrawGeometryCommand::QueueExecution(VkCommandBuffer const &queue) const {
-  VkRenderingAttachmentInfo colourAttachmentInfo = vkinit::ColourAttachmentInfo(drawImageView);
-  VkRenderingAttachmentInfo depthAttachmentInfo = vkinit::DepthAttachmentInfo(depthImageView);
-  VkRenderingInfo renderingInfo = vkinit::RenderingInfo(colourAttachmentInfo, depthAttachmentInfo, drawExtent);
-
-  VkViewport viewport{.x = 0,
-                      .y = 0,
-                      .width = static_cast<float>(drawExtent.width),
-                      .height = static_cast<float>(drawExtent.height),
-                      .minDepth = 0.0f,
-                      .maxDepth = 1.0f};
-
-  VkRect2D scissor{.offset = {0, 0}, .extent = drawExtent};
-
-  vkCmdBeginRendering(queue, &renderingInfo);
-  vkCmdBindPipeline(queue, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-  vkCmdSetViewport(queue, 0, 1, &viewport);
-  vkCmdSetScissor(queue, 0, 1, &scissor);
-
-  vkCmdDraw(queue, 3, 1, 0, 0);
-  vkCmdEndRendering(queue);
-}
-
-void DrawSingleMesh(VkCommandBuffer const &commandBuffer, DescriptorAllocator &descriptorAllocator,
-                    DescriptorWriter &descriptorWriter, Buffer<DrawData> const &uniformBuffer,
-                    MeshRenderer const *renderInfo) {
-  AllocatedMesh const *mesh = renderInfo->mesh;
-  Material const *material = renderInfo->material;
-
-  // Bind material pipelines
-  VkDescriptorSet descriptorSet = descriptorAllocator.Allocate(material->GetDescriptorSetLayout(1));
-  material->Bind(commandBuffer, descriptorAllocator, descriptorWriter, uniformBuffer);
-
-  // Upload uniform data
-  Maths::Matrix4 model = renderInfo->entity.GetComponent<Transform>()->ModelToWorldMatrix();
-  Maths::Matrix4 normals = renderInfo->entity.GetComponent<Transform>()->ModelToWorldMatrix().Inverse().Transposed();
-  PushConstantsAggregate data{};
-  data.PushData(&model);
-  mesh->AppendData(data);
-  material->AppendData(data);
-
-  vkCmdPushConstants(commandBuffer, material->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, data.Size(),
-                     data.Data());
-
-  // Draw mesh
-  mesh->BindAndDraw(commandBuffer);
-}
-
-void MultimeshDrawCommand::QueueExecution(VkCommandBuffer const &queue) const {
-  VkRenderingAttachmentInfo colourAttachmentInfo = drawImage.BindAsColourAttachment();
-  VkRenderingAttachmentInfo depthAttachmentInfo = depthImage.BindAsDepthAttachment();
-
-  VkExtent2D drawExtent{renderAreaSize.x(), renderAreaSize.y()};
-  VkOffset2D drawOffset{static_cast<int32_t>(renderAreaOffset.x()), static_cast<int32_t>(renderAreaOffset.y())};
-  VkRenderingInfo renderingInfo = vkinit::RenderingInfo(colourAttachmentInfo, depthAttachmentInfo, drawExtent);
-
-  VkViewport viewport{.x = static_cast<float>(drawOffset.x),
-                      .y = static_cast<float>(drawOffset.y),
-                      .width = static_cast<float>(drawExtent.width),
-                      .height = static_cast<float>(drawExtent.height),
-                      .minDepth = 0.0f,
-                      .maxDepth = 1.0f};
-
-  VkRect2D scissor{.offset = {2 * drawOffset.x, 2 * drawOffset.y},
-                   .extent = {drawExtent.width * 20, drawExtent.height * 20}};
-
-  vkCmdSetViewport(queue, 0, 1, &viewport);
-  vkCmdSetScissor(queue, 0, 1, &scissor);
-
-  vkCmdBeginRendering(queue, &renderingInfo);
-
-  for (auto mesh : singleMeshes) {
-    DrawSingleMesh(queue, descriptorAllocator, descriptorWriter, uniformBuffer, mesh);
-  }
-
-  vkCmdEndRendering(queue);
-}
-
-void ImGUIDrawCommand::QueueExecution(VkCommandBuffer const &queue) const {
-  auto colourInfo = targetImage.BindAsColourAttachment();
-  VkExtent2D extent = {targetImage.GetExtent().x(), targetImage.GetExtent().y()};
-  VkRenderingInfo renderInfo = vkinit::RenderingInfo(colourInfo, extent);
-
-  vkCmdBeginRendering(queue, &renderInfo);
-
-  ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), queue);
-
-  vkCmdEndRendering(queue);
 }
 
 } // namespace Engine::Graphics

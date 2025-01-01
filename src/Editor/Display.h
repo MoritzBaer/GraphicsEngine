@@ -7,7 +7,9 @@
 #include "Publishable.h"
 #include "json-parsing.h"
 
-namespace Engine::Editor {
+using namespace Engine;
+
+namespace Editor {
 
 ENGINE_COMPONENT_DECLARATION(Display), public Publishable {
   std::array<char, 64> label;
@@ -30,4 +32,4 @@ ENGINE_COMPONENT_DECLARATION(Display), public Publishable {
   }
 };
 
-} // namespace Engine::Editor
+} // namespace Editor

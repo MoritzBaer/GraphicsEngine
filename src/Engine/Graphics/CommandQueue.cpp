@@ -6,7 +6,7 @@
 #include "VulkanUtil.h"
 
 VkCommandBufferSubmitInfo
-Engine::Graphics::CommandQueue::EnqueueCommandSequence(std::initializer_list<Command const *> commands,
+Engine::Graphics::CommandQueue::EnqueueCommandSequence(std::span<Command const *> const &commands,
                                                        VkCommandBufferUsageFlags flags) const {
   PROFILE_FUNCTION()
   VkCommandBufferBeginInfo beginInfo{.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, .flags = flags};
@@ -17,6 +17,7 @@ Engine::Graphics::CommandQueue::EnqueueCommandSequence(std::initializer_list<Com
 
   for (auto command : commands) {
     PROFILE_SCOPE("Queueing command") command->QueueExecution(mainBuffer);
+    delete command;
   }
 
   VULKAN_ASSERT(vkEndCommandBuffer(mainBuffer), "Failed to end command buffer!")

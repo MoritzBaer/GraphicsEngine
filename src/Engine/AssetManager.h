@@ -10,7 +10,7 @@
 namespace Engine {
 
 class AssetManager {
-  uint8_t numberOfAssetTypes;
+  inline static uint8_t numberOfAssetTypes = 0;
   Core::ECS *ecs;
   Graphics::GPUObjectManager *gpuObjectManager;
   Graphics::ShaderCompiler *shaderCompiler;

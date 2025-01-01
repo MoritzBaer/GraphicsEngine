@@ -7,6 +7,7 @@
 #include "Graphics/Camera.h"
 #include "Graphics/ComputeEffect.h"
 #include "Graphics/MeshRenderer.h"
+#include "Graphics/RenderingStrategies/ForwardRendering.h"
 #include "Graphics/Transform.h"
 
 using Engine::Graphics::ComputeEffect;
@@ -37,43 +38,31 @@ Game::Game(const char *name)
       shaderCompiler(&instanceManager), ecs(), memoryAllocator(instanceManager),
       gpuObjectManager(&instanceManager, &memoryAllocator),
       renderer({1600, 900}, &instanceManager, &gpuObjectManager, InitializedComputeEffects(assetManager)),
-      sceneHierarchy(&ecs), rendering(true), running(true),
-      imGuiManager(mainWindow, renderer.GetSwapchainFormat(), instanceManager) {
+      sceneHierarchy(&ecs), rendering(true), running(true) {}
 
-  BEGIN_PROFILE_SESSION() {
-    PROFILE_FUNCTION()
+void Game::Init() {
+  BEGIN_PROFILE_SESSION()
+  PROFILE_FUNCTION()
 
-    // TODO: Remove once scene loading no longer happens in constructor
-    ecs.RegisterComponent<Engine::Editor::Display>(); // Must be at the top so name is displayed above other
-                                                      // components
-    ecs.RegisterComponent<Engine::Graphics::Transform>();
-    ecs.RegisterComponent<Engine::Graphics::MeshRenderer>();
-    ecs.RegisterComponent<Engine::Graphics::Camera>();
+  ecs.RegisterComponent<Editor::Display>(); // Must be at the top so name is displayed above other
+                                            // components
+  ecs.RegisterComponent<Engine::Graphics::Transform>();
+  ecs.RegisterComponent<Engine::Graphics::MeshRenderer>();
+  ecs.RegisterComponent<Engine::Graphics::Camera>();
 
-    mainCam = ecs.CreateEntity();
-    mainCam.AddComponent<Engine::Graphics::Camera>();
-    mainCam.AddComponent<Engine::Editor::Display>()->AssignLabel("Main camera");
-    auto camTransform = mainCam.AddComponent<Engine::Graphics::Transform>();
-    camTransform->position = {0, 0, 5};
-    camTransform->LookAt({0, 0, 0});
+  mainWindow->SetCloseCallback([this]() { running = false; });
+  mainWindow->SetMinimizeCallback([this]() { rendering = false; });
+  mainWindow->SetRestoreCallback([this]() { rendering = true; });
+  mainWindow->SetResizeCallback(
+      [this](Engine::Maths::Dimension2 newWindowSize) { renderer.SetWindowSize(newWindowSize); });
 
-    mainWindow->SetCloseCallback([this]() { running = false; });
-    mainWindow->SetMinimizeCallback([this]() { rendering = false; });
-    mainWindow->SetRestoreCallback([this]() { rendering = true; });
-    mainWindow->SetResizeCallback(
-        [this](Engine::Maths::Dimension2 newWindowSize) { renderer.SetWindowSize(newWindowSize); });
+  renderer.SetRenderingStrategy(new Engine::Graphics::RenderingStrategies::ForwardRendering());
 
-    assetManager.LoadAsset<Core::Entity>("speeder");
+  SpecializedInit();
 
-    assetManager.LoadAsset<Core::Entity>("cube");
-    assetManager.LoadAsset<Core::Entity>("cube");
-    assetManager.LoadAsset<Core::Entity>("cube").Duplicate().GetComponent<Engine::Graphics::Transform>()->position = {
-        -3, 0, -4};
+  sceneHierarchy.BuildHierarchy();
 
-    sceneHierarchy.BuildHierarchy();
-
-    Engine::Time::Update();
-  }
+  Engine::Time::Update();
   WRITE_PROFILE_SESSION("Init")
 }
 
@@ -99,12 +88,13 @@ void Game::CalculateFrame() {
       std::vector<Engine::Graphics::MeshRenderer const *> meshRenderers(renderersWithTransforms.size());
       std::transform(renderersWithTransforms.begin(), renderersWithTransforms.end(), meshRenderers.begin(),
                      [](auto const &t) { return std::get<0>(t); });
-      imGuiManager.BeginFrame();
-      renderer.DrawFrame(mainCam.GetComponent<Engine::Graphics::Camera>(),
-                         {mainCam.GetComponent<Engine::Graphics::Transform>()->position,
-                          Engine::Maths::Vector3(0, -5, -1.5).Normalized(),
-                          {1.2f, 0.8f, 0.6f}},
-                         meshRenderers);
+      Engine::Graphics::RenderingRequest request{
+          .objectsToDraw = meshRenderers,
+          .camera = mainCam.GetComponent<Engine::Graphics::Camera>(),
+          .sceneData = {.cameraPosition = mainCam.GetComponent<Engine::Graphics::Transform>()->position,
+                        .lightDirection = {0, -5, -1.5},
+                        .lightColour = {1, 1, 1}}};
+      renderer.DrawFrame(request);
     } else {
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }

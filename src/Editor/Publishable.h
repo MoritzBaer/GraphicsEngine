@@ -2,16 +2,16 @@
 
 #include <vector>
 
-#define PUBLISH_WITH_LABEL(object, label) Engine::Editor::_Publication::GetPublicationWithDeducedType(object, label)
+#define PUBLISH_WITH_LABEL(object, label) Editor::_Publication::GetPublicationWithDeducedType(object, label)
 #define PUBLISH(object) PUBLISH_WITH_LABEL(object, #object)
 
-#define RANGE(min, max, step, publication) Engine::Editor::_Publication::AddRange(publication, min, max, step)
+#define RANGE(min, max, step, publication) Editor::_Publication::AddRange(publication, min, max, step)
 #define PUBLISH_RANGE(object, min, max, step) RANGE(min, max, step, PUBLISH(object))
 #define SLIDER(min, max, step, publication)                                                                            \
-  Engine::Editor::_Publication::SetStyle(RANGE(min, max, step, publication), Engine::Editor::Publication::Style::SLIDER)
+  Editor::_Publication::SetStyle(RANGE(min, max, step, publication), Editor::Publication::Style::SLIDER)
 #define PUBLISH_SLIDER(object, min, max, step) SLIDER(min, max, step, PUBLISH(object))
 
-namespace Engine::Editor {
+namespace Editor {
 struct Publication;
 namespace _Publication {
 
@@ -94,4 +94,4 @@ inline Publication SetStyle(Publication const &publication, Publication::Style s
 
 } // namespace _Publication
 
-} // namespace Engine::Editor
+} // namespace Editor

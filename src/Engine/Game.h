@@ -3,10 +3,10 @@
 #include "AssetManager.h"
 #include "Core/ECS.h"
 #include "Core/SceneHierarchy.h"
-#include "Graphics/ImGUIManager.h"
 #include "Graphics/InstanceManager.h"
 #include "Graphics/MemoryAllocator.h"
 #include "Graphics/Renderer.h"
+#include "Graphics/RenderingStrategy.h"
 #include "Util/DeletionQueue.h"
 #include "WindowManager.h"
 
@@ -21,7 +21,6 @@ struct Game {
   Engine::Core::ECS ecs;
   Engine::AssetManager assetManager;
   Engine::Graphics::Renderer renderer;
-  Engine::Graphics::ImGUIManager imGuiManager;
 
   Engine::Core::Entity mainCam;
   bool rendering;
@@ -30,8 +29,12 @@ struct Game {
   // TODO: Make CreateWindow use dimension, pass dimension to Game()
   Game(const char *name);
 
-  void CalculateFrame();
+  void Init();
+  virtual void CalculateFrame();
   inline bool IsRunning() { return running; }
 
   ~Game();
+
+protected:
+  virtual void SpecializedInit() {}
 };

@@ -2,7 +2,7 @@
 
 #include "Util/DeletionQueue.h"
 #include "vulkan/vulkan.h"
-#include <vector>
+#include <span>
 
 namespace Engine::Graphics {
 
@@ -25,18 +25,19 @@ public:
       : commandPool(commandPool), mainBuffer(mainBuffer) {}
   CommandQueue() : CommandQueue(VK_NULL_HANDLE, VK_NULL_HANDLE) {}
 
-  VkCommandBufferSubmitInfo EnqueueCommandSequence(std::initializer_list<Command const *> commands,
+  VkCommandBufferSubmitInfo EnqueueCommandSequence(std::span<Command const *> const &commands,
                                                    VkCommandBufferUsageFlags flags = 0) const;
 };
 
 class CompositeCommand : public Command {
-  std::vector<Command const *> commands;
+  std::span<Command const *> commands;
 
 public:
-  CompositeCommand(std::initializer_list<Command const *> const &commands) : commands(commands) {}
+  CompositeCommand(std::span<Command const *> const &commands) : commands(commands) {}
   void QueueExecution(VkCommandBuffer const &queue) const {
     for (Command const *command : commands) {
       command->QueueExecution(queue);
+      delete command;
     }
   }
 };

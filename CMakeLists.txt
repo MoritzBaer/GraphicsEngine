@@ -29,11 +29,13 @@ include_directories("src/external/imgui")
 include_directories("src/external/json-parsing")
 include_directories("src/external/stb")
 include_directories("src/Engine")
-include_directories("src/Editor")
+include_directories("src/")
 
 file(GLOB_RECURSE SourceFiles
     "src/Engine/*.h"
     "src/Engine/*.cpp"
+    "src/Editor/*.h"
+    "src/Editor/*.cpp"
     "src/external/imgui/backends/imgui_impl_vulkan.cpp"
     "src/external/imgui/backends/imgui_impl_glfw.cpp"
     "src/external/imgui/imgui_draw.cpp"

@@ -301,8 +301,8 @@ inline void GPUObjectManager::SetPixels(Texture<D> &target, T const *data, Maths
 
   auto copy = GPUMemoryManager::CopyBufferToImage(pixelBuffer, target, dimension);
   auto transition = target.Image<D>::Transition(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-  CompositeCommand copyAndTransition{&copy, &transition};
-  dispatcher.Dispatch(&copyAndTransition);
+  std::vector<Command const *> commands{copy, transition};
+  dispatcher.Dispatch(commands);
 
   DestroyBuffer(pixelBuffer);
 }
@@ -379,8 +379,8 @@ inline AllocatedMesh GPUObjectManager::AllocateMesh(MeshT<T_CPU> const &mesh)
   memcpy(data, uploadReadyVertices.data(), vertexBuffer.PhysicalSize());
   memcpy((char *)data + vertexBuffer.PhysicalSize(), mesh.indices.data(), indexBuffer.PhysicalSize());
 
-  auto unstage = UnstageMeshCommand(stagingBuffer, vertexBuffer, indexBuffer);
-  dispatcher.Dispatch(&unstage);
+  auto unstage = new UnstageMeshCommand(stagingBuffer, vertexBuffer, indexBuffer);
+  dispatcher.Dispatch(unstage);
   DestroyBuffer(stagingBuffer);
   return AllocatedMesh(new VertexBufferT<T_GPU>(vertexBuffer), indexBuffer, vertexBufferAddress);
 }
