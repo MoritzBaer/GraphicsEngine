@@ -1,8 +1,9 @@
 #pragma once
 
+#include "imgui.h"
 #include <vector>
 
-#define PUBLISH_WITH_LABEL(object, label) Editor::_Publication::GetPublicationWithDeducedType(object, label)
+#define PUBLISH_WITH_LABEL(object, label) Editor::Publishable<decltype(value.object)>::Publish(value.object, label)
 #define PUBLISH(object) PUBLISH_WITH_LABEL(object, #object)
 
 #define RANGE(min, max, step, publication) Editor::_Publication::AddRange(publication, min, max, step)
@@ -10,6 +11,11 @@
 #define SLIDER(min, max, step, publication)                                                                            \
   Editor::_Publication::SetStyle(RANGE(min, max, step, publication), Editor::Publication::Style::SLIDER)
 #define PUBLISH_SLIDER(object, min, max, step) SLIDER(min, max, step, PUBLISH(object))
+
+#define COMPOSITE(...)                                                                                                 \
+  Editor::Publication {                                                                                                \
+    .label = label, .type = Editor::Publication::Type::COMPOSITE, .children = { __VA_ARGS__ }                          \
+  }
 
 namespace Editor {
 struct Publication;
@@ -44,7 +50,8 @@ struct Publication {
     PREFAB_SELECT,
     MATERIAL_SELECT,
     ENUM,
-    COMPOSITE
+    COMPOSITE,
+    NONE
   };
 
   enum class Style { DRAG, SLIDER, STEPPER, RADIO, COMBO, LIST };
@@ -57,20 +64,19 @@ struct Publication {
   int flags;
   _Publication::Range<float> floatRange;
   _Publication::Range<int> intRange;
+  std::vector<Publication> children;
   void *referencedPointer;
 };
 
-class Publishable {
-protected:
-  Publishable(const char *label) : typeLabel(label) {}
-
-public:
-  const char *typeLabel;
-  virtual std::vector<Publication> GetPublications() { return {}; }
+template <typename T> struct Publishable {
+  static constexpr char const *typeLabel = "dummy";
+  inline static Publication Publish(T &object, const char *label = typeLabel) {
+    return {.type = Publication::Type::NONE};
+  }
 };
 
 void DrawPublication(Publication const &publication);
-void DrawPublishable(Publishable *publishable);
+template <typename T> void DrawPublishable(T &publishable);
 
 namespace _Publication {
 

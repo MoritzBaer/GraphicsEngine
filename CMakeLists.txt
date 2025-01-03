@@ -42,6 +42,7 @@ file(GLOB_RECURSE SourceFiles
     "src/external/imgui/imgui_tables.cpp"
     "src/external/imgui/imgui_widgets.cpp"
     "src/external/imgui/imgui.cpp"
+    "src/external/imgui/imgui_demo.cpp"
 )
 
 aux_source_directory(src/external EXTERNAL)

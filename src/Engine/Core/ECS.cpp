@@ -88,6 +88,9 @@ void ECS::DestroyEntity(EntityId e) {
 
 std::vector<Component *> ECS::GetComponents(EntityId e) {
   std::vector<Component *> result;
+  if (e == EntityId(-1) || !(aliveAndComponentFlags[e] & ALIVE_FLAG)) {
+    return result;
+  }
   for (int i = 0; i < componentArrays.size(); i++) {
     if (aliveAndComponentFlags[e] & (uint64_t(1) << i)) {
       result.push_back(componentArrays[i]->GetComponent(e));

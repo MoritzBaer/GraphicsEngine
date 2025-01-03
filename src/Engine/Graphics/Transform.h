@@ -11,25 +11,7 @@
 using namespace Engine::Maths;
 
 namespace Engine::Graphics {
-ENGINE_COMPONENT_DECLARATION(Transform), public Editor::Publishable {
-private:
-  // TODO: Change publication so only the displayed entity's transform has to hold this data
-  // Probably should work quite nicely as a trait
-  struct {
-    Vector3 eulerAngles;
-    Vector3 oldEulerAngles;
-
-    void UpdateRotation(Quaternion &output) {
-      if (eulerAngles != oldEulerAngles) {
-        output = Quaternion::FromEulerAngles(eulerAngles);
-      } else {
-        eulerAngles = output.EulerAngles();
-      }
-      oldEulerAngles = eulerAngles;
-    }
-  } rotationPublication;
-
-public:
+ENGINE_COMPONENT_DECLARATION(Transform) {
   Vector3 position;
   Quaternion rotation;
   Vector3 scale;
@@ -38,7 +20,7 @@ public:
   std::vector<Transform *> children;
 
   ENGINE_COMPONENT_CONSTRUCTOR(Transform), position(Vector3::Zero()), rotation(Quaternion::Identity()),
-      scale(Vector3::One()), parent(nullptr), children(), Publishable("Transform") {}
+      scale(Vector3::One()), parent(nullptr), children() {}
 
   // Scale is not adjusted as by stacking scales and rotation, shearing is possible (which cannot be represented as a
   // Vector3)
@@ -59,12 +41,6 @@ public:
     return (ModelToWorldMatrix() * Vector4{position[X], position[Y], position[Z], 1}).xyz();
   }
   inline Quaternion WorldRotation() const;
-
-  inline std::vector<Editor::Publication> GetPublications() override {
-    rotationPublication.UpdateRotation(rotation);
-    return {PUBLISH(position), PUBLISH_RANGE(rotationPublication.eulerAngles, -(float)PI, (float)PI, 0.001f),
-            PUBLISH_RANGE(scale, 0.001f, 10000.0f, 0.01f * scale.Length())};
-  }
 
   inline void CopyFrom(Core::Component const *other) override {
     if (auto otherTransform = dynamic_cast<Transform const *>(other)) {

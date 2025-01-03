@@ -11,12 +11,9 @@ using namespace Engine;
 
 namespace Editor {
 
-ENGINE_COMPONENT_DECLARATION(Display), public Publishable {
+ENGINE_COMPONENT_DECLARATION(Display) {
   std::array<char, 64> label;
-  ENGINE_COMPONENT_CONSTRUCTOR(Display), Publishable("Name"), label("unnamed entity") {}
-  std::vector<Publication> GetPublications() override {
-    return {Publication{.label = label.data(), .type = Publication::Type::TEXT}};
-  }
+  ENGINE_COMPONENT_CONSTRUCTOR(Display), label("unnamed entity") {}
 
   inline void AssignLabel(const char *newLabel) {
     std::fill(label.begin(), label.end(), 0);

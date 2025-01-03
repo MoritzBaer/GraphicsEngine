@@ -12,6 +12,7 @@ struct ImGUIView;
 
 class ImGUIManager {
   InstanceManager const *instanceManager;
+  bool showImGuiDemo;
 
 public:
   ImGUIManager(Window const *window, VkFormat swapchainFormat, InstanceManager const *instanceManager);

@@ -21,7 +21,7 @@
 
 namespace Engine::Graphics {
 ImGUIManager::ImGUIManager(Window const *window, VkFormat swapchainFormat, InstanceManager const *instanceManager)
-    : instanceManager(instanceManager), views() {
+    : instanceManager(instanceManager), views(), showImGuiDemo(false) {
   PROFILE_FUNCTION()
 
   VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
@@ -81,6 +81,17 @@ void ImGUIManager::BeginFrame() {
 
   if (ImGui::Begin("Debug GUI")) {
     ImGui::Text("FPS: %.1f", 1.0f / Time::deltaTime);
+    ImGui::SameLine();
+    if (showImGuiDemo) {
+      if (ImGui::Button("Hide demo window")) {
+        showImGuiDemo = false;
+      }
+    } else if (ImGui::Button("Show demo window")) {
+      showImGuiDemo = true;
+    }
+    if (showImGuiDemo) {
+      ImGui::ShowDemoWindow();
+    }
     ImGui::End();
   }
 

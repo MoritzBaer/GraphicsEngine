@@ -30,8 +30,8 @@ public:
 
   std::vector<TreeNode> roots;
 
-  inline std::vector<TreeNode>::const_iterator begin() { return roots.begin(); }
-  inline std::vector<TreeNode>::const_iterator end() { return roots.end(); }
+  inline std::vector<TreeNode>::const_iterator begin() const { return roots.begin(); }
+  inline std::vector<TreeNode>::const_iterator end() const { return roots.end(); }
 }; // class SceneHierarchy
 
 } // namespace Engine::Core

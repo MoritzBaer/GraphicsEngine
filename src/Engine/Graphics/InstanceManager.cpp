@@ -23,6 +23,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityF
   if (pCallbackData->pMessageIdName == nullptr) {
     return VK_FALSE;
   } // Only necessary because RenderDoc doesn't satisfy the Vulkan specification (so says Max)
+  // Lol i haven't got a graphics card that i could use renderdoc with anyways
 
   switch (messageSeverity) {
   case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:

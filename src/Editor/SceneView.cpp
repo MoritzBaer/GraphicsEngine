@@ -2,12 +2,11 @@
 
 #include "Core/SceneHierarchy.h"
 #include "Editor/Display.h"
-#include "Editor/Editor.h"
 #include "EntityDetails.h"
 #include "imgui.h"
 
 namespace Editor {
-void DrawNode(Engine::Core::SceneHierarchy::TreeNode const &node, ImGuiTreeNodeFlags flags = 0) {
+void SceneView::DrawNode(Engine::Core::SceneHierarchy::TreeNode const &node, ImGuiTreeNodeFlags flags) const {
   if (!node.entity.HasComponent<Display>())
     return;
 
@@ -16,15 +15,15 @@ void DrawNode(Engine::Core::SceneHierarchy::TreeNode const &node, ImGuiTreeNodeF
     flags |= ImGuiTreeNodeFlags_Leaf;
   }
 
-  // if (selectedEntity == node.entity) {
-  //   flags |= ImGuiTreeNodeFlags_Selected;
-  // }
+  if (*selectedEntity == node.entity) {
+    flags |= ImGuiTreeNodeFlags_Selected;
+  }
 
   bool opened = ImGui::TreeNodeEx(node.entity.GetComponent<Display>()->label.data(), flags);
 
-  // if (ImGui::IsItemClicked()) {
-  //   selectedEntity = node.entity;
-  // }
+  if (ImGui::IsItemClicked()) {
+    *selectedEntity = node.entity;
+  }
 
   flags &= !ImGuiTreeNodeFlags_Selected;
 
@@ -41,9 +40,9 @@ void SceneView::Draw() const {
       ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding | ImGuiTreeNodeFlags_OpenOnArrow;
   if (ImGui::Begin("Scene")) {
 
-    // for (auto const &node : sceneHierarchy) {
-    //   DrawNode(node, flags);
-    // }
+    for (auto const &node : *sceneHierarchy) {
+      DrawNode(node, flags);
+    }
 
     ImGui::End();
   }

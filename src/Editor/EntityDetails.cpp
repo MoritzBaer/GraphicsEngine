@@ -1,17 +1,13 @@
 #include "EntityDetails.h"
 
-#include "Display.h"
-#include "Editor.h"
-#include "Publishable.h"
+#include "Editor/Publications/Components.h"
 #include "imgui.h"
 
 void Editor::EntityDetails::Draw() const {
   if (ImGui::Begin("Details")) {
-    // for (auto c : selectedEntity.GetComponents()) {
-    //   if (Publishable *pub = dynamic_cast<Publishable *>(c)) {
-    //     DrawPublishable(pub);
-    //   }
-    // }
+    for (auto c : selectedEntity->GetComponents()) {
+      DrawPublication(Publishable<Engine::Core::Component *>::Publish(c));
+    }
     ImGui::End();
   }
 }

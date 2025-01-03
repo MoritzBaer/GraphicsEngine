@@ -4,8 +4,10 @@
 #include "Editor/DebugGUIRenderingStrategy.h"
 #include "Editor/Display.h"
 #include "Editor/ImGUIManager.h"
+#include "EntityDetails.h"
 #include "Game.h"
 #include "Graphics/RenderingStrategies/ForwardRendering.h"
+#include "SceneView.h"
 
 namespace Editor {
 struct GameControl : public Engine::Graphics::ImGUIView {
@@ -26,10 +28,15 @@ struct Editor : public Game {
   bool gameInitialized;
   Engine::Graphics::ImGUIManager imGuiManager;
   GameControl gameControl;
+  SceneView sceneView;
+
+  Engine::Core::Entity selectedEntity;
+  EntityDetails entityDetails;
 
   Editor(Game *game)
       : Game("Editor"), game(game), gameControl(imGuiManager, &runGame), runGame(false), gameInitialized(false),
-        imGuiManager(mainWindow, renderer.GetSwapchainFormat(), &instanceManager) {}
+        imGuiManager(mainWindow, renderer.GetSwapchainFormat(), &instanceManager),
+        sceneView(imGuiManager, &game->sceneHierarchy, &selectedEntity), entityDetails(imGuiManager, &selectedEntity) {}
   ~Editor() {}
 
   inline void SpecializedInit() override {
@@ -44,8 +51,6 @@ struct Editor : public Game {
   }
 
   inline void CalculateFrame() override {
-    imGuiManager.BeginFrame();
-    Game::CalculateFrame();
     if (runGame) {
       if (!gameInitialized) {
         game->Init();
@@ -53,6 +58,8 @@ struct Editor : public Game {
       }
       game->CalculateFrame();
     }
+    imGuiManager.BeginFrame();
+    Game::CalculateFrame();
   }
 };
 
