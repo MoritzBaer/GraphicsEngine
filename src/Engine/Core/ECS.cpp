@@ -2,7 +2,7 @@
 
 #include "Debug/Logging.h"
 
-#define GIVE_LIFE(entity) aliveAndComponentFlags[entity] = ALIVE_FLAG;
+#define GIVE_LIFE(entity) aliveAndComponentFlags[entity] = ALIVE_FLAG | ACTIVE_FLAG;
 
 #define KILL(entity) aliveAndComponentFlags[entity] = 0;
 
@@ -42,10 +42,24 @@ void ECS::RemoveComponent(EntityId e, ComponentIndex componentIndex) {
   componentArrays[componentIndex]->RemoveComponent(e);
 }
 
-ECS::ECS() : aliveAndComponentFlags(), firstFreeEntity(0), unusedEntityIDs(), componentArrays() {}
+void ECS::RegisterComponent(componentID componentID, ComponentArray *componentArray) {
+  if (componentID >= componentArrays.size()) {
+    ENGINE_ERROR("Too many components registered!")
+    delete componentArray;
+  } else if (componentArrays[componentID]) {
+    ENGINE_ERROR("Component already registered!")
+    delete componentArray;
+  }
+  componentArrays[componentID] = componentArray;
+}
+
+ECS::ECS() : aliveAndComponentFlags(), firstFreeEntity(0), unusedEntityIDs(), componentArrays() {
+  componentArrays.fill(nullptr);
+}
 ECS::~ECS() {
   for (ComponentArray *array : componentArrays) {
-    delete array;
+    if (array)
+      delete array;
   }
 }
 
@@ -68,11 +82,12 @@ EntityId ECS::_CreateEntity() {
 Entity ECS::DuplicateEntity(EntityId e) {
   EntityId newEntity = _CreateEntity();
   for (int i = 0; i < componentArrays.size(); i++) {
-    if (aliveAndComponentFlags[e] & (uint64_t(1) << i)) {
+    if (aliveAndComponentFlags[e] & (uint64_t(1) << i) && componentArrays[i]) {
       AddComponent(newEntity, i)->CopyFrom(GetComponent(e, i));
     }
   }
-  ENGINE_ASSERT(aliveAndComponentFlags[e] == aliveAndComponentFlags[newEntity], "Entity duplication failed!")
+  ENGINE_ASSERT((aliveAndComponentFlags[e] & ~PATTERN_FLAG) == aliveAndComponentFlags[newEntity],
+                "Entity duplication failed!")
   return Entity(newEntity, this);
 }
 
@@ -92,7 +107,7 @@ std::vector<Component *> ECS::GetComponents(EntityId e) {
     return result;
   }
   for (int i = 0; i < componentArrays.size(); i++) {
-    if (aliveAndComponentFlags[e] & (uint64_t(1) << i)) {
+    if (aliveAndComponentFlags[e] & (uint64_t(1) << i) && componentArrays[i]) {
       result.push_back(componentArrays[i]->GetComponent(e));
     }
   }

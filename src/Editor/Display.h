@@ -11,9 +11,9 @@ using namespace Engine;
 
 namespace Editor {
 
-ENGINE_COMPONENT_DECLARATION(Display) {
+struct Display : public Core::Component {
   std::array<char, 64> label;
-  ENGINE_COMPONENT_CONSTRUCTOR(Display), label("unnamed entity") {}
+  Display(Core::Entity entity) : Core::Component(entity), label("unnamed entity") {}
 
   inline void AssignLabel(const char *newLabel) {
     std::fill(label.begin(), label.end(), 0);

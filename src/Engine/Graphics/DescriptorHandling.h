@@ -20,6 +20,7 @@ class DescriptorLayoutBuilder {
 public:
   inline DescriptorLayoutBuilder(InstanceManager const *instanceManager)
       : instanceManager(instanceManager), bindings() {}
+  inline DescriptorLayoutBuilder() : DescriptorLayoutBuilder(nullptr) {}
   inline DescriptorLayoutBuilder &AddBinding(uint32_t binding, VkDescriptorType type);
   inline bool HasBindings() const { return !bindings.empty(); }
   inline void Clear();
@@ -65,6 +66,7 @@ class DescriptorWriter {
 public:
   DescriptorWriter(InstanceManager const *instanceManager)
       : instanceManager(instanceManager), imageInfos(), bufferInfos(), writes() {}
+  DescriptorWriter() : DescriptorWriter(nullptr) {}
   // Image must be passed as a pointer to allow subclasses substituting
   template <uint8_t N>
   inline void WriteImage(uint32_t binding, Image<N> const &image, VkImageLayout layout, VkDescriptorType type);

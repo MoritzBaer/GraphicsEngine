@@ -3,6 +3,7 @@
 #include "Debug/Logging.h"
 #include "Debug/Profiling.h"
 #include "Graphics/AllocatedMesh.h"
+#include "Members.h"
 
 namespace Engine {
 
@@ -130,7 +131,8 @@ template <> struct AssetManager::AssetDSO<Graphics::AllocatedMesh *> {
   inline Graphics::MeshT<OBJVertex> DeduplicateVertices() const;
 };
 
-template <> std::string AssetManager::GetAssetPath<Graphics::AllocatedMesh *>(char const *assetName) const {
+template <>
+std::string AssetManager::AssetLoader<Graphics::AllocatedMesh *>::GetAssetPath(char const *assetName) const {
   return std::string("meshes/") + assetName + ".obj";
 }
 
@@ -146,7 +148,7 @@ enum class ObjParserState {
 
 template <>
 AssetManager::AssetDSO<Graphics::AllocatedMesh *> *
-AssetManager::ParseAsset<Graphics::AllocatedMesh *>(std::string const &assetSource) const {
+AssetManager::AssetLoader<Graphics::AllocatedMesh *>::ParseAsset(std::string const &assetSource) const {
   auto begin = assetSource.begin();
   Token currentToken{};
   uint8_t itemsRead = 0;
@@ -354,14 +356,16 @@ inline Graphics::Mesh CalculateTangentSpace(Graphics::MeshT<OBJVertex> &objMesh)
 
 template <>
 Graphics::AllocatedMesh *
-AssetManager::ConvertDSO<Graphics::AllocatedMesh *>(AssetDSO<Graphics::AllocatedMesh *> const *dso) {
+AssetManager::AssetLoader<Graphics::AllocatedMesh *>::ConvertDSO(AssetDSO<Graphics::AllocatedMesh *> const *dso) const {
   auto objMesh = dso->DeduplicateVertices();
   auto const &mesh = CalculateTangentSpace(objMesh);
-  return new Graphics::AllocatedMesh(gpuObjectManager->AllocateMesh<Graphics::Vertex, Graphics::VertexFormat>(mesh));
+  return new Graphics::AllocatedMesh(
+      members->gpuObjectManager->AllocateMesh<Graphics::Vertex, Graphics::VertexFormat>(mesh));
 }
 
-template <> void AssetManager::DestroyAsset<Graphics::AllocatedMesh *>(Graphics::AllocatedMesh *&asset) const {
-  gpuObjectManager->DeallocateMesh(asset);
+template <>
+void AssetManager::AssetDestroyer<Graphics::AllocatedMesh *>::DestroyAsset(Graphics::AllocatedMesh *&asset) const {
+  members->gpuObjectManager->DeallocateMesh(asset);
 }
 
 } // namespace Engine

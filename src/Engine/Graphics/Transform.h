@@ -11,7 +11,7 @@
 using namespace Engine::Maths;
 
 namespace Engine::Graphics {
-ENGINE_COMPONENT_DECLARATION(Transform) {
+struct Transform : public Core::Component {
   Vector3 position;
   Quaternion rotation;
   Vector3 scale;
@@ -19,12 +19,13 @@ ENGINE_COMPONENT_DECLARATION(Transform) {
   Transform *parent;
   std::vector<Transform *> children;
 
-  ENGINE_COMPONENT_CONSTRUCTOR(Transform), position(Vector3::Zero()), rotation(Quaternion::Identity()),
-      scale(Vector3::One()), parent(nullptr), children() {}
+  Transform(Core::Entity entity)
+      : Core::Component(entity), position(Vector3::Zero()), rotation(Quaternion::Identity()), scale(Vector3::One()),
+        parent(nullptr), children() {}
 
   // Scale is not adjusted as by stacking scales and rotation, shearing is possible (which cannot be represented as a
   // Vector3)
-  inline void SetParent(Transform * newParent, bool recalculateTransform = true);
+  inline void SetParent(Transform *newParent, bool recalculateTransform = true);
   inline void SetParent(Core::Entity const &newParent, bool recalculateTransform = true);
 
   inline void LookAt(Vector3 const &target, Vector3 const &up) { rotation = Quaternion::LookAt(position, target, up); }
@@ -42,11 +43,22 @@ ENGINE_COMPONENT_DECLARATION(Transform) {
   }
   inline Quaternion WorldRotation() const;
 
+  inline bool HasInactiveParent() const {
+    if (parent) {
+      return !parent->entity.IsActive() || parent->HasInactiveParent();
+    } else {
+      return false;
+    }
+  }
+
   inline void CopyFrom(Core::Component const *other) override {
     if (auto otherTransform = dynamic_cast<Transform const *>(other)) {
       position = otherTransform->position;
       rotation = otherTransform->rotation;
       scale = otherTransform->scale;
+      for (auto child : otherTransform->children) {
+        child->entity.Duplicate().GetComponent<Transform>()->SetParent(this, false);
+      }
     } else {
       ENGINE_ERROR("Tried to copy Transform from different type!");
     }

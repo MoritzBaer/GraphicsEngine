@@ -7,7 +7,7 @@
 
 namespace Engine::Graphics {
 
-ENGINE_COMPONENT_DECLARATION(MeshRenderer) {
+struct MeshRenderer : public Core::Component {
 private:
 public:
   struct {
@@ -37,7 +37,7 @@ public:
     }
   } material;
 
-  ENGINE_COMPONENT_CONSTRUCTOR(MeshRenderer) {
+  MeshRenderer(Core::Entity entity) : Core::Component(entity) {
     if (!entity.HasComponent<Transform>()) {
       entity.AddComponent<Transform>();
     }

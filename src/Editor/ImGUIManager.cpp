@@ -102,6 +102,6 @@ void ImGUIManager::BeginFrame() {
   ImGui::Render();
 }
 
-void ImGUIManager::RegisterView(ImGUIView const *view) { views.push_back(view); }
+void ImGUIManager::RegisterView(ImGUIView *view) { views.push_back(view); }
 
 } // namespace Engine::Graphics

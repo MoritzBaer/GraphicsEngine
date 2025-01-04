@@ -2,7 +2,6 @@
 
 #include "Graphics/Buffer.h"
 #include "Graphics/Camera.h"
-#include "Graphics/ComputeEffect.h"
 #include "Graphics/DescriptorHandling.h"
 #include "Graphics/DrawData.h"
 #include "Graphics/GPUObjectManager.h"
@@ -32,14 +31,6 @@ class Renderer {
     Buffer<DrawData> uniformBuffer;
   };
 
-public:
-  struct CompiledEffect {
-    const char *name;
-    VkPipelineLayout pipelineLayout;
-    VkPipeline pipeline;
-    ComputePushConstants data;
-  };
-
 private:
   uint8_t currentBackgroundEffect = 1;
 
@@ -56,11 +47,6 @@ private:
   uint32_t currentFrame = 0;
 
   Maths::Dimension2 windowDimension;
-  bool renderBufferInitialized;
-  struct {
-    AllocatedImage<2> colourImage;
-    AllocatedImage<2> depthImage;
-  } renderBuffer;
   Maths::Dimension2 renderBufferDimension{1600, 900};
   float renderScale = 1.0f;
   DescriptorAllocator descriptorAllocator;
@@ -70,15 +56,9 @@ private:
   VkDescriptorSetLayout renderBufferDescriptorLayout;
   VkDescriptorSetLayout singleTextureDescriptorLayout;
 
-  std::vector<CompiledEffect> backgroundEffects;
-
   void CreateSwapchain();
   void DestroySwapchain();
-  void InitDescriptors();
-  void CompileBackgroundEffects(std::vector<ComputeEffect<ComputePushConstants>> const &uncompiledEffects);
 
-  void RecreateRenderBuffer();
-  void DestroyRenderBuffer();
   void CreateFrameResources(FrameResources &resources);
   void DestroyFrameResources(FrameResources &resources);
 
@@ -88,8 +68,7 @@ private:
 
 public:
   Renderer(Maths::Dimension2 const &windowSize, InstanceManager const *instanceManager,
-           GPUObjectManager *gpuObjectManager,
-           std::vector<ComputeEffect<ComputePushConstants>> const &backgroundEffects);
+           GPUObjectManager *gpuObjectManager);
   ~Renderer();
 
   void DrawFrame(RenderingRequest const &request);
@@ -105,8 +84,6 @@ public:
     windowDimension = newSize;
     RecreateSwapchain();
   }
-
-  void GetImGUISection();
 
   inline VkFormat GetSwapchainFormat() { return swapchainFormat; }
 };

@@ -41,13 +41,13 @@ public:
 };
 
 void ShaderCompiler::AssertPreprocessingWorked(shaderc_compilation_status status, const char *shaderName,
-                                               const char *message) {
+                                               const char *message) const {
   ENGINE_ASSERT(status == shaderc_compilation_status::shaderc_compilation_status_success, "-- Preprocessing {} --\n{}",
                 shaderName, message);
 }
 
 void ShaderCompiler::AssertCompilationWorked(shaderc_compilation_status status, const char *shaderName,
-                                             const char *message) {
+                                             const char *message) const {
   ENGINE_ASSERT(status == shaderc_compilation_status::shaderc_compilation_status_success, "-- Compiling {} --\n{}",
                 shaderName, message);
 }

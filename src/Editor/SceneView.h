@@ -15,7 +15,7 @@ public:
   SceneView(Engine::Graphics::ImGUIManager &imGuiManager, Engine::Core::SceneHierarchy *sceneHierarchy,
             Engine::Core::Entity *selectedEntity)
       : ImGUIView(imGuiManager), sceneHierarchy(sceneHierarchy), selectedEntity(selectedEntity) {}
-  void Draw() const;
+  void Draw();
 };
 
 } // namespace Editor

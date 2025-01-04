@@ -28,19 +28,15 @@ class ShaderCompiler {
   shaderc::CompileOptions options;
   InstanceManager const *instanceManager;
 
-  void AssertPreprocessingWorked(shaderc_compilation_status status, const char *shaderName, const char *message);
-  void AssertCompilationWorked(shaderc_compilation_status status, const char *shaderName, const char *message);
+  void AssertPreprocessingWorked(shaderc_compilation_status status, const char *shaderName, const char *message) const;
+  void AssertCompilationWorked(shaderc_compilation_status status, const char *shaderName, const char *message) const;
 
 public:
   ShaderCompiler(InstanceManager const *instanceManager);
 
   template <ShaderType Type>
-  inline Shader<Type> CompileShaderCode(const char *shaderName, std::vector<char> const &shaderCode) {
-    return CompileShaderCode<Type>(shaderName, std::string(shaderCode.begin(), shaderCode.end()));
-  }
-  template <ShaderType Type>
-  inline Shader<Type> CompileShaderCode(const char *shaderName, std::string const &shaderCode);
-  template <ShaderType Type> void DestroyShader(Shader<Type> &shader);
+  inline Shader<Type> CompileShaderCode(const char *shaderName, std::string const &shaderCode) const;
+  template <ShaderType Type> void DestroyShader(Shader<Type> &shader) const;
 };
 
 template <ShaderType Type> struct StageConstants {
@@ -72,16 +68,15 @@ template <ShaderType Type> inline VkPipelineShaderStageCreateInfo Shader<Type>::
           .pName = "main"};
 }
 
-template <ShaderType Type> inline void ShaderCompiler::DestroyShader(Shader<Type> &shader) {
+template <ShaderType Type> inline void ShaderCompiler::DestroyShader(Shader<Type> &shader) const {
   instanceManager->DestroyShaderModule(shader.shaderModule);
 }
 
 template <ShaderType Type>
-inline Shader<Type> ShaderCompiler::CompileShaderCode(const char *shaderName, std::string const &shaderCode) {
+inline Shader<Type> ShaderCompiler::CompileShaderCode(const char *shaderName, std::string const &shaderCode) const {
   Shader<Type> result;
 
-  auto preprocessedCode =
-      compiler.PreprocessGlsl(shaderCode.data(), shaderCode.size(), StageConstants<Type>::kind, shaderName, options);
+  auto preprocessedCode = compiler.PreprocessGlsl(shaderCode, StageConstants<Type>::kind, shaderName, options);
   AssertPreprocessingWorked(preprocessedCode.GetCompilationStatus(), shaderName,
                             preprocessedCode.GetErrorMessage().c_str());
 

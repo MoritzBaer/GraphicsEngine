@@ -20,11 +20,11 @@ public:
 
 private:
   VkDescriptorPool imGUIPool;
-  std::vector<ImGUIView const *> views;
+  std::vector<ImGUIView *> views;
 
 public:
   void BeginFrame();
-  void RegisterView(ImGUIView const *view);
+  void RegisterView(ImGUIView *view);
 
   class ImGUIDrawCommand : public Command {
     Image<2> const &targetImage;
@@ -38,7 +38,7 @@ public:
 };
 
 struct ImGUIView {
-  virtual void Draw() const = 0;
+  virtual void Draw() = 0;
   ImGUIView(ImGUIManager &imGuiManager) { imGuiManager.RegisterView(this); }
 };
 

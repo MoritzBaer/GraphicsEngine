@@ -4,22 +4,15 @@
 struct TestProject : public Game {
   TestProject() : Game("Test Project") {}
 
-  void SpecializedInit() override {
-    mainCam = ecs.CreateEntity();
-    mainCam.AddComponent<Engine::Graphics::Camera>();
-    mainCam.AddComponent<Editor::Display>()->AssignLabel("Main camera");
-    auto camTransform = mainCam.AddComponent<Engine::Graphics::Transform>();
-    camTransform->position = {0, 0, 5};
-    camTransform->LookAt({0, 0, 0});
+  void Init() override {
+    Game::Init();
 
-    assetManager.LoadAsset<Engine::Core::Entity>("speeder");
+    auto speeder = assetManager.LoadAsset<Engine::Core::Entity>("speeder");
+    ENGINE_ASSERT(speeder.IsActive(), "Speeder is not active!");
 
     assetManager.LoadAsset<Engine::Core::Entity>("cube");
-    assetManager.LoadAsset<Engine::Core::Entity>("cube");
-    assetManager.LoadAsset<Engine::Core::Entity>("cube")
-        .Duplicate()
-        .GetComponent<Engine::Graphics::Transform>()
-        ->position = {-3, 0, -4};
+    assetManager.LoadAsset<Engine::Core::Entity>("cube").GetComponent<Engine::Graphics::Transform>()->position = {-3, 0,
+                                                                                                                  -4};
   }
 };
 

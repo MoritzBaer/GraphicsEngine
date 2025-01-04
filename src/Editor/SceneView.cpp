@@ -35,7 +35,7 @@ void SceneView::DrawNode(Engine::Core::SceneHierarchy::TreeNode const &node, ImG
   }
 }
 
-void SceneView::Draw() const {
+void SceneView::Draw() {
   ImGuiTreeNodeFlags flags =
       ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding | ImGuiTreeNodeFlags_OpenOnArrow;
   if (ImGui::Begin("Scene")) {

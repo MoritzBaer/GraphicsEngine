@@ -6,6 +6,7 @@
 #include "Graphics/InstanceManager.h"
 #include "Graphics/MemoryAllocator.h"
 #include "Graphics/Renderer.h"
+#include "Graphics/RenderingStrategies/ComputeBackground.h"
 #include "Graphics/RenderingStrategy.h"
 #include "Util/DeletionQueue.h"
 #include "WindowManager.h"
@@ -22,6 +23,7 @@ struct Game {
   Engine::AssetManager assetManager;
   Engine::Graphics::Renderer renderer;
 
+  Engine::Graphics::RenderingStrategies::ComputeBackground background;
   Engine::Core::Entity mainCam;
   bool rendering;
   bool running;
@@ -29,12 +31,10 @@ struct Game {
   // TODO: Make CreateWindow use dimension, pass dimension to Game()
   Game(const char *name);
 
-  void Init();
+  virtual void Init();
   virtual void CalculateFrame();
   inline bool IsRunning() { return running; }
+  virtual void Start();
 
   ~Game();
-
-protected:
-  virtual void SpecializedInit() {}
 };
