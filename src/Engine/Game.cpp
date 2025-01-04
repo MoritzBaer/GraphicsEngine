@@ -1,5 +1,6 @@
 #include "Game.h"
 
+#include "Core/Script.h"
 #include "Core/Time.h"
 #include "Debug/Logging.h"
 #include "Debug/Profiling.h"
@@ -62,6 +63,7 @@ void Game::Init() {
   ecs.RegisterComponent<Engine::Graphics::Transform>();
   ecs.RegisterComponent<Engine::Graphics::MeshRenderer>();
   ecs.RegisterComponent<Engine::Graphics::Camera>();
+  ecs.RegisterComponent<Engine::Core::ScriptComponent>();
 
   auto textureCache = new TextureCache(&gpuObjectManager);
   assetManager.RegisterAssetType<Graphics::Texture2D>(textureCache, &gpuObjectManager, textureCache);
@@ -110,23 +112,19 @@ void Game::CalculateFrame() {
 
     Engine::WindowManager::HandleEventsOnAllWindows();
 
+    auto scripts = ecs.FilterEntities<Engine::Core::ScriptComponent>();
+    for (auto &[scriptComponent] : scripts) {
+      scriptComponent->UpdateScripts(Engine::Time::deltaTime);
+    }
+
     if (rendering) {
       auto renderersWithTransforms =
           ecs.FilterEntities<Engine::Graphics::MeshRenderer, Engine::Graphics::Transform, Editor::Display>();
       std::vector<Engine::Graphics::MeshRenderer const *> meshRenderers{};
       meshRenderers.reserve(renderersWithTransforms.size());
       for (auto &[meshRenderer, transform, __] : renderersWithTransforms) {
-        if (transform->HasInactiveParent())
-          continue;
-
-        if (transform->parent)
-          transform = transform->parent->entity.GetComponent<Engine::Graphics::Transform>();
-        transform->rotation = (Engine::Maths::Transformations::RotateAroundAxis(Engine::Maths::Vector3(0, 1, 0),
-                                                                                Engine::Time::deltaTime * 0.2f) *
-                               transform->rotation)
-                                  .Normalized();
-        transform->position.y() = std::sin(Engine::Time::time) * 0.1f;
-        meshRenderers.push_back(meshRenderer);
+        if (!transform->HasInactiveParent())
+          meshRenderers.push_back(meshRenderer);
       }
       Engine::Graphics::RenderingRequest request{
           .objectsToDraw = meshRenderers,
