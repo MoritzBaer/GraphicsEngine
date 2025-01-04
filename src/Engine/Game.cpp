@@ -48,10 +48,10 @@ struct EntityCache : public AssetManager::AssetCache<Core::Entity> {
 
 Game::Game(const char *name)
     : mainWindow(Engine::WindowManager::CreateWindow({1600, 900}, name)), mainDeletionQueue(),
-      instanceManager(name, mainWindow), assetManager(&gpuObjectManager, &ecs, &shaderCompiler, &instanceManager),
-      shaderCompiler(&instanceManager), ecs(), memoryAllocator(instanceManager),
-      gpuObjectManager(&instanceManager, &memoryAllocator), renderer({1600, 900}, &instanceManager, &gpuObjectManager),
-      sceneHierarchy(&ecs), rendering(true), running(true) {}
+      instanceManager(name, mainWindow), assetManager(), shaderCompiler(&instanceManager), ecs(),
+      memoryAllocator(instanceManager), gpuObjectManager(&instanceManager, &memoryAllocator),
+      renderingStrategy(nullptr), renderer({1600, 900}, &instanceManager, &gpuObjectManager), sceneHierarchy(&ecs),
+      rendering(true), running(true) {}
 
 void Game::Init() {
   BEGIN_PROFILE_SESSION()
@@ -74,8 +74,8 @@ void Game::Init() {
   assetManager.RegisterAssetType<Graphics::RenderingStrategies::CompiledEffect>(
       new AssetCacheImpl<Graphics::RenderingStrategies::CompiledEffect>(&instanceManager), &instanceManager,
       &assetManager);
-  assetManager.RegisterAssetType<Graphics::RenderingStrategies::ComputeBackground>(
-      new AssetCacheImpl<Graphics::RenderingStrategies::ComputeBackground>(), &instanceManager, &assetManager);
+  assetManager.RegisterAssetType<Graphics::RenderingStrategies::ComputeBackground *>(
+      new AssetCacheImpl<Graphics::RenderingStrategies::ComputeBackground *>(), &instanceManager, &assetManager);
   assetManager.RegisterAssetType<Graphics::Pipeline *>(new AssetCacheImpl<Graphics::Pipeline *>(&instanceManager),
                                                        &instanceManager, &assetManager);
   assetManager.RegisterAssetType<Graphics::AllocatedMesh *>(
@@ -87,9 +87,10 @@ void Game::Init() {
   mainWindow->SetResizeCallback(
       [this](Engine::Maths::Dimension2 newWindowSize) { renderer.SetWindowSize(newWindowSize); });
 
-  background = assetManager.LoadAsset<Engine::Graphics::RenderingStrategies::ComputeBackground>("nightsky");
-  renderer.SetRenderingStrategy(
-      new Engine::Graphics::RenderingStrategies::ForwardRendering(&instanceManager, &gpuObjectManager, &background));
+  renderingStrategy = new Engine::Graphics::RenderingStrategies::ForwardRendering(
+      &instanceManager, &gpuObjectManager,
+      assetManager.LoadAsset<Engine::Graphics::RenderingStrategies::ComputeBackground *>("nightsky"));
+  renderer.SetRenderingStrategy(renderingStrategy);
 
   mainCam = ecs.CreateEntity();
   mainCam.AddComponent<Engine::Graphics::Camera>();
@@ -151,6 +152,7 @@ Game::~Game() {
   PROFILE_FUNCTION()
 
   instanceManager.WaitUntilDeviceIdle();
+  delete renderingStrategy;
   mainDeletionQueue.Flush();
   WRITE_PROFILE_SESSION("Cleanup")
 }

@@ -36,18 +36,23 @@ public:
   }
 };
 
+std::vector<Graphics::DescriptorAllocator::PoolSizeRatio> ratios{{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1}};
+
 ComputeBackground::ComputeBackground(InstanceManager const *instanceManager, CompiledEffect const &effect,
                                      ComputePushConstants const &data)
-    : descriptorAllocator(instanceManager), descriptorWriter(instanceManager), effect(effect), data(data) {
-  std::vector<DescriptorAllocator::PoolSizeRatio> ratios{{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1}};
-
-  descriptorAllocator = DescriptorAllocator(instanceManager);
+    : descriptorAllocator(instanceManager), descriptorWriter(instanceManager), effect(effect), data(data),
+      instanceManager(instanceManager) {
   descriptorAllocator.InitPools(10, ratios);
 
-  DescriptorLayoutBuilder descriptorLayoutBuilder{instanceManager};
-
+  Graphics::DescriptorLayoutBuilder descriptorLayoutBuilder{instanceManager};
   descriptorLayoutBuilder.AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
   descriptorSetLayout = descriptorLayoutBuilder.Build(VK_SHADER_STAGE_COMPUTE_BIT);
+}
+
+ComputeBackground::~ComputeBackground() {
+  descriptorAllocator.ClearDescriptors();
+  descriptorAllocator.DestroyPools();
+  instanceManager->DestroyDescriptorSetLayout(descriptorSetLayout);
 }
 
 std::vector<Command *> ComputeBackground::GetRenderingCommands(Maths::Dimension2 const &renderDimension,

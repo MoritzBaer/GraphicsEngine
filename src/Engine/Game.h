@@ -22,8 +22,8 @@ struct Game {
   Engine::Core::ECS ecs;
   Engine::AssetManager assetManager;
   Engine::Graphics::Renderer renderer;
+  Engine::Graphics::RenderingStrategy *renderingStrategy;
 
-  Engine::Graphics::RenderingStrategies::ComputeBackground background;
   Engine::Core::Entity mainCam;
   bool rendering;
   bool running;
@@ -36,5 +36,5 @@ struct Game {
   inline bool IsRunning() { return running; }
   virtual void Start();
 
-  ~Game();
+  virtual ~Game();
 };

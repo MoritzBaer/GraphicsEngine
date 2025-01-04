@@ -52,8 +52,6 @@ private:
   DescriptorAllocator descriptorAllocator;
   DescriptorLayoutBuilder descriptorLayoutBuilder;
   DescriptorWriter descriptorWriter;
-  VkDescriptorSet renderBufferDescriptors;
-  VkDescriptorSetLayout renderBufferDescriptorLayout;
   VkDescriptorSetLayout singleTextureDescriptorLayout;
 
   void CreateSwapchain();

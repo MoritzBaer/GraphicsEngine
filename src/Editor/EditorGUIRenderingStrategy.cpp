@@ -59,4 +59,4 @@ void Editor::EditorGUIRenderingStrategy::CreateRenderBuffer() {
                                               VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
                                           VK_IMAGE_ASPECT_COLOR_BIT);
 }
-void Editor::EditorGUIRenderingStrategy::DestroyRenderBuffer() { objectManager->DestroyImage(renderBuffer); }
+void Editor::EditorGUIRenderingStrategy::DestroyRenderBuffer() { objectManager->DestroyAllocatedImage(renderBuffer); }

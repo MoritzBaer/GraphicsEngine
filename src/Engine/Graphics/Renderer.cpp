@@ -29,7 +29,6 @@ Renderer::~Renderer() {
   }
   descriptorAllocator.ClearDescriptors();
   descriptorAllocator.DestroyPools();
-  instanceManager->DestroyDescriptorSetLayout(renderBufferDescriptorLayout);
 }
 
 VkSurfaceFormatKHR ChooseSwapchainSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats) {
@@ -199,30 +198,5 @@ void Renderer::DestroyFrameResources(FrameResources &resources) {
   resources.descriptorAllocator.DestroyPools();
   gpuObjectManager->DestroyBuffer(resources.uniformBuffer);
 }
-
-// TODO: Move to BackgroundStrategy
-
-// void Renderer::RecreateRenderBuffer() {
-//   VkExtent3D renderBufferExtent = {windowDimension.x(), windowDimension.y(), 1};
-//
-//   if (renderBufferInitialized) {
-//     DestroyRenderBuffer();
-//   }
-//   renderBuffer.colourImage = gpuObjectManager->CreateAllocatedImage(ChooseRenderBufferFormat(),
-//   renderBufferDimension,
-//                                                                     renderBufferUsage, VK_IMAGE_ASPECT_COLOR_BIT);
-//   renderBuffer.depthImage =
-//       gpuObjectManager->CreateAllocatedImage(VK_FORMAT_D32_SFLOAT, renderBufferDimension,
-//                                              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
-// }
-
-// void Renderer::InitDescriptors() {
-//   PROFILE_FUNCTION()
-//
-//   renderBufferDescriptors = descriptorAllocator.Allocate(renderBufferDescriptorLayout);
-//
-//   descriptorWriter.WriteImage(0, renderBuffer.colourImage, VK_IMAGE_LAYOUT_GENERAL,
-//   VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); descriptorWriter.UpdateSet(renderBufferDescriptors); descriptorWriter.Clear();
-// }
 
 } // namespace Engine::Graphics

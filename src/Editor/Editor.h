@@ -27,7 +27,6 @@ struct Editor : public Game {
   Game *game;
   bool runGame;
   bool gameInitialized;
-  Engine::Graphics::RenderingStrategies::ComputeBackground editorBackground;
   Engine::Graphics::ImGUIManager imGuiManager;
   GameControl gameControl;
   SceneView sceneView;
@@ -39,13 +38,16 @@ struct Editor : public Game {
       : Game("Editor"), game(game), gameControl(imGuiManager, &runGame), runGame(false), gameInitialized(false),
         imGuiManager(mainWindow, renderer.GetSwapchainFormat(), &instanceManager),
         sceneView(imGuiManager, &game->sceneHierarchy, &selectedEntity), entityDetails(imGuiManager, &selectedEntity) {}
-  ~Editor() {}
+  ~Editor() { instanceManager.WaitUntilDeviceIdle(); }
 
   inline void Init() override {
     Game::Init();
     game->Init();
-    editorBackground = assetManager.LoadAsset<Engine::Graphics::RenderingStrategies::ComputeBackground>("editor");
-    renderer.SetRenderingStrategy(new EditorGUIRenderingStrategy(&gpuObjectManager, &editorBackground));
+    delete renderingStrategy;
+    renderingStrategy = new EditorGUIRenderingStrategy(
+        &gpuObjectManager,
+        assetManager.LoadAsset<Engine::Graphics::RenderingStrategies::ComputeBackground *>("editor"));
+    renderer.SetRenderingStrategy(renderingStrategy);
   }
 
   inline void CalculateFrame() override {

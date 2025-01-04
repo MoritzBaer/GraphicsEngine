@@ -29,8 +29,8 @@ public:
   template <typename T> struct LoaderMembers;
 
   template <typename T> class AssetCache {
-
   public:
+    virtual ~AssetCache() = default;
     virtual void InsertAsset(char const *assetName, T asset) = 0;
     virtual bool HasAsset(char const *assetName) = 0;
     virtual T LoadAsset(char const *assetName) = 0;
@@ -61,7 +61,8 @@ public:
 
 private:
   class SingleTypeManager {
-    virtual void Dummy() {} // Dummy function to allow dynamic_cast
+  public:
+    virtual ~SingleTypeManager() = default;
   };
   template <typename T> class SingleTypeManagerT : public SingleTypeManager {
     AssetCache<T> *cache;
@@ -87,11 +88,14 @@ private:
   std::array<SingleTypeManager *, 255> typeManagers;
 
 public:
-  AssetManager(Graphics::GPUObjectManager *gpuObjectManager, Core::ECS *ecs, Graphics::ShaderCompiler *shaderCompiler,
-               Graphics::InstanceManager *instanceManager);
-  ~AssetManager();
+  AssetManager() : typeManagers() {};
+  ~AssetManager() {
+    for (int c = 0; c < nextFreeType; c++) {
+      if (typeManagers[c])
+        delete typeManagers[c];
+    }
+  };
 
-  void InitStandins();
   template <typename T> inline void RegisterAssetType(AssetCache<T> *cache, LoaderMembers<T> *loaderMembers);
   template <typename T, typename... LoaderArgs>
   inline void RegisterAssetType(AssetCache<T> *cache, LoaderArgs... args) {

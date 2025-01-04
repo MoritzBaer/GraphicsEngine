@@ -1,5 +1,6 @@
 #pragma once
 
+#include "AssetManager.h"
 #include "Graphics/RenderingStrategy.h"
 
 namespace Engine::Graphics::RenderingStrategies {
@@ -13,6 +14,7 @@ struct ComputePushConstants {
 };
 
 class ComputeBackground : public BackgroundStrategy {
+  InstanceManager const *instanceManager;
   DescriptorAllocator descriptorAllocator;
   DescriptorWriter descriptorWriter;
   VkDescriptorSetLayout descriptorSetLayout;
@@ -23,6 +25,7 @@ public:
   ComputeBackground(InstanceManager const *instanceManager, CompiledEffect const &effect,
                     ComputePushConstants const &data);
   ComputeBackground() = default;
+  ~ComputeBackground() override;
   std::vector<Command *> GetRenderingCommands(Maths::Dimension2 const &renderDimension,
                                               Image<2> &renderTarget) override;
 };

@@ -148,7 +148,7 @@ template <> struct AssetManager::DestroyerMembers<Graphics::RenderingStrategies:
   DestroyerMembers(Graphics::InstanceManager const *instanceManager) : instanceManager(instanceManager) {}
 };
 
-template <> struct AssetManager::LoaderMembers<Graphics::RenderingStrategies::ComputeBackground> {
+template <> struct AssetManager::LoaderMembers<Graphics::RenderingStrategies::ComputeBackground *> {
   Graphics::InstanceManager const *instanceManager;
   AssetManager *assetManager;
 
@@ -156,6 +156,6 @@ template <> struct AssetManager::LoaderMembers<Graphics::RenderingStrategies::Co
       : instanceManager(instanceManager), assetManager(assetManager) {}
 };
 
-template <> struct AssetManager::DestroyerMembers<Graphics::RenderingStrategies::ComputeBackground> {};
+template <> struct AssetManager::DestroyerMembers<Graphics::RenderingStrategies::ComputeBackground *> {};
 
 } // namespace Engine

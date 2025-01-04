@@ -48,41 +48,44 @@ void AssetManager::AssetDestroyer<Graphics::RenderingStrategies::CompiledEffect>
 
 // Effect instance
 template <>
-std::string
-AssetManager::AssetLoader<Graphics::RenderingStrategies::ComputeBackground>::GetAssetPath(char const *assetName) const {
+std::string AssetManager::AssetLoader<Graphics::RenderingStrategies::ComputeBackground *>::GetAssetPath(
+    char const *assetName) const {
   return "rendering_strategies/background_compute_effects/" + std::string(assetName) + ".cei";
 }
 
-template <> struct AssetManager::AssetDSO<Graphics::RenderingStrategies::ComputeBackground> {
+template <> struct AssetManager::AssetDSO<Graphics::RenderingStrategies::ComputeBackground *> {
   std::string effectName;
   Graphics::RenderingStrategies::ComputePushConstants data;
 };
 
 template <>
-AssetManager::AssetDSO<Graphics::RenderingStrategies::ComputeBackground> *
-AssetManager::AssetLoader<Graphics::RenderingStrategies::ComputeBackground>::ParseAsset(
+AssetManager::AssetDSO<Graphics::RenderingStrategies::ComputeBackground *> *
+AssetManager::AssetLoader<Graphics::RenderingStrategies::ComputeBackground *>::ParseAsset(
     std::string const &assetSource) const {
-  auto dso = new AssetDSO<Graphics::RenderingStrategies::ComputeBackground>();
-  json<AssetDSO<Graphics::RenderingStrategies::ComputeBackground>>::deserialize(assetSource, *dso);
+  auto dso = new AssetDSO<Graphics::RenderingStrategies::ComputeBackground *>();
+  json<AssetDSO<Graphics::RenderingStrategies::ComputeBackground *>>::deserialize(assetSource, *dso);
   return dso;
 }
 
 template <>
-Graphics::RenderingStrategies::ComputeBackground
-AssetManager::AssetLoader<Graphics::RenderingStrategies::ComputeBackground>::ConvertDSO(
-    AssetDSO<Graphics::RenderingStrategies::ComputeBackground> const *dso) const {
+Graphics::RenderingStrategies::ComputeBackground *
+AssetManager::AssetLoader<Graphics::RenderingStrategies::ComputeBackground *>::ConvertDSO(
+    AssetDSO<Graphics::RenderingStrategies::ComputeBackground *> const *dso) const {
   auto effect =
       members->assetManager->LoadAsset<Graphics::RenderingStrategies::CompiledEffect>(dso->effectName.c_str());
-  return Graphics::RenderingStrategies::ComputeBackground(members->instanceManager, effect, dso->data);
+
+  return new Graphics::RenderingStrategies::ComputeBackground(members->instanceManager, effect, dso->data);
 }
 
 template <>
-void AssetManager::AssetDestroyer<Graphics::RenderingStrategies::ComputeBackground>::DestroyAsset(
-    Graphics::RenderingStrategies::ComputeBackground &asset) const {}
+void AssetManager::AssetDestroyer<Graphics::RenderingStrategies::ComputeBackground *>::DestroyAsset(
+    Graphics::RenderingStrategies::ComputeBackground *&asset) const {
+  delete asset;
+}
 
 } // namespace Engine
 
 OBJECT_PARSER(Engine::AssetManager::AssetDSO<Engine::Graphics::RenderingStrategies::CompiledEffect>,
               FIELD_PARSER(shaderName))
-OBJECT_PARSER(Engine::AssetManager::AssetDSO<Engine::Graphics::RenderingStrategies::ComputeBackground>,
+OBJECT_PARSER(Engine::AssetManager::AssetDSO<Engine::Graphics::RenderingStrategies::ComputeBackground *>,
               FIELD_PARSER(effectName) FIELD_PARSER(data))
