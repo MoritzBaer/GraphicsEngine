@@ -1,5 +1,6 @@
 #include "ECS.h"
 
+#include "Core/HierarchyComponent.h"
 #include "Debug/Logging.h"
 
 #define GIVE_LIFE(entity) aliveAndComponentFlags[entity] = ALIVE_FLAG | ACTIVE_FLAG;
@@ -18,7 +19,7 @@ Component *ECS::AddComponent(EntityId e, ComponentIndex componentIndex) {
   return componentArrays[componentIndex]->AddComponent(e);
 }
 
-Component *ECS::GetComponent(EntityId e, ComponentIndex componentIndex) {
+Component *ECS::GetComponent(EntityId e, ComponentIndex componentIndex) const {
   if (!(aliveAndComponentFlags[e] & ALIVE_FLAG)) {
     ENGINE_ERROR("Tried to query component off dead entity!") return nullptr;
   }
@@ -28,7 +29,7 @@ Component *ECS::GetComponent(EntityId e, ComponentIndex componentIndex) {
   return componentArrays[componentIndex]->GetComponent(e);
 }
 
-bool ECS::HasComponent(EntityId e, ComponentIndex componentIndex) {
+bool ECS::HasComponent(EntityId e, ComponentIndex componentIndex) const {
   return aliveAndComponentFlags[e] & (uint64_t(1) << componentIndex);
 }
 
@@ -42,18 +43,7 @@ void ECS::RemoveComponent(EntityId e, ComponentIndex componentIndex) {
   componentArrays[componentIndex]->RemoveComponent(e);
 }
 
-void ECS::RegisterComponent(componentID componentID, ComponentArray *componentArray) {
-  if (componentID >= componentArrays.size()) {
-    ENGINE_ERROR("Too many components registered!")
-    delete componentArray;
-  } else if (componentArrays[componentID]) {
-    ENGINE_ERROR("Component already registered!")
-    delete componentArray;
-  }
-  componentArrays[componentID] = componentArray;
-}
-
-ECS::ECS() : aliveAndComponentFlags(), firstFreeEntity(0), unusedEntityIDs(), componentArrays() {
+ECS::ECS() : aliveAndComponentFlags(MAX_ENTITY_NUMBER), firstFreeEntity(0), unusedEntityIDs(), componentArrays() {
   componentArrays.fill(nullptr);
 }
 ECS::~ECS() {
@@ -79,16 +69,35 @@ EntityId ECS::_CreateEntity() {
   return newEntity;
 }
 
-Entity ECS::DuplicateEntity(EntityId e) {
+Entity ECS::DuplicateEntity(EntityId e) { return CopyFromOtherECS(e, this); }
+
+Entity ECS::CopyFromOtherECS(EntityId e, ECS const *otherECS) {
   EntityId newEntity = _CreateEntity();
-  for (int i = 0; i < componentArrays.size(); i++) {
-    if (aliveAndComponentFlags[e] & (uint64_t(1) << i) && componentArrays[i]) {
-      AddComponent(newEntity, i)->CopyFrom(GetComponent(e, i));
+  for (int c = 0; c < componentArrays.size(); c++) {
+    if (otherECS->aliveAndComponentFlags[e] & (uint64_t(1) << c) && otherECS->componentArrays[c]) {
+      if (!componentArrays[c]) {
+        componentArrays[c] = otherECS->componentArrays[c]->InitEmptyForOtherECS(this);
+      }
+      AddComponent(newEntity, c)->CopyFrom(otherECS->GetComponent(e, c));
     }
   }
-  ENGINE_ASSERT((aliveAndComponentFlags[e] & ~PATTERN_FLAG) == aliveAndComponentFlags[newEntity],
-                "Entity duplication failed!")
+  ENGINE_ASSERT(otherECS->aliveAndComponentFlags[e] == aliveAndComponentFlags[newEntity], "Entity duplication failed!")
   return Entity(newEntity, this);
+}
+
+void ECS::Copy(ECS const *otherECS) {
+  EntityId current = 0;
+  while (current < otherECS->firstFreeEntity) {
+    while (!(otherECS->aliveAndComponentFlags[current] & ALIVE_FLAG) && ++current < otherECS->firstFreeEntity)
+      ;
+    if (HasComponent(current, ComponentID<HierarchyComponent>::value) &&
+        dynamic_cast<HierarchyComponent *>(otherECS->GetComponent(current, ComponentID<HierarchyComponent>::value))
+            ->parent) {
+      current++;
+      continue;
+    }
+    CopyFromOtherECS(current++, otherECS);
+  }
 }
 
 void ECS::DestroyEntity(EntityId e) {
@@ -101,7 +110,7 @@ void ECS::DestroyEntity(EntityId e) {
   KILL(e)
 }
 
-std::vector<Component *> ECS::GetComponents(EntityId e) {
+std::vector<Component *> ECS::GetComponents(EntityId e) const {
   std::vector<Component *> result;
   if (e == EntityId(-1) || !(aliveAndComponentFlags[e] & ALIVE_FLAG)) {
     return result;

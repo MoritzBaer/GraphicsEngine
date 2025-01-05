@@ -22,12 +22,16 @@ struct SpinnyScript : public Core::Script {
 
 struct BobbyScript : public Core::Script {
   Engine::Graphics::Transform *transform;
+  float initialY;
   float bobbingAmplitude;
 
   BobbyScript(Core::Entity entity, float bobbingAmplitude) : Core::Script(entity), bobbingAmplitude(bobbingAmplitude) {}
 
+  void OnStart() override { initialY = transform->position.y(); }
   void OnCreate() override { transform = entity.GetComponent<Engine::Graphics::Transform>(); }
-  void OnUpdate(float deltaTime) override { transform->position.y() = std::sin(Engine::Time::time) * bobbingAmplitude; }
+  void OnUpdate(float deltaTime) override {
+    transform->position.y() = initialY + std::sin(Engine::Time::time) * bobbingAmplitude;
+  }
 
   Script *Clone() override { return new BobbyScript(entity, bobbingAmplitude); }
 };
@@ -37,16 +41,11 @@ struct TestProject : public Game {
 
   void Init() override {
     Game::Init();
-
-    auto speederScripts = assetManager.LoadAsset<Engine::Core::Entity>("speeder").AddComponent<Core::ScriptComponent>();
-    speederScripts->InstantiateScript<SpinnyScript>();
-    speederScripts->InstantiateScript<BobbyScript>(0.1f);
-
-    assetManager.LoadAsset<Engine::Core::Entity>("cube")
-        .AddComponent<Core::ScriptComponent>()
-        ->InstantiateScript<BobbyScript>(1.0f);
-    assetManager.LoadAsset<Engine::Core::Entity>("cube").GetComponent<Engine::Graphics::Transform>()->position = {-3, 0,
-                                                                                                                  -4};
+    activeScene = assetManager.LoadAsset<Core::Scene *>("testscene");
+    // auto secondSpeeder = activeScene->InstantiateEntity(assetManager.LoadAsset<Core::Entity>("speeder"));
+    // auto transform = secondSpeeder.GetComponent<Engine::Graphics::Transform>();
+    // auto meshRenderer = transform->children[0]->entity.GetComponent<Engine::Graphics::MeshRenderer>();
+    activeScene->mainCamera.GetComponent<Engine::Graphics::Transform>()->LookAt({0, 0, 0});
   }
 };
 
@@ -56,14 +55,16 @@ int main() {
 
   auto gameSize = sizeof(TestProject);
 
-  Game *game = new TestProject();
-  Editor::Editor editor(game);
-  editor.Init();
+  TestProject game{};
+  Editor::Editor editor{&game};
+  try {
+    editor.Init();
 
-  while (editor.IsRunning())
-    editor.CalculateFrame();
-
-  delete game;
+    while (editor.IsRunning())
+      editor.CalculateFrame();
+  } catch (std::exception &e) {
+    ENGINE_ERROR("Exception: {}", e.what());
+  }
 
   Engine::WindowManager::Cleanup();
 

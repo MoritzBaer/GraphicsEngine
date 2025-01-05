@@ -4,7 +4,7 @@
 #include "Graphics/InstanceManager.h"
 #include "vulkan/vulkan.h"
 
-#include "Core/ECS.h"
+#include "Core/Scene.h"
 #include "Graphics/AllocatedMesh.h"
 #include "Graphics/Materials/AlbedoAndBump.h"
 #include "Graphics/RenderingStrategies/ComputeBackground.h"
@@ -157,5 +157,15 @@ template <> struct AssetManager::LoaderMembers<Graphics::RenderingStrategies::Co
 };
 
 template <> struct AssetManager::DestroyerMembers<Graphics::RenderingStrategies::ComputeBackground *> {};
+
+// Scene
+
+template <> struct AssetManager::LoaderMembers<Core::Scene *> {
+  AssetManager *assetManager;
+
+  LoaderMembers(AssetManager *assetManager) : assetManager(assetManager) {}
+};
+
+template <> struct AssetManager::DestroyerMembers<Core::Scene *> {};
 
 } // namespace Engine

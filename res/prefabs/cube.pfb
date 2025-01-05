@@ -2,27 +2,9 @@
     "components": [
         {
             "Engine::TransformDSO": {
-                "position": {
-                    "data": [
-                        3,
-                        0,
-                        -4
-                    ]
-                },
-                "rotation": {
-                    "w": 1,
-                    "x": 0,
-                    "y": 0,
-                    "z": 0
-                },
-                "scale": {
-                    "data": [
-                        0.5,
-                        1,
-                        1
-                    ]
-                },
-                "children": []
+                "position": { "data": [ 3, 0, -4 ] },
+                "rotation": { "w": 1, "x": 0, "y": 0, "z": 0 },
+                "scale": { "data": [ 0.5, 1, 1 ] }
             }
         },
         {

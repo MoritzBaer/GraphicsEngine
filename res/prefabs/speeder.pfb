@@ -2,52 +2,21 @@
     "components": [
         {
             "Engine::TransformDSO": {
-                "position": {
-                    "data": [
-                        0,
-                        0,
-                        0
-                    ]
-                },
-                "rotation": {
-                    "w": 1,
-                    "x": 0,
-                    "y": 0,
-                    "z": 0
-                },
-                "scale": {
-                    "data": [
-                        1,
-                        1,
-                        1
-                    ]
-                },
+                "position": { "data": [ 0, 0, 0 ] },
+                "rotation": { "w": 1, "x": 0, "y": 0, "z": 0 },
+                "scale": { "data": [ 1, 1, 1 ] }
+            }
+        },
+        {
+            "Engine::HierarchyDSO": {
                 "children": [
                     {
                         "components": [
                             {
                                 "Engine::TransformDSO": {
-                                    "position": {
-                                        "data": [
-                                            0,
-                                            0,
-                                            0
-                                        ]
-                                    },
-                                    "rotation": {
-                                        "w": 1,
-                                        "x": 0,
-                                        "y": 0,
-                                        "z": 0
-                                    },
-                                    "scale": {
-                                        "data": [
-                                            1,
-                                            1,
-                                            1
-                                        ]
-                                    },
-                                    "children": []
+                                    "position": { "data": [ 0, 0, 0 ] },
+                                    "rotation": { "w": 1, "x": 0, "y": 0, "z": 0 },
+                                    "scale": { "data": [ 1, 1, 1 ] }
                                 }
                             },
                             {
@@ -67,27 +36,9 @@
                         "components": [
                             {
                                 "Engine::TransformDSO": {
-                                    "position": {
-                                        "data": [
-                                            0,
-                                            0,
-                                            0
-                                        ]
-                                    },
-                                    "rotation": {
-                                        "w": 1,
-                                        "x": 0,
-                                        "y": 0,
-                                        "z": 0
-                                    },
-                                    "scale": {
-                                        "data": [
-                                            1,
-                                            1,
-                                            1
-                                        ]
-                                    },
-                                    "children": []
+                                    "position": { "data": [ 0, 0, 0 ] },
+                                    "rotation": { "w": 1, "x": 0, "y": 0, "z": 0 },
+                                    "scale": { "data": [ 1, 1, 1 ] }
                                 }
                             },
                             {

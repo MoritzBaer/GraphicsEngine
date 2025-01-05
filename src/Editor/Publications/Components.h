@@ -44,8 +44,17 @@ inline Publication Publishable<Engine::Graphics::Transform>::Publish(Engine::Gra
 }
 
 template <> constexpr char const *Publishable<Engine::Graphics::MeshRenderer>::typeLabel = "MeshRenderer";
+template <>
+Publication Publishable<Engine::Graphics::MeshRenderer>::Publish(Engine::Graphics::MeshRenderer &value,
+                                                                 const char *label) {
+  return COMPOSITE();
+}
 
 template <> constexpr char const *Publishable<Engine::Graphics::Camera>::typeLabel = "Camera";
+template <>
+Publication Publishable<Engine::Graphics::Camera>::Publish(Engine::Graphics::Camera &value, const char *label) {
+  return COMPOSITE();
+}
 
 template <> constexpr char const *Publishable<Editor::Display>::typeLabel = "Display";
 template <> Publication Publishable<Editor::Display>::Publish(Editor::Display &value, const char *label) {

@@ -9,10 +9,12 @@ protected:
   Entity entity;
 
 public:
-  Script(Entity entity) : entity(entity) {}
+  bool started;
+  Script(Entity entity) : entity(entity), started(false) {}
   virtual ~Script() = default;
   virtual void OnCreate() {}
   virtual void OnDestroy() {}
+  virtual void OnStart() {}
   virtual void OnUpdate(float deltaTime) {}
   virtual Script *Clone() = 0;
 };
@@ -30,6 +32,10 @@ public:
   }
   void UpdateScripts(float deltaTime) {
     for (auto script : scripts) {
+      if (!script->started) {
+        script->OnStart();
+        script->started = true;
+      }
       script->OnUpdate(deltaTime);
     }
   }

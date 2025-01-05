@@ -1,10 +1,9 @@
 #pragma once
 
-#include "Core/ECS.h"
-#include "Graphics/GPUObjectManager.h"
-#include "Graphics/Shader.h"
+#include "Debug/Logging.h"
 #include "Util/FileIO.h"
 #include "Util/Macros.h"
+#include <array>
 #include <string>
 #include <unordered_map>
 
@@ -17,10 +16,6 @@ class AssetManager {
     inline static typeID value = -1;
   };
   inline static typeID nextFreeType = 0;
-  Core::ECS *ecs;
-  Graphics::GPUObjectManager *gpuObjectManager;
-  Graphics::ShaderCompiler *shaderCompiler;
-  Graphics::InstanceManager *instanceManager;
 
 public:
   template <typename T> struct AssetDSO;
@@ -31,12 +26,13 @@ public:
   template <typename T> class AssetCache {
   public:
     virtual ~AssetCache() = default;
-    virtual void InsertAsset(char const *assetName, T asset) = 0;
+    virtual void InsertAsset(char const *assetName, T const &asset) = 0;
     virtual bool HasAsset(char const *assetName) = 0;
     virtual T LoadAsset(char const *assetName) = 0;
   };
 
   template <typename T> class AssetLoader {
+    template <typename T_Other> friend class AssetLoader;
     LoaderMembers<T> *members;
     std::string GetAssetPath(char const *assetName) const;
     AssetDSO<T> *ParseAsset(std::string const &assetSource) const;
@@ -64,12 +60,13 @@ private:
   public:
     virtual ~SingleTypeManager() = default;
   };
+
   template <typename T> class SingleTypeManagerT : public SingleTypeManager {
     AssetCache<T> *cache;
     AssetLoader<T> *loader;
 
     friend class AssetManager;
-    inline void InsertAsset(char const *assetName, T asset) { cache->InsertAsset(assetName, asset); }
+    inline void InsertAsset(char const *assetName, T const &asset) { cache->InsertAsset(assetName, asset); }
 
   public:
     inline SingleTypeManagerT(AssetCache<T> *cache, AssetLoader<T> *loader) : cache(cache), loader(loader) {}
@@ -131,7 +128,7 @@ public:
   }
   inline bool HasAsset(char const *assetName) { return cache.find(assetName) != cache.end(); }
   T LoadAsset(char const *assetName);
-  inline void InsertAsset(char const *assetName, T asset) { cache.insert({assetName, asset}); }
+  inline void InsertAsset(char const *assetName, T const &asset) { cache.insert({assetName, asset}); }
 };
 
 template <typename T> inline T AssetCacheImpl<T>::LoadAsset(char const *assetName) {

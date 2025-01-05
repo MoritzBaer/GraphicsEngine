@@ -32,38 +32,53 @@ struct TextureCache : public AssetManager::AssetCache<Graphics::Texture2D> {
     baseCache.InsertAsset("normalUp", gpuObjectManager->CreateTexture(Maths::Dimension2(1, 1), &normalUp));
   }
   bool HasAsset(char const *assetName) override { return baseCache.HasAsset(assetName); }
-  void InsertAsset(char const *assetName, Graphics::Texture2D asset) override {
+  void InsertAsset(char const *assetName, Graphics::Texture2D const &asset) override {
     baseCache.InsertAsset(assetName, asset);
   }
   Graphics::Texture2D LoadAsset(char const *assetName) override { return baseCache.LoadAsset(assetName); }
 };
 
-struct EntityCache : public AssetManager::AssetCache<Core::Entity> {
-  AssetCacheImpl<Core::Entity> baseCache;
+struct SceneCache : public AssetManager::AssetCache<Core::Scene *> {
+  AssetCacheImpl<Core::Scene *> baseCache;
 
-  EntityCache(Core::ECS *ecs) : baseCache(ecs) {}
+  SceneCache() : baseCache() {}
   bool HasAsset(char const *assetName) override { return baseCache.HasAsset(assetName); }
-  void InsertAsset(char const *assetName, Core::Entity asset) override { baseCache.InsertAsset(assetName, asset); }
-  Core::Entity LoadAsset(char const *assetName) override { return baseCache.LoadAsset(assetName).Duplicate(); }
+  void InsertAsset(char const *assetName, Core::Scene *const &asset) override {
+    baseCache.InsertAsset(assetName, asset);
+  }
+  Core::Scene *LoadAsset(char const *assetName) override {
+    auto pattern = baseCache.LoadAsset(assetName);
+    auto copy = new Core::Scene();
+    copy->ecs.Copy(&pattern->ecs);
+    copy->sceneHierarchy.Rebuild();
+    copy->mainCamera = pattern->mainCamera.InOtherECS(&copy->ecs);
+    for (auto &[transform] : copy->ecs.FilterEntities<Graphics::Transform>()) {
+      if (transform->hierarchy->parent) {
+        transform->parent = transform->hierarchy->parent->entity.GetComponent<Graphics::Transform>();
+      }
+    }
+    return copy;
+  }
 };
 
 Game::Game(const char *name)
     : mainWindow(Engine::WindowManager::CreateWindow({1600, 900}, name)), mainDeletionQueue(),
-      instanceManager(name, mainWindow), assetManager(), shaderCompiler(&instanceManager), ecs(),
+      instanceManager(name, mainWindow), assetManager(), shaderCompiler(&instanceManager), prefabs(),
       memoryAllocator(instanceManager), gpuObjectManager(&instanceManager, &memoryAllocator),
-      renderingStrategy(nullptr), renderer({1600, 900}, &instanceManager, &gpuObjectManager), sceneHierarchy(&ecs),
+      renderingStrategy(nullptr), renderer({1600, 900}, &instanceManager, &gpuObjectManager), activeScene(nullptr),
       rendering(true), running(true) {}
 
 void Game::Init() {
   BEGIN_PROFILE_SESSION()
   PROFILE_FUNCTION()
 
-  ecs.RegisterComponent<Editor::Display>(); // TODO: Move to Editor (Will require figuring out a way to have components
-                                            // on entities in the scene that are only relevant to the editor)
-  ecs.RegisterComponent<Engine::Graphics::Transform>();
-  ecs.RegisterComponent<Engine::Graphics::MeshRenderer>();
-  ecs.RegisterComponent<Engine::Graphics::Camera>();
-  ecs.RegisterComponent<Engine::Core::ScriptComponent>();
+  Core::ECS::RegisterComponent<Editor::Display>();
+  Core::ECS::RegisterComponent<Engine::Core::HierarchyComponent>(); // Must be registered before all
+                                                                    // HierarchicalComponents
+  Core::ECS::RegisterComponent<Engine::Graphics::Transform>();
+  Core::ECS::RegisterComponent<Engine::Graphics::MeshRenderer>();
+  Core::ECS::RegisterComponent<Engine::Graphics::Camera>();
+  Core::ECS::RegisterComponent<Engine::Core::ScriptComponent>();
 
   auto textureCache = new TextureCache(&gpuObjectManager);
   assetManager.RegisterAssetType<Graphics::Texture2D>(textureCache, &gpuObjectManager, textureCache);
@@ -72,7 +87,7 @@ void Game::Init() {
   REGISTER_SHADER_TYPE(FRAGMENT);
   REGISTER_SHADER_TYPE(COMPUTE);
   assetManager.RegisterAssetType<Graphics::Material *>(new AssetCacheImpl<Graphics::Material *>(), &assetManager);
-  assetManager.RegisterAssetType<Core::Entity>(new EntityCache(&ecs), &ecs, &assetManager);
+  assetManager.RegisterAssetType<Core::Entity>(new AssetCacheImpl<Core::Entity>(&prefabs), &prefabs, &assetManager);
   assetManager.RegisterAssetType<Graphics::RenderingStrategies::CompiledEffect>(
       new AssetCacheImpl<Graphics::RenderingStrategies::CompiledEffect>(&instanceManager), &instanceManager,
       &assetManager);
@@ -82,6 +97,7 @@ void Game::Init() {
                                                        &instanceManager, &assetManager);
   assetManager.RegisterAssetType<Graphics::AllocatedMesh *>(
       new AssetCacheImpl<Graphics::AllocatedMesh *>(&gpuObjectManager), &gpuObjectManager);
+  assetManager.RegisterAssetType<Core::Scene *>(new SceneCache(), &assetManager);
 
   mainWindow->SetCloseCallback([this]() { running = false; });
   mainWindow->SetMinimizeCallback([this]() { rendering = false; });
@@ -94,13 +110,6 @@ void Game::Init() {
       assetManager.LoadAsset<Engine::Graphics::RenderingStrategies::ComputeBackground *>("nightsky"));
   renderer.SetRenderingStrategy(renderingStrategy);
 
-  mainCam = ecs.CreateEntity();
-  mainCam.AddComponent<Engine::Graphics::Camera>();
-  mainCam.AddComponent<Editor::Display>()->AssignLabel("Main camera");
-  auto camTransform = mainCam.AddComponent<Engine::Graphics::Transform>();
-  camTransform->position = {0, 0, 5};
-  camTransform->LookAt({0, 0, 0});
-
   WRITE_PROFILE_SESSION("Init")
 }
 
@@ -112,14 +121,15 @@ void Game::CalculateFrame() {
 
     Engine::WindowManager::HandleEventsOnAllWindows();
 
-    auto scripts = ecs.FilterEntities<Engine::Core::ScriptComponent>();
+    auto scripts = activeScene->ecs.FilterEntities<Engine::Core::ScriptComponent>();
     for (auto &[scriptComponent] : scripts) {
       scriptComponent->UpdateScripts(Engine::Time::deltaTime);
     }
 
     if (rendering) {
       auto renderersWithTransforms =
-          ecs.FilterEntities<Engine::Graphics::MeshRenderer, Engine::Graphics::Transform, Editor::Display>();
+          activeScene->ecs
+              .FilterEntities<Engine::Graphics::MeshRenderer, Engine::Graphics::Transform, Editor::Display>();
       std::vector<Engine::Graphics::MeshRenderer const *> meshRenderers{};
       meshRenderers.reserve(renderersWithTransforms.size());
       for (auto &[meshRenderer, transform, __] : renderersWithTransforms) {
@@ -128,8 +138,8 @@ void Game::CalculateFrame() {
       }
       Engine::Graphics::RenderingRequest request{
           .objectsToDraw = meshRenderers,
-          .camera = mainCam.GetComponent<Engine::Graphics::Camera>(),
-          .sceneData = {.cameraPosition = mainCam.GetComponent<Engine::Graphics::Transform>()->position,
+          .camera = activeScene->mainCamera.GetComponent<Engine::Graphics::Camera>(),
+          .sceneData = {.cameraPosition = activeScene->mainCamera.GetComponent<Engine::Graphics::Transform>()->position,
                         .lightDirection = {0, -5, -1.5},
                         .lightColour = {1, 1, 1}}};
       renderer.DrawFrame(request);
@@ -139,11 +149,7 @@ void Game::CalculateFrame() {
   }
 }
 
-void Game::Start() {
-  sceneHierarchy.BuildHierarchy();
-
-  Engine::Time::Update();
-}
+void Game::Start() { Engine::Time::Update(); }
 
 Game::~Game() {
   BEGIN_PROFILE_SESSION()

@@ -2,7 +2,7 @@
 
 #include "AssetManager.h"
 #include "Core/ECS.h"
-#include "Core/SceneHierarchy.h"
+#include "Core/Scene.h"
 #include "Graphics/InstanceManager.h"
 #include "Graphics/MemoryAllocator.h"
 #include "Graphics/Renderer.h"
@@ -18,13 +18,12 @@ struct Game {
   Engine::Graphics::MemoryAllocator memoryAllocator;
   Engine::Graphics::GPUObjectManager gpuObjectManager;
   Engine::Graphics::ShaderCompiler shaderCompiler;
-  Engine::Core::SceneHierarchy sceneHierarchy;
-  Engine::Core::ECS ecs;
+  Engine::Core::ECS prefabs;
+  Engine::Core::Scene *activeScene;
   Engine::AssetManager assetManager;
   Engine::Graphics::Renderer renderer;
   Engine::Graphics::RenderingStrategy *renderingStrategy;
 
-  Engine::Core::Entity mainCam;
   bool rendering;
   bool running;
 

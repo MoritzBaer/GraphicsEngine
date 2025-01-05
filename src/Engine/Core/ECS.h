@@ -10,8 +10,7 @@
 #define MAX_COMPONENT_NUMBER 60
 #define MAX_ENTITY_NUMBER (1 << 16)
 #define ALIVE_FLAG (uint64_t(1) << 63)
-#define PATTERN_FLAG (uint64_t(1) << 62)
-#define ACTIVE_FLAG (uint64_t(1) << 61)
+#define ACTIVE_FLAG (uint64_t(1) << 62)
 #define COMPONENT_FLAG(ComponentType) (uint64_t(1) << ComponentID<ComponentType>::value)
 
 namespace Engine::Core {
@@ -38,6 +37,7 @@ private:
     virtual Component *GetComponent(EntityId e) = 0;
     virtual Component *AddComponent(EntityId e) = 0;
     virtual void RemoveComponent(EntityId e) = 0;
+    virtual ComponentArray *InitEmptyForOtherECS(ECS *otherECS) const = 0;
     virtual ~ComponentArray() {}
   };
 
@@ -50,19 +50,21 @@ private:
     C *GetComponent(EntityId e);
     C *AddComponent(EntityId e);
     void RemoveComponent(EntityId e);
+    inline ComponentArray *InitEmptyForOtherECS(ECS *otherECS) const override {
+      return new ComponentArrayT<C>(otherECS);
+    }
   };
 
-  std::array<uint64_t, MAX_ENTITY_NUMBER> aliveAndComponentFlags;
+  std::vector<uint64_t> aliveAndComponentFlags;
   EntityId firstFreeEntity;
   std::stack<EntityId> unusedEntityIDs;
   std::array<ComponentArray *, MAX_COMPONENT_NUMBER> componentArrays;
   inline static componentID nextComponentID = 0;
 
   Component *AddComponent(EntityId e, ComponentIndex componentIndex);
-  Component *GetComponent(EntityId e, ComponentIndex componentIndex);
-  bool HasComponent(EntityId e, ComponentIndex componentIndex);
+  Component *GetComponent(EntityId e, ComponentIndex componentIndex) const;
+  bool HasComponent(EntityId e, ComponentIndex componentIndex) const;
   void RemoveComponent(EntityId e, ComponentIndex componentIndex);
-  void RegisterComponent(componentID componentID, ComponentArray *componentArray);
 
 public:
   ECS();
@@ -70,23 +72,22 @@ public:
 
   EntityId _CreateEntity();
   inline Entity CreateEntity();
-  inline Entity CreateEntityAsPattern();
   Entity DuplicateEntity(EntityId e);
   inline Entity DuplicateEntity(Entity e);
   void DestroyEntity(EntityId e);
   inline void DestroyEntity(Entity e);
 
-  template <class C> void RegisterComponent(); // Components can only be registered after initialization
+  template <class C> static void RegisterComponent(); // Components can only be registered after initialization
 
   template <class C> inline C *AddComponent(EntityId e);
-  template <class C> inline C *GetComponent(EntityId e);
-  template <class C> inline bool HasComponent(EntityId e);
+  template <class C> inline C *GetComponent(EntityId e) const;
+  template <class C> inline bool HasComponent(EntityId e) const;
   template <class C> inline void RemoveComponent(EntityId e);
   inline void SetActive(EntityId e, bool active);
-  inline bool IsActive(EntityId e);
-  inline bool IsAlive(EntityId e);
+  inline bool IsActive(EntityId e) const;
+  inline bool IsAlive(EntityId e) const;
 
-  std::vector<Component *> GetComponents(EntityId e);
+  std::vector<Component *> GetComponents(EntityId e) const;
 
   template <class... Cs> std::vector<std::tuple<Cs *...>> FilterEntities(bool onlyActive = true);
 
@@ -95,11 +96,15 @@ public:
 
   EntityIterator begin();
   EntityIterator end();
+
+  Entity CopyFromOtherECS(EntityId e, ECS const *otherECS);
+  void Copy(ECS const *otherECS);
 };
 
 class Entity { // Wrapper for internal entity, convenience only
   EntityId id;
   friend class ECS;
+  friend class HierarchyComponent;
   ECS *parentECS;
 
 public:
@@ -113,12 +118,15 @@ public:
 
   inline std::vector<Component *> GetComponents() const { return parentECS->GetComponents(id); }
   inline void Destroy() const { parentECS->DestroyEntity(id); }
-  inline Entity Duplicate() const { return parentECS->DuplicateEntity(id); }
   inline bool IsAlive() const { return parentECS && parentECS->IsAlive(id); }
   inline void SetActive(bool active = true) const { parentECS->SetActive(id, active); }
   inline bool IsActive() const { return parentECS->IsActive(id); }
 
   inline bool operator==(Entity const &other) const { return id == other.id && parentECS == other.parentECS; }
+
+  inline Entity Duplicate() const { return parentECS->DuplicateEntity(id); }
+  inline Entity CopyToOtherECS(ECS *otherECS) const { return otherECS->CopyFromOtherECS(id, parentECS); }
+  inline Entity InOtherECS(ECS *otherECS) const { return Entity(id, otherECS); }
 };
 
 class ECS::EntityIterator {
@@ -128,9 +136,7 @@ class ECS::EntityIterator {
 public:
   inline Entity const &operator*() const { return Entity(currentEntity, ecs); }
   inline EntityIterator &operator++() {
-    while ((!(ecs->aliveAndComponentFlags[++currentEntity] & ALIVE_FLAG) ||
-            ecs->aliveAndComponentFlags[currentEntity] & PATTERN_FLAG) &&
-           currentEntity < ecs->firstFreeEntity)
+    while (!(ecs->aliveAndComponentFlags[++currentEntity] & ALIVE_FLAG) && currentEntity < ecs->firstFreeEntity)
       ;
     return *this;
   }
@@ -157,11 +163,6 @@ template <class C> struct ComponentT : public Component {
 // IMPLEMENTATIONS
 
 inline Entity ECS::CreateEntity() { return Entity(_CreateEntity(), this); }
-inline Entity ECS::CreateEntityAsPattern() {
-  auto eId = _CreateEntity();
-  aliveAndComponentFlags[eId] |= PATTERN_FLAG;
-  return Entity(eId, this);
-}
 inline Entity ECS::DuplicateEntity(Entity e) { return DuplicateEntity(e.id); }
 inline void ECS::DestroyEntity(Entity e) { DestroyEntity(e.id); }
 
@@ -196,18 +197,25 @@ template <class C> inline void ECS::RegisterComponent() {
   if (ComponentID<C>::value == componentID(-1)) {
     ComponentID<C>::value = nextComponentID++;
   }
-  RegisterComponent(ComponentID<C>::value, new ComponentArrayT<C>(this));
 }
 
 template <class C> inline C *ECS::AddComponent(EntityId e) {
+  if (!componentArrays[ComponentID<C>::value]) {
+    componentArrays[ComponentID<C>::value] = new ComponentArrayT<C>(this);
+  }
   return dynamic_cast<C *>(AddComponent(e, ComponentID<C>::value));
 }
 
-template <class C> inline C *ECS::GetComponent(EntityId e) {
+template <class C> inline C *ECS::GetComponent(EntityId e) const {
   return dynamic_cast<C *>(GetComponent(e, ComponentID<C>::value));
 }
 
-template <class C> inline bool ECS::HasComponent(EntityId e) { return HasComponent(e, ComponentID<C>::value); }
+template <class C> inline bool ECS::HasComponent(EntityId e) const {
+  if (!componentArrays[ComponentID<C>::value]) {
+    return false;
+  }
+  return HasComponent(e, ComponentID<C>::value);
+}
 
 template <class C> inline void ECS::RemoveComponent(EntityId e) { RemoveComponent(e, ComponentID<C>::value); }
 
@@ -217,8 +225,8 @@ template <class... Cs> inline std::vector<std::tuple<Cs *...>> ECS::FilterEntiti
   std::vector<std::tuple<Cs *...>> result;
   uint64_t filterMask = ALIVE_FLAG | (get_flag<Cs>() | ...);
 
-  for (int e = 0; e < MAX_ENTITY_NUMBER; e++) {
-    if ((aliveAndComponentFlags[e] & filterMask) == filterMask && !(aliveAndComponentFlags[e] & PATTERN_FLAG) &&
+  for (int e = 0; e < firstFreeEntity; e++) {
+    if ((aliveAndComponentFlags[e] & filterMask) == filterMask &&
         (!onlyActive || aliveAndComponentFlags[e] & ACTIVE_FLAG)) {
       result.push_back(std::make_tuple(GetComponent<Cs>(e)...));
     }
@@ -232,8 +240,8 @@ inline void ECS::SetActive(EntityId e, bool active) {
       active ? aliveAndComponentFlags[e] | ACTIVE_FLAG : aliveAndComponentFlags[e] & ~ACTIVE_FLAG;
 }
 
-inline bool ECS::IsActive(EntityId e) { return aliveAndComponentFlags[e] & ACTIVE_FLAG; }
+inline bool ECS::IsActive(EntityId e) const { return aliveAndComponentFlags[e] & ACTIVE_FLAG; }
 
-inline bool ECS::IsAlive(EntityId e) { return e != EntityId(-1) && (aliveAndComponentFlags[e] & ALIVE_FLAG); }
+inline bool ECS::IsAlive(EntityId e) const { return e != EntityId(-1) && (aliveAndComponentFlags[e] & ALIVE_FLAG); }
 
 } // namespace Engine::Core

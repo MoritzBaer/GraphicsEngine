@@ -1,0 +1,89 @@
+{
+    "mainCamName": "Main Camera",
+    "entities": [
+        {
+            "Engine::AssetManager::AssetDSO<Engine::Core::Entity>": {
+                "components": [
+                    {
+                        "Engine::TransformDSO": {
+                            "position": { "data": [ -4, -1, 4 ] },
+                            "rotation": { "w": 1, "x": 0, "y": 0, "z": 0 },
+                            "scale": { "data": [ 1, 1, 1 ] }
+                        }
+                    },
+                    {
+                        "Engine::MeshRendererDSO": {
+                            "meshName": "suzanne",
+                            "materialName": "speeder"
+                        }
+                    },
+                    {
+                        "Engine::DisplayDSO": {
+                            "label": "Suzanne"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "Engine::AssetManager::AssetDSO<Engine::Core::Entity>": {
+                "components": [
+                    {
+                        "Engine::TransformDSO": {
+                            "position": { "data": [ 0, 2, 25 ] },
+                            "rotation": { "w": 1, "x": 0, "y": 0, "z": 0 },
+                            "scale": { "data": [ 1, 1, 1 ] }
+                        }
+                    },
+                    {
+                        "Engine::DisplayDSO": {
+                            "label": "Main Camera"
+                        }
+                    },
+                    {
+                        "Engine::CameraDSO": {
+                            "fov": 45,
+                            "nearClip": 0.1,
+                            "farClip": 100,
+                            "aspectRatio": 1.7777777777777778
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "Engine::AssetManager::AssetDSO<Engine::Core::Entity>": {
+                "components": [
+                    {
+                        "Engine::TransformDSO": {
+                            "position": { "data": [ 0, -1, 0 ] },
+                            "rotation": { "w": 1, "x": 0, "y": 0, "z": 0 },
+                            "scale": { "data": [ 20, 0.1, 20 ] }
+                        }
+                    },
+                    {
+                        "Engine::MeshRendererDSO": {
+                            "meshName": "cube",
+                            "materialName": "guns"
+                        }
+                    },
+                    {
+                        "Engine::DisplayDSO": {
+                            "label": "Ground"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "Engine::PrefabDSO": {
+                "prefabName": "speeder",
+                "transform": {
+                    "position": { "data": [ 2, 0, 0 ] },
+                    "rotation": { "w": 1, "x": 0, "y": 0, "z": 0 },
+                    "scale": { "data": [ 1, 1, 1 ] }
+                }
+            }
+        }
+    ]
+}

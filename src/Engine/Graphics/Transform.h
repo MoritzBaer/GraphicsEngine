@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "Core/ECS.h"
+#include "Core/HierarchyComponent.h"
 #include "Debug/Logging.h"
 #include "Editor/Publishable.h"
 #include "Maths/Transformations.h"
@@ -11,20 +11,17 @@
 using namespace Engine::Maths;
 
 namespace Engine::Graphics {
-struct Transform : public Core::Component {
+struct Transform : public Core::HierarchicalComponent {
   Vector3 position;
   Quaternion rotation;
   Vector3 scale;
 
   Transform *parent;
-  std::vector<Transform *> children;
 
   Transform(Core::Entity entity)
-      : Core::Component(entity), position(Vector3::Zero()), rotation(Quaternion::Identity()), scale(Vector3::One()),
-        parent(nullptr), children() {}
+      : Core::HierarchicalComponent(entity), position(Vector3::Zero()), rotation(Quaternion::Identity()),
+        scale(Vector3::One()), parent(nullptr) {}
 
-  // Scale is not adjusted as by stacking scales and rotation, shearing is possible (which cannot be represented as a
-  // Vector3)
   inline void SetParent(Transform *newParent, bool recalculateTransform = true);
   inline void SetParent(Core::Entity const &newParent, bool recalculateTransform = true);
 
@@ -56,28 +53,25 @@ struct Transform : public Core::Component {
       position = otherTransform->position;
       rotation = otherTransform->rotation;
       scale = otherTransform->scale;
-      for (auto child : otherTransform->children) {
-        child->entity.Duplicate().GetComponent<Transform>()->SetParent(this, false);
-      }
     } else {
       ENGINE_ERROR("Tried to copy Transform from different type!");
     }
   }
+
+  inline void OnHierarchyChange() override { SetParent(hierarchy->parent->entity.GetComponent<Transform>(), true); }
 };
 
+// Scale is not adjusted as by stacking scales and rotation, shearing is possible (which cannot be represented as a
+// Vector3)
 inline void Transform::SetParent(Transform *newParent, bool recaltulateTransform) {
   // Remove from old parent
   if (recaltulateTransform) {
     position = WorldPosition();
     rotation = WorldRotation();
   }
-  if (parent) {
-    parent->children.erase(std::remove(parent->children.begin(), parent->children.end(), this), parent->children.end());
-  }
 
   // Add to new parent
   parent = newParent;
-  newParent->children.push_back(this);
   if (recaltulateTransform) {
     position = (parent->WorldToModelMatrix() * Vector4{position[X], position[Y], position[Z], 1}).xyz();
     rotation *= parent->WorldRotation().Conjugate();

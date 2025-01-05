@@ -37,12 +37,14 @@ struct Editor : public Game {
   Editor(Game *game)
       : Game("Editor"), game(game), gameControl(imGuiManager, &runGame), runGame(false), gameInitialized(false),
         imGuiManager(mainWindow, renderer.GetSwapchainFormat(), &instanceManager),
-        sceneView(imGuiManager, &game->sceneHierarchy, &selectedEntity), entityDetails(imGuiManager, &selectedEntity) {}
+        sceneView(imGuiManager, &selectedEntity), entityDetails(imGuiManager, &selectedEntity) {}
   ~Editor() { instanceManager.WaitUntilDeviceIdle(); }
 
   inline void Init() override {
     Game::Init();
+    activeScene = assetManager.LoadAsset<Engine::Core::Scene *>("editor");
     game->Init();
+    sceneView.SetSceneHierarchy(&game->activeScene->sceneHierarchy);
     delete renderingStrategy;
     renderingStrategy = new EditorGUIRenderingStrategy(
         &gpuObjectManager,
