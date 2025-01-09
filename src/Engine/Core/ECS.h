@@ -190,6 +190,7 @@ template <class C> inline void ECS::ComponentArrayT<C>::RemoveComponent(EntityId
   C *component = components[entityComponentIndexMap[e]];
   delete component;
   components[entityComponentIndexMap[e]] = components.back();
+  entityComponentIndexMap[components.back()->entity.id] = entityComponentIndexMap[e];
   components.pop_back();
 }
 

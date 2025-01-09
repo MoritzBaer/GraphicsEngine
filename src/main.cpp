@@ -42,9 +42,6 @@ struct TestProject : public Game {
   void Init() override {
     Game::Init();
     activeScene = assetManager.LoadAsset<Core::Scene *>("testscene");
-    // auto secondSpeeder = activeScene->InstantiateEntity(assetManager.LoadAsset<Core::Entity>("speeder"));
-    // auto transform = secondSpeeder.GetComponent<Engine::Graphics::Transform>();
-    // auto meshRenderer = transform->children[0]->entity.GetComponent<Engine::Graphics::MeshRenderer>();
     activeScene->mainCamera.GetComponent<Engine::Graphics::Transform>()->LookAt({0, 0, 0});
   }
 };

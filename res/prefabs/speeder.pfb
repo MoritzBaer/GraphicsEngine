@@ -10,49 +10,53 @@
         {
             "Engine::HierarchyDSO": {
                 "children": [
-                    {
-                        "components": [
-                            {
-                                "Engine::TransformDSO": {
-                                    "position": { "data": [ 0, 0, 0 ] },
-                                    "rotation": { "w": 1, "x": 0, "y": 0, "z": 0 },
-                                    "scale": { "data": [ 1, 1, 1 ] }
+                    { "Engine::AssetManager::AssetDSO<Engine::Core::Entity>":
+                        {
+                            "components": [
+                                {
+                                    "Engine::TransformDSO": {
+                                        "position": { "data": [ 0, 0, 0 ] },
+                                        "rotation": { "w": 1, "x": 0, "y": 0, "z": 0 },
+                                        "scale": { "data": [ 1, 1, 1 ] }
+                                    }
+                                },
+                                {
+                                    "Engine::MeshRendererDSO": {
+                                        "meshName": "speeder",
+                                        "materialName": "speeder"
+                                    }
+                                },
+                                {
+                                    "Engine::DisplayDSO": {
+                                        "label": "speeder_body"
+                                    }
                                 }
-                            },
-                            {
-                                "Engine::MeshRendererDSO": {
-                                    "meshName": "speeder",
-                                    "materialName": "speeder"
-                                }
-                            },
-                            {
-                                "Engine::DisplayDSO": {
-                                    "label": "speeder_body"
-                                }
-                            }
-                        ]
+                            ]
+                        }
                     },
-                    {
-                        "components": [
-                            {
-                                "Engine::TransformDSO": {
-                                    "position": { "data": [ 0, 0, 0 ] },
-                                    "rotation": { "w": 1, "x": 0, "y": 0, "z": 0 },
-                                    "scale": { "data": [ 1, 1, 1 ] }
+                    { "Engine::AssetManager::AssetDSO<Engine::Core::Entity>":
+                        {
+                            "components": [
+                                {
+                                    "Engine::TransformDSO": {
+                                        "position": { "data": [ 0, 0, 0 ] },
+                                        "rotation": { "w": 1, "x": 0, "y": 0, "z": 0 },
+                                        "scale": { "data": [ 1, 1, 1 ] }
+                                    }
+                                },
+                                {
+                                    "Engine::MeshRendererDSO": {
+                                        "meshName": "guns",
+                                        "materialName": "guns"
+                                    }
+                                },
+                                {
+                                    "Engine::DisplayDSO": {
+                                        "label": "speeder_guns"
+                                    }
                                 }
-                            },
-                            {
-                                "Engine::MeshRendererDSO": {
-                                    "meshName": "guns",
-                                    "materialName": "guns"
-                                }
-                            },
-                            {
-                                "Engine::DisplayDSO": {
-                                    "label": "speeder_guns"
-                                }
-                            }
-                        ]
+                            ]
+                        }
                     }
                 ]
             }

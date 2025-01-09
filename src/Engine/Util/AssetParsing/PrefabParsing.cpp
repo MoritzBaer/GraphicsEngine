@@ -30,8 +30,13 @@ struct TransformDSO : public ComponentDSO {
   Maths::Vector3 scale;
 };
 
+struct PrefabDSO : public EntityDSO {
+  std::string prefabName;
+  TransformDSO transform;
+};
+
 struct HierarchyDSO : public ComponentDSO {
-  std::vector<AssetManager::AssetDSO<Core::Entity>> children;
+  std::vector<EntityDSO *> children;
 };
 
 struct MeshRendererDSO : public ComponentDSO {
@@ -62,6 +67,18 @@ AssetManager::AssetLoader<Core::Entity>::ParseAsset(std::string const &assetSour
   return dso;
 }
 
+Core::Entity LoadPrefabDSO(PrefabDSO const *prefabDSO, AssetManager *assetManager, Core::ECS *targetECS) {
+  auto transform = assetManager->LoadAsset<Core::Entity>(prefabDSO->prefabName)
+                       .CopyToOtherECS(targetECS)
+                       .GetComponent<Graphics::Transform>();
+
+  transform->position = prefabDSO->transform.position;
+  transform->rotation = prefabDSO->transform.rotation;
+  transform->scale = prefabDSO->transform.scale;
+
+  return transform->entity;
+}
+
 template <> Core::Entity AssetManager::AssetLoader<Core::Entity>::ConvertDSO(AssetDSO<Core::Entity> const *dso) const {
   Core::Entity entity = members->ecs->CreateEntity();
   for (auto component : dso->components) {
@@ -85,7 +102,12 @@ template <> Core::Entity AssetManager::AssetLoader<Core::Entity>::ConvertDSO(Ass
                            ? entity.GetComponent<Core::HierarchyComponent>()
                            : entity.AddComponent<Core::HierarchyComponent>();
       for (auto &childDSO : hierarchyDSO->children) {
-        auto child = ConvertDSO(&childDSO);
+        Core::Entity child{};
+        if (auto prefabDSO = dynamic_cast<PrefabDSO *>(childDSO)) {
+          child = LoadPrefabDSO(prefabDSO, members->assetManager, members->ecs);
+        } else if (auto explicitDSO = dynamic_cast<AssetManager::AssetDSO<Core::Entity> *>(childDSO)) {
+          child = ConvertDSO(explicitDSO);
+        }
         if (!child.HasComponent<Core::HierarchyComponent>()) {
           child.AddComponent<Core::HierarchyComponent>();
         }
@@ -106,12 +128,6 @@ template <> void AssetManager::AssetDestroyer<Core::Entity>::DestroyAsset(Core::
 }
 
 // Scene
-
-// TODO: Permit prefabs to have prefabs as children
-struct PrefabDSO : public EntityDSO {
-  std::string prefabName;
-  TransformDSO transform;
-};
 
 template <> struct AssetManager::AssetDSO<Core::Scene *> {
   std::vector<EntityDSO *> entities;
@@ -138,13 +154,7 @@ Core::Scene *AssetManager::AssetLoader<Core::Scene *>::ConvertDSO(AssetDSO<Core:
     if (auto explicitDSO = dynamic_cast<AssetManager::AssetDSO<Core::Entity> *>(entityDSO)) {
       entityLoader.ConvertDSO(explicitDSO);
     } else if (auto prefabDSO = dynamic_cast<PrefabDSO *>(entityDSO)) {
-      auto transform = members->assetManager->LoadAsset<Core::Entity>(prefabDSO->prefabName)
-                           .CopyToOtherECS(&scene->ecs)
-                           .GetComponent<Graphics::Transform>();
-
-      transform->position = prefabDSO->transform.position;
-      transform->rotation = prefabDSO->transform.rotation;
-      transform->scale = prefabDSO->transform.scale;
+      LoadPrefabDSO(prefabDSO, members->assetManager, &scene->ecs);
     } else {
       ENGINE_ERROR("Unknown entity type encountered during scene parsing!");
     }
