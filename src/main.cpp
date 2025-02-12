@@ -2,6 +2,7 @@
 #include "Core/Time.h"
 #include "Editor/Display.h"
 #include "Editor/Editor.h"
+#include "WindowedApplication.h"
 
 struct SpinnyScript : public Core::Script {
   Engine::Graphics::Transform *transform;
@@ -37,7 +38,13 @@ struct BobbyScript : public Core::Script {
 };
 
 struct TestProject : public Game {
-  TestProject() : Game("Test Project") {}
+  TestProject(Engine::Graphics::VulkanSuite
+#ifdef NDEBUG
+              const
+#endif
+                  *vulkan)
+      : Game("Test Project", vulkan) {
+  }
 
   void Init() override {
     Game::Init();
@@ -50,15 +57,9 @@ int main() {
 
   Engine::WindowManager::Init();
 
-  auto gameSize = sizeof(TestProject);
-
-  TestProject game{};
-  Editor::Editor editor{&game};
   try {
-    editor.Init();
-
-    while (editor.IsRunning())
-      editor.CalculateFrame();
+    auto app = new Editor::EditorApp<TestProject>("Test Project", {1600, 900});
+    app->Run();
   } catch (std::exception &e) {
     ENGINE_ERROR("Exception: {}", e.what());
   }

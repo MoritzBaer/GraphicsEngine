@@ -4,10 +4,6 @@
 #include "InstanceManager.h"
 #include "Util/Macros.h"
 
-Engine::Graphics::MemoryAllocator::MemoryAllocator(InstanceManager const &instanceManager) {
-  instanceManager.CreateMemoryAllocator(*this);
-}
-
 Engine::Graphics::MemoryAllocator::~MemoryAllocator() {
   for (auto undestroyed : allocatedImages) {
     auto label = std::get<2>(undestroyed);

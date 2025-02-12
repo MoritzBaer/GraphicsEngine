@@ -9,12 +9,12 @@
 #include "Graphics/RenderingStrategies/ComputeBackground.h"
 #include "Graphics/RenderingStrategies/ForwardRendering.h"
 #include "SceneView.h"
+#include "WindowedApplication.h"
 
 namespace Editor {
 struct GameControl : public Engine::Graphics::ImGUIView {
   bool *runGame;
-  GameControl(Engine::Graphics::ImGUIManager &imGuiManager, bool *runGame)
-      : ImGUIView(imGuiManager), runGame(runGame) {}
+  GameControl(bool *runGame) : ImGUIView(), runGame(runGame) {}
 
   void Draw() override {
     if (ImGui::Button("Start Game")) {
@@ -23,31 +23,42 @@ struct GameControl : public Engine::Graphics::ImGUIView {
   }
 };
 
-struct Editor : public Game {
-  Game *game;
+template <class GameInstance> struct Editor : public Game {
+  GameInstance game;
   bool runGame;
   bool gameInitialized;
-  Engine::Graphics::ImGUIManager imGuiManager;
+  Engine::Graphics::ImGUIManager *imGuiManager;
   GameControl gameControl;
   SceneView sceneView;
 
   Engine::Core::Entity selectedEntity;
   EntityDetails entityDetails;
 
-  Editor(Game *game)
-      : Game("Editor"), game(game), gameControl(imGuiManager, &runGame), runGame(false), gameInitialized(false),
-        imGuiManager(mainWindow, renderer.GetSwapchainFormat(), &instanceManager),
-        sceneView(imGuiManager, &selectedEntity), entityDetails(imGuiManager, &selectedEntity) {}
-  ~Editor() { instanceManager.WaitUntilDeviceIdle(); }
+  template <typename... GameArgs>
+  Editor(Engine::Graphics::VulkanSuite
+#ifdef NDEBUG
+         const
+#endif
+             *vulkan,
+         Engine::Graphics::ImGUIManager *imGuiManager, GameArgs &&...gameArgs)
+      : Game("Editor", vulkan), game(vulkan, std::forward<GameArgs>(gameArgs)...), gameControl(&runGame),
+        runGame(false), gameInitialized(false), imGuiManager(imGuiManager), sceneView(&selectedEntity),
+        entityDetails(&selectedEntity) {
+  }
+
+  ~Editor() { vulkan->instanceManager.WaitUntilDeviceIdle(); }
 
   inline void Init() override {
+    imGuiManager->RegisterView(&gameControl);
+    imGuiManager->RegisterView(&sceneView);
+    imGuiManager->RegisterView(&entityDetails);
     Game::Init();
     activeScene = assetManager.LoadAsset<Engine::Core::Scene *>("editor");
-    game->Init();
-    sceneView.SetSceneHierarchy(&game->activeScene->sceneHierarchy);
+    game.Init();
+    sceneView.SetSceneHierarchy(&game.activeScene->sceneHierarchy);
     delete renderingStrategy;
     renderingStrategy = new EditorGUIRenderingStrategy(
-        &gpuObjectManager,
+        &vulkan->gpuObjectManager,
         assetManager.LoadAsset<Engine::Graphics::RenderingStrategies::ComputeBackground *>("editor"));
     renderer.SetRenderingStrategy(renderingStrategy);
   }
@@ -55,13 +66,27 @@ struct Editor : public Game {
   inline void CalculateFrame() override {
     if (runGame) {
       if (!gameInitialized) {
-        game->Start();
+        game.Start();
         gameInitialized = true;
       }
-      game->CalculateFrame();
+      game.CalculateFrame();
     }
-    imGuiManager.BeginFrame();
+    imGuiManager->BeginFrame();
     Game::CalculateFrame();
+  }
+};
+
+template <class GameInstance> class EditorApp : public GameApp<Editor<GameInstance>> {
+private:
+  Engine::Graphics::ImGUIManager imGuiManager;
+
+public:
+  template <typename... GameArgs>
+  EditorApp(const char *name, Engine::Maths::Dimension2 const &windowSize, GameArgs &&...gameArgs)
+      : GameApp<Editor<GameInstance>>(name, windowSize, &imGuiManager, std::forward<GameArgs>(gameArgs)...),
+        imGuiManager(&this->windowedApplication.GetVulkan()->instanceManager) {
+    imGuiManager.InitImGUIOnWindow(this->windowedApplication.GetWindow(),
+                                   this->windowedApplication.GetSwapChainProvider()->GetSwapchainFormat());
   }
 };
 

@@ -61,12 +61,15 @@ struct SceneCache : public AssetManager::AssetCache<Core::Scene *> {
   }
 };
 
-Game::Game(const char *name)
-    : mainWindow(Engine::WindowManager::CreateWindow({1600, 900}, name)), mainDeletionQueue(),
-      instanceManager(name, mainWindow), assetManager(), shaderCompiler(&instanceManager), prefabs(),
-      memoryAllocator(instanceManager), gpuObjectManager(&instanceManager, &memoryAllocator),
-      renderingStrategy(nullptr), renderer({1600, 900}, &instanceManager, &gpuObjectManager), activeScene(nullptr),
-      rendering(true), running(true) {}
+Game::Game(const char *name, Engine::Graphics::VulkanSuite
+#ifdef NDEBUG
+           const
+#endif
+               *vulkan)
+    : mainDeletionQueue(), assetManager(), vulkan(vulkan), shaderCompiler(&vulkan->instanceManager), prefabs(),
+      renderingStrategy(nullptr), renderer(&vulkan->instanceManager, &vulkan->gpuObjectManager), activeScene(nullptr),
+      rendering(true), running(true) {
+}
 
 void Game::Init() {
   BEGIN_PROFILE_SESSION()
@@ -80,8 +83,8 @@ void Game::Init() {
   Core::ECS::RegisterComponent<Engine::Graphics::Camera>();
   Core::ECS::RegisterComponent<Engine::Core::ScriptComponent>();
 
-  auto textureCache = new TextureCache(&gpuObjectManager);
-  assetManager.RegisterAssetType<Graphics::Texture2D>(textureCache, &gpuObjectManager, textureCache);
+  auto textureCache = new TextureCache(&vulkan->gpuObjectManager);
+  assetManager.RegisterAssetType<Graphics::Texture2D>(textureCache, &vulkan->gpuObjectManager, textureCache);
   REGISTER_SHADER_TYPE(VERTEX);
   REGISTER_SHADER_TYPE(GEOMETRY);
   REGISTER_SHADER_TYPE(FRAGMENT);
@@ -89,24 +92,19 @@ void Game::Init() {
   assetManager.RegisterAssetType<Graphics::Material *>(new AssetCacheImpl<Graphics::Material *>(), &assetManager);
   assetManager.RegisterAssetType<Core::Entity>(new AssetCacheImpl<Core::Entity>(&prefabs), &prefabs, &assetManager);
   assetManager.RegisterAssetType<Graphics::RenderingStrategies::CompiledEffect>(
-      new AssetCacheImpl<Graphics::RenderingStrategies::CompiledEffect>(&instanceManager), &instanceManager,
-      &assetManager);
+      new AssetCacheImpl<Graphics::RenderingStrategies::CompiledEffect>(&vulkan->instanceManager),
+      &vulkan->instanceManager, &assetManager);
   assetManager.RegisterAssetType<Graphics::RenderingStrategies::ComputeBackground *>(
-      new AssetCacheImpl<Graphics::RenderingStrategies::ComputeBackground *>(), &instanceManager, &assetManager);
-  assetManager.RegisterAssetType<Graphics::Pipeline *>(new AssetCacheImpl<Graphics::Pipeline *>(&instanceManager),
-                                                       &instanceManager, &assetManager);
+      new AssetCacheImpl<Graphics::RenderingStrategies::ComputeBackground *>(), &vulkan->instanceManager,
+      &assetManager);
+  assetManager.RegisterAssetType<Graphics::Pipeline *>(
+      new AssetCacheImpl<Graphics::Pipeline *>(&vulkan->instanceManager), &vulkan->instanceManager, &assetManager);
   assetManager.RegisterAssetType<Graphics::AllocatedMesh *>(
-      new AssetCacheImpl<Graphics::AllocatedMesh *>(&gpuObjectManager), &gpuObjectManager);
+      new AssetCacheImpl<Graphics::AllocatedMesh *>(&vulkan->gpuObjectManager), &vulkan->gpuObjectManager);
   assetManager.RegisterAssetType<Core::Scene *>(new SceneCache(), &assetManager);
 
-  mainWindow->SetCloseCallback([this]() { running = false; });
-  mainWindow->SetMinimizeCallback([this]() { rendering = false; });
-  mainWindow->SetRestoreCallback([this]() { rendering = true; });
-  mainWindow->SetResizeCallback(
-      [this](Engine::Maths::Dimension2 newWindowSize) { renderer.SetWindowSize(newWindowSize); });
-
   renderingStrategy = new Engine::Graphics::RenderingStrategies::ForwardRendering(
-      &instanceManager, &gpuObjectManager,
+      &vulkan->instanceManager, &vulkan->gpuObjectManager,
       assetManager.LoadAsset<Engine::Graphics::RenderingStrategies::ComputeBackground *>("nightsky"));
   renderer.SetRenderingStrategy(renderingStrategy);
 
@@ -155,7 +153,7 @@ Game::~Game() {
   BEGIN_PROFILE_SESSION()
   PROFILE_FUNCTION()
 
-  instanceManager.WaitUntilDeviceIdle();
+  vulkan->instanceManager.WaitUntilDeviceIdle();
   delete renderingStrategy;
   mainDeletionQueue.Flush();
   WRITE_PROFILE_SESSION("Cleanup")

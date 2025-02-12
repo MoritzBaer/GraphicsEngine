@@ -35,8 +35,14 @@ class InstanceManager {
   void CreateLogicalDevice();
 
 public:
-  InstanceManager(const char *appName, Window const *surfaceWindow);
+  InstanceManager();
+  inline InstanceManager(const char *appName, Window const *surfaceWindow) : InstanceManager() {
+    InitVulkan(appName, surfaceWindow);
+  }
   ~InstanceManager();
+
+  void InitVulkan(const char *appName, Window const *surfaceWindow);
+  inline void InitVulkan(const char *appName) { InitVulkan(appName, nullptr); }
 
   inline SwapchainSupportDetails GetSwapchainSupport() const { return QuerySwapchainSupport(gpu, surface); }
   uint32_t GetGraphicsFamily() const;

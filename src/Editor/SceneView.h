@@ -12,8 +12,8 @@ class SceneView : public Engine::Graphics::ImGUIView {
   void DrawNode(Engine::Core::SceneHierarchy::TreeNode const &node, ImGuiTreeNodeFlags flags = 0) const;
 
 public:
-  SceneView(Engine::Graphics::ImGUIManager &imGuiManager, Engine::Core::Entity *selectedEntity)
-      : ImGUIView(imGuiManager), sceneHierarchy(nullptr), selectedEntity(selectedEntity) {}
+  SceneView(Engine::Core::Entity *selectedEntity)
+      : ImGUIView(), sceneHierarchy(nullptr), selectedEntity(selectedEntity) {}
   inline void SetSceneHierarchy(Engine::Core::SceneHierarchy const *sceneHierarchy) {
     this->sceneHierarchy = sceneHierarchy;
   };

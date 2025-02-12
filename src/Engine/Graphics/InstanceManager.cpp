@@ -199,20 +199,21 @@ QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR const
 
   QueueFamilyIndices indices;
 
-  int i = 0;
-  for (const auto &queueFamily : queueFamilies) {
-    if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-      indices.graphicsFamily = i;
+  for (int f = 0; f < queueFamilyCount; f++) {
+    if (queueFamilies[f].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+      indices.graphicsFamily = f;
     }
-    VkBool32 canPresent;
-    vkGetPhysicalDeviceSurfaceSupportKHR(device, i, presentationSurface, &canPresent);
-    if (canPresent) {
-      indices.presentFamily = i;
+    if (presentationSurface != VK_NULL_HANDLE) {
+      VkBool32 canPresent;
+      vkGetPhysicalDeviceSurfaceSupportKHR(device, f, presentationSurface, &canPresent);
+      if (canPresent) {
+        indices.presentFamily = f;
+      }
     }
-    if (indices.graphicsFamily.has_value() && indices.presentFamily.has_value()) {
+    if (indices.graphicsFamily.has_value() &&
+        (indices.presentFamily.has_value() || presentationSurface == VK_NULL_HANDLE)) {
       break;
     }
-    i++;
   }
 
   return indices;
@@ -225,6 +226,27 @@ InstanceManager::~InstanceManager() {
     DestroyDebugUtilsMessengerEXT(vulkanInstance, debugMessenger, nullptr);
   }
   vkDestroyInstance(vulkanInstance, nullptr);
+}
+
+void InstanceManager::InitVulkan(const char *appName, Window const *surfaceWindow) {
+  PROFILE_FUNCTION()
+  // Only set up vulkan validation if in debug mode
+#ifndef NDEBUG
+  if (CheckValidationLayerSupport()) {
+    EnableValidationLayers();
+  } else {
+    ENGINE_WARNING("Some requested validation layers could not be provided.")
+  }
+#endif
+  CreateInstance(appName); // Instance must be created after validation layer availability has been checked
+#ifndef NDEBUG
+  SetupDebugMessenger();
+#endif
+  if (surfaceWindow) {
+    surfaceWindow->CreateSurfaceOnWindow(vulkanInstance, &surface);
+  }
+  PickPhysicalDevice();
+  CreateLogicalDevice();
 }
 
 void InstanceManager::CreateInstance(const char *applicationName) {
@@ -322,7 +344,8 @@ uint32_t PhysicalDeviceScore(VkPhysicalDevice device, VkSurfaceKHR const &presen
                               SupportsRequiredFeatures12(vulkan12Features, requiredFeatures12) &&
                               SupportsRequiredFeatures13(vulkan13Features, requiredFeatures13);
 
-  return hasGraphicsFamily * hasPresentFamily * extensionsSupported * swapchainAdequate * hasNecessaryFeatures *
+  return hasGraphicsFamily * (presentationSurface == VK_NULL_HANDLE ? 1 : hasPresentFamily) * extensionsSupported *
+         swapchainAdequate * hasNecessaryFeatures *
          (deviceProperties.limits.maxImageDimension2D + 1000 * isDedicatedGPU);
 }
 
@@ -571,24 +594,9 @@ void InstanceManager::PickPhysicalDevice() {
   gpu = *bestDevice;
 }
 
-InstanceManager::InstanceManager(const char *applicationName, Window const *window) {
-  PROFILE_FUNCTION()
-  // Only set up vulkan validation if in debug mode
-#ifndef NDEBUG
-  if (CheckValidationLayerSupport()) {
-    EnableValidationLayers();
-  } else {
-    ENGINE_WARNING("Some requested validation layers could not be provided.")
-  }
-#endif
-  CreateInstance(applicationName); // Instance must be created after validation layer availability has been checked
-#ifndef NDEBUG
-  SetupDebugMessenger();
-#endif
-  window->CreateSurfaceOnWindow(vulkanInstance, &surface);
-  PickPhysicalDevice();
-  CreateLogicalDevice();
-}
+InstanceManager::InstanceManager()
+    : vulkanInstance(VK_NULL_HANDLE), debugMessenger(VK_NULL_HANDLE), surface(VK_NULL_HANDLE), gpu(VK_NULL_HANDLE),
+      graphicsHandler(VK_NULL_HANDLE) {}
 
 SwapchainSupportDetails QuerySwapchainSupport(VkPhysicalDevice device, VkSurfaceKHR presentationSurface) {
   SwapchainSupportDetails details{};

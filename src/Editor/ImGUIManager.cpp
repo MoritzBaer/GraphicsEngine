@@ -20,8 +20,18 @@
 #include "Editor/SceneView.h"
 
 namespace Engine::Graphics {
-ImGUIManager::ImGUIManager(Window const *window, VkFormat swapchainFormat, InstanceManager const *instanceManager)
-    : instanceManager(instanceManager), views(), showImGuiDemo(false) {
+ImGUIManager::ImGUIManager(InstanceManager const *instanceManager)
+    : instanceManager(instanceManager), views(), showImGuiDemo(false) {}
+
+ImGUIManager::~ImGUIManager() {
+  ImGui_ImplVulkan_Shutdown();
+  instanceManager->DestroyDescriptorPool(imGUIPool);
+}
+
+using Editor::Publication;
+using Editor::Publishable;
+
+void ImGUIManager::InitImGUIOnWindow(Window const *window, VkFormat swapchainFormat) {
   PROFILE_FUNCTION()
 
   VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
@@ -65,13 +75,6 @@ ImGUIManager::ImGUIManager(Window const *window, VkFormat swapchainFormat, Insta
   // Enable docking for whole application
   ImGui::GetIO().ConfigFlags = ImGuiConfigFlags_DockingEnable;
 }
-ImGUIManager::~ImGUIManager() {
-  ImGui_ImplVulkan_Shutdown();
-  instanceManager->DestroyDescriptorPool(imGUIPool);
-}
-
-using Editor::Publication;
-using Editor::Publishable;
 
 void ImGUIManager::BeginFrame() {
   PROFILE_FUNCTION()

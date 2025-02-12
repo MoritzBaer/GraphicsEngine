@@ -15,7 +15,7 @@ class ImGUIManager {
   bool showImGuiDemo;
 
 public:
-  ImGUIManager(Window const *window, VkFormat swapchainFormat, InstanceManager const *instanceManager);
+  ImGUIManager(InstanceManager const *instanceManager);
   ~ImGUIManager();
 
 private:
@@ -23,6 +23,8 @@ private:
   std::vector<ImGUIView *> views;
 
 public:
+  void InitImGUIOnWindow(Window const *window, VkFormat swapchainFormat);
+
   void BeginFrame();
   void RegisterView(ImGUIView *view);
 
@@ -39,7 +41,6 @@ public:
 
 struct ImGUIView {
   virtual void Draw() = 0;
-  ImGUIView(ImGUIManager &imGuiManager) { imGuiManager.RegisterView(this); }
 };
 
 } // namespace Engine::Graphics

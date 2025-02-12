@@ -14,7 +14,7 @@ private:
 #endif
 
 public:
-  MemoryAllocator(InstanceManager const &instanceManager);
+  MemoryAllocator() {};
   inline void Create(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkInstance instance) {
     VmaAllocatorCreateInfo allocatorInfo{
 #ifndef COMPILE_FOR_RENDERDOC

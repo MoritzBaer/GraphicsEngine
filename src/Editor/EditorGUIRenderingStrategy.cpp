@@ -43,7 +43,6 @@ std::vector<Engine::Graphics::Command *> Editor::EditorGUIRenderingStrategy::Get
 
   // Commands for rendering ImGUI
   auto transitionPresenterToColourAttachment = renderTarget.Transition(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
   auto renderImGUI = new ImGUIDrawCommand(renderTarget);
 
   renderingCommands.push_back(transitionPresenterToColourAttachment);

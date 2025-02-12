@@ -8,15 +8,17 @@
 #include "Graphics/Renderer.h"
 #include "Graphics/RenderingStrategies/ComputeBackground.h"
 #include "Graphics/RenderingStrategy.h"
+#include "Graphics/VulkanSuite.h"
 #include "Util/DeletionQueue.h"
 #include "WindowManager.h"
 
 struct Game {
   Engine::DeletionQueue mainDeletionQueue;
-  Engine::Window *mainWindow;
-  Engine::Graphics::InstanceManager instanceManager;
-  Engine::Graphics::MemoryAllocator memoryAllocator;
-  Engine::Graphics::GPUObjectManager gpuObjectManager;
+  Engine::Graphics::VulkanSuite
+#ifdef NDEBUG
+      const
+#endif
+          *vulkan;
   Engine::Graphics::ShaderCompiler shaderCompiler;
   Engine::Core::ECS prefabs;
   Engine::Core::Scene *activeScene;
@@ -27,8 +29,14 @@ struct Game {
   bool rendering;
   bool running;
 
+  const char *name;
+
   // TODO: Make CreateWindow use dimension, pass dimension to Game()
-  Game(const char *name);
+  Game(const char *name, Engine::Graphics::VulkanSuite
+#ifdef NDEBUG
+       const
+#endif
+           *vulkan);
 
   virtual void Init();
   virtual void CalculateFrame();
