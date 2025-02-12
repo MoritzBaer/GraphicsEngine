@@ -55,8 +55,7 @@ ComputeBackground::~ComputeBackground() {
   instanceManager->DestroyDescriptorSetLayout(descriptorSetLayout);
 }
 
-std::vector<Command *> ComputeBackground::GetRenderingCommands(Maths::Dimension2 const &renderDimension,
-                                                               Image<2> &renderTarget) {
+std::vector<Command *> ComputeBackground::GetRenderingCommands(Image<2> &renderTarget) {
 
   auto targetDescriptor = descriptorAllocator.Allocate(descriptorSetLayout);
 
@@ -68,8 +67,8 @@ std::vector<Command *> ComputeBackground::GetRenderingCommands(Maths::Dimension2
 
   auto transitionBufferToWriteable = renderTarget.Transition(VK_IMAGE_LAYOUT_GENERAL);
   auto computeRun = new ExecuteComputePipelineCommand(effect, data, VK_PIPELINE_BIND_POINT_COMPUTE, targetDescriptor,
-                                                      std::ceil<uint32_t>(renderDimension[X] / 16u),
-                                                      std::ceil<uint32_t>(renderDimension[Y] / 16u), 1);
+                                                      std::ceil<uint32_t>(renderTarget.GetExtent()[X] / 16u),
+                                                      std::ceil<uint32_t>(renderTarget.GetExtent()[Y] / 16u), 1);
 
   commands.push_back(transitionBufferToWriteable);
   commands.push_back(computeRun);

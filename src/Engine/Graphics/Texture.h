@@ -19,6 +19,8 @@ public:
 
   inline void UpdateDescriptors(DescriptorWriter &writer, VkDescriptorSet const &descriptorSet, uint8_t binding = 0,
                                 VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) const;
+
+  VkDescriptorSet AddToImGui() const;
 };
 
 using Texture1D = Texture<1>;
@@ -37,6 +39,12 @@ inline void Texture<D>::UpdateDescriptors(DescriptorWriter &writer, VkDescriptor
   writer.WriteImage(binding, *this, layout, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
   writer.UpdateSet(descriptorSet);
   writer.Clear();
+}
+
+#include "backends/imgui_impl_vulkan.h"
+
+template <uint8_t D> inline VkDescriptorSet Texture<D>::AddToImGui() const {
+  return ImGui_ImplVulkan_AddTexture(sampler, Image<D>::imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 } // namespace Engine::Graphics

@@ -5,17 +5,17 @@
 namespace Engine::Graphics {
 struct RenderResourceProvider {
 
-  struct RenderResources {
+  struct FrameResources {
     CommandQueue commandQueue;
     VkSemaphore presentSemaphore;
     VkSemaphore renderSemaphore;
     VkFence renderFence;
     DescriptorAllocator descriptorAllocator;
     Buffer<DrawData> uniformBuffer;
-    Image2 *renderTarget;
   };
 
-  virtual RenderResources GetRenderResources() = 0;
+  virtual FrameResources GetFrameResources() = 0;
+  virtual Image2 &GetRenderTarget(bool &acquisitionSuccessful) = 0;
   virtual std::vector<Command const *> PrepareTargetForRendering() = 0;
   virtual std::vector<Command const *> PrepareTargetForDisplaying() = 0;
   virtual void DisplayRenderTarget() = 0;

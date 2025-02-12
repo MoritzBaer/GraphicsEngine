@@ -26,9 +26,18 @@ void Renderer::DrawFrame(RenderingRequest const &request) {
 
   VkCommandBufferSubmitInfo commandBufferSubmitInfo{};
 
-  auto frameResources = frameResourceProvider->GetRenderResources();
+  auto frameResources = renderResourceProvider->GetFrameResources();
 
-  if (!frameResources.renderTarget) {
+  {
+    PROFILE_SCOPE("Waiting for previous frame to finish rendering")
+    instanceManager->WaitForFences(&frameResources.renderFence);
+    instanceManager->ResetFences(&frameResources.renderFence);
+  }
+
+  bool acquisitionSuccessful = false;
+  auto &renderTarget = renderResourceProvider->GetRenderTarget(acquisitionSuccessful);
+
+  if (!acquisitionSuccessful) {
     return;
   }
 
@@ -37,33 +46,40 @@ void Renderer::DrawFrame(RenderingRequest const &request) {
 
     std::vector<Command const *> commands;
 
-    auto prepareTarget = frameResourceProvider->PrepareTargetForRendering();
+    auto prepareTarget = renderResourceProvider->PrepareTargetForRendering();
 
     commands.insert(commands.end(), prepareTarget.begin(), prepareTarget.end());
 
     DescriptorWriter descriptorWriter(instanceManager);
     auto strategyCommands = renderingStrategy->GetRenderingCommands(
-        request, windowDimension, frameResources.uniformBuffer, frameResources.descriptorAllocator, descriptorWriter,
-        *frameResources.renderTarget);
+        request, frameResources.uniformBuffer, frameResources.descriptorAllocator, descriptorWriter, renderTarget);
     commands.insert(commands.end(), strategyCommands.begin(), strategyCommands.end());
 
-    prepareTarget = frameResourceProvider->PrepareTargetForDisplaying();
+    prepareTarget = renderResourceProvider->PrepareTargetForDisplaying();
 
     commands.insert(commands.end(), prepareTarget.begin(), prepareTarget.end());
 
     commandBufferSubmitInfo = frameResources.commandQueue.EnqueueCommandSequence(commands);
   }
 
-  auto semaphoreWaitInfo =
-      vkinit::SemaphoreSubmitInfo(frameResources.presentSemaphore, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR);
-  auto semaphoreSignalInfo =
-      vkinit::SemaphoreSubmitInfo(frameResources.renderSemaphore, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
+  std::vector<VkSemaphoreSubmitInfo> semaphoreWaitInfo{};
+  if (frameResources.presentSemaphore) {
+    semaphoreWaitInfo.push_back(vkinit::SemaphoreSubmitInfo(frameResources.presentSemaphore,
+                                                            VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR));
+  }
+  std::vector<VkSemaphoreSubmitInfo> semaphoreSignalInfo{};
+  if (frameResources.renderSemaphore) {
+    semaphoreSignalInfo.push_back(
+        vkinit::SemaphoreSubmitInfo(frameResources.renderSemaphore, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT));
+  }
 
-  VkSubmitInfo2 submitInfo = vkinit::SubmitInfo(semaphoreWaitInfo, commandBufferSubmitInfo, semaphoreSignalInfo);
+  std::vector<VkCommandBufferSubmitInfo> commandBuffers = {commandBufferSubmitInfo};
+
+  VkSubmitInfo2 submitInfo = vkinit::SubmitInfo(semaphoreWaitInfo, commandBuffers, semaphoreSignalInfo);
 
   VULKAN_ASSERT(vkQueueSubmit2(graphicsQueue, 1, &submitInfo, frameResources.renderFence), "Failed to submit queue")
 
-  frameResourceProvider->DisplayRenderTarget();
+  renderResourceProvider->DisplayRenderTarget();
 }
 
 } // namespace Engine::Graphics

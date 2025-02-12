@@ -21,7 +21,7 @@ class Renderer {
   InstanceManager const *instanceManager;
   GPUObjectManager const *gpuObjectManager;
   RenderingStrategy *renderingStrategy;
-  RenderResourceProvider *frameResourceProvider;
+  RenderResourceProvider *renderResourceProvider;
 
 private:
   uint8_t currentBackgroundEffect = 1;
@@ -44,7 +44,7 @@ public:
 
   void DrawFrame(RenderingRequest const &request);
 
-  inline void SetFrameResourceProvider(RenderResourceProvider *newProvider) { frameResourceProvider = newProvider; }
+  inline void SetRenderResourceProvider(RenderResourceProvider *newProvider) { renderResourceProvider = newProvider; }
   inline void SetRenderingStrategy(RenderingStrategy *newStrategy) { renderingStrategy = newStrategy; }
 };
 

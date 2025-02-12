@@ -8,6 +8,7 @@
 #include "Game.h"
 #include "Graphics/RenderingStrategies/ComputeBackground.h"
 #include "Graphics/RenderingStrategies/ForwardRendering.h"
+#include "RenderView.h"
 #include "SceneView.h"
 #include "WindowedApplication.h"
 
@@ -30,6 +31,8 @@ template <class GameInstance> struct Editor : public Game {
   Engine::Graphics::ImGUIManager *imGuiManager;
   GameControl gameControl;
   SceneView sceneView;
+  RenderView gameView;
+  RenderView viewport;
 
   Engine::Core::Entity selectedEntity;
   EntityDetails entityDetails;
@@ -43,7 +46,8 @@ template <class GameInstance> struct Editor : public Game {
          Engine::Graphics::ImGUIManager *imGuiManager, GameArgs &&...gameArgs)
       : Game("Editor", vulkan), game(vulkan, std::forward<GameArgs>(gameArgs)...), gameControl(&runGame),
         runGame(false), gameInitialized(false), imGuiManager(imGuiManager), sceneView(&selectedEntity),
-        entityDetails(&selectedEntity) {
+        entityDetails(&selectedEntity), gameView(&vulkan->gpuObjectManager, &vulkan->instanceManager),
+        viewport(&vulkan->gpuObjectManager, &vulkan->instanceManager) {
   }
 
   ~Editor() { vulkan->instanceManager.WaitUntilDeviceIdle(); }
@@ -52,10 +56,14 @@ template <class GameInstance> struct Editor : public Game {
     imGuiManager->RegisterView(&gameControl);
     imGuiManager->RegisterView(&sceneView);
     imGuiManager->RegisterView(&entityDetails);
+    imGuiManager->RegisterView(&gameView);
+    imGuiManager->RegisterView(&viewport);
+
     Game::Init();
     activeScene = assetManager.LoadAsset<Engine::Core::Scene *>("editor");
     game.Init();
     sceneView.SetSceneHierarchy(&game.activeScene->sceneHierarchy);
+    game.renderer.SetRenderResourceProvider(&gameView);
     delete renderingStrategy;
     renderingStrategy = new EditorGUIRenderingStrategy(
         &vulkan->gpuObjectManager,

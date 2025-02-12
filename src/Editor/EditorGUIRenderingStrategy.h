@@ -17,11 +17,12 @@ class EditorGUIRenderingStrategy : public Engine::Graphics::RenderingStrategy {
 public:
   void CreateRenderBuffer();
   void DestroyRenderBuffer();
-  std::vector<Engine::Graphics::Command *> GetRenderingCommands(
-      Engine::Graphics::RenderingRequest const &request, Engine::Maths::Dimension2 const &renderDimension,
-      Engine::Graphics::Buffer<Engine::Graphics::DrawData> const &uniformBuffer,
-      Engine::Graphics::DescriptorAllocator &descriptorAllocator, Engine::Graphics::DescriptorWriter &descriptorWriter,
-      Engine::Graphics::Image<2> &renderTarget) override;
+  std::vector<Engine::Graphics::Command *>
+  GetRenderingCommands(Engine::Graphics::RenderingRequest const &request,
+                       Engine::Graphics::Buffer<Engine::Graphics::DrawData> const &uniformBuffer,
+                       Engine::Graphics::DescriptorAllocator &descriptorAllocator,
+                       Engine::Graphics::DescriptorWriter &descriptorWriter,
+                       Engine::Graphics::Image<2> &renderTarget) override;
 
   EditorGUIRenderingStrategy(Engine::Graphics::GPUObjectManager
 #ifdef NDEBUG

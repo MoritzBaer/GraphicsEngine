@@ -20,15 +20,6 @@ private:
   VkQueue graphicsQueue;
   VkQueue presentQueue;
 
-  struct FrameResources {
-    CommandQueue commandQueue;
-    VkSemaphore presentSemaphore;
-    VkSemaphore renderSemaphore;
-    VkFence renderFence;
-    DescriptorAllocator descriptorAllocator;
-    Buffer<DrawData> uniformBuffer;
-  };
-
   VkSwapchainKHR swapchain;
   VkFormat swapchainFormat;
   VkExtent2D swapchainExtent;
@@ -53,7 +44,8 @@ private:
   void CreateFrameResources(FrameResources &resources);
   void DestroyFrameResources(FrameResources &resources);
 
-  RenderResources GetRenderResources() override;
+  FrameResources GetFrameResources() override;
+  Image2 &GetRenderTarget(bool &acquisitionSuccessful) override;
   void DisplayRenderTarget() override; // TODO: Present current swapchain image
   std::vector<Command const *> PrepareTargetForRendering() override { return {}; }
   std::vector<Command const *> PrepareTargetForDisplaying() override;
@@ -113,7 +105,7 @@ public:
   GameApp(const char *name, Engine::Maths::Dimension2 const &windowSize, GameArgs &&...gameArgs)
       : game(windowedApplication.GetVulkan(), std::forward<GameArgs>(gameArgs)...),
         windowedApplication(name, windowSize) {
-    game.renderer.SetFrameResourceProvider(windowedApplication.GetSwapChainProvider());
+    game.renderer.SetRenderResourceProvider(windowedApplication.GetSwapChainProvider());
     windowedApplication.GetWindow()->SetCloseCallback([this]() { game.running = false; });
     windowedApplication.GetWindow()->SetMinimizeCallback([this]() { game.rendering = false; });
     windowedApplication.GetWindow()->SetRestoreCallback([this]() { game.rendering = true; });

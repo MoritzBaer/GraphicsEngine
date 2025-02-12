@@ -25,13 +25,13 @@ void ImGUIDrawCommand::QueueExecution(VkCommandBuffer const &queue) const {
 }
 
 std::vector<Engine::Graphics::Command *> Editor::EditorGUIRenderingStrategy::GetRenderingCommands(
-    Engine::Graphics::RenderingRequest const &request, Engine::Maths::Dimension2 const &renderDimension,
+    Engine::Graphics::RenderingRequest const &request,
     Engine::Graphics::Buffer<Engine::Graphics::DrawData> const &uniformBuffer,
     Engine::Graphics::DescriptorAllocator &descriptorAllocator, Engine::Graphics::DescriptorWriter &descriptorWriter,
     Engine::Graphics::Image<2> &renderTarget) {
 
-  auto renderingCommands = subStrategy->GetRenderingCommands(request, targetResolution, uniformBuffer,
-                                                             descriptorAllocator, descriptorWriter, renderBuffer);
+  auto renderingCommands =
+      subStrategy->GetRenderingCommands(request, uniformBuffer, descriptorAllocator, descriptorWriter, renderBuffer);
 
   auto transitionBufferToTransferSrc = renderBuffer.Transition(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
   auto transitionTargetToTransferDst = renderTarget.Transition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);

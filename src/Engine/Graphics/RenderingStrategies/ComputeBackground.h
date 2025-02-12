@@ -26,8 +26,7 @@ public:
                     ComputePushConstants const &data);
   ComputeBackground() = default;
   ~ComputeBackground() override;
-  std::vector<Command *> GetRenderingCommands(Maths::Dimension2 const &renderDimension,
-                                              Image<2> &renderTarget) override;
+  std::vector<Command *> GetRenderingCommands(Image<2> &renderTarget) override;
 };
 
 } // namespace Engine::Graphics::RenderingStrategies

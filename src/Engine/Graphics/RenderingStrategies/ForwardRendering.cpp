@@ -110,12 +110,13 @@ void ForwardRendering::DestroyRenderBuffer() {
   objectManager->DestroyAllocatedImage(renderBuffer.depthImage);
 }
 
-std::vector<Command *>
-ForwardRendering::GetRenderingCommands(RenderingRequest const &request, Maths::Dimension2 const &renderDimension,
-                                       Buffer<DrawData> const &uniformBuffer, DescriptorAllocator &descriptorAllocator,
-                                       DescriptorWriter &descriptorWriter, Image<2> &renderTarget) {
+std::vector<Command *> ForwardRendering::GetRenderingCommands(RenderingRequest const &request,
+                                                              Buffer<DrawData> const &uniformBuffer,
+                                                              DescriptorAllocator &descriptorAllocator,
+                                                              DescriptorWriter &descriptorWriter,
+                                                              Image<2> &renderTarget) {
 
-  auto commands = backgroundStrategy->GetRenderingCommands(renderDimension, renderBuffer.colourImage);
+  auto commands = backgroundStrategy->GetRenderingCommands(renderBuffer.colourImage);
 
   auto transitionBufferToRenderTarget = renderBuffer.colourImage.Transition(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
   auto transitionBufferToDepthStencil =
@@ -135,8 +136,9 @@ ForwardRendering::GetRenderingCommands(RenderingRequest const &request, Maths::D
   };
 
   uniformBuffer.SetData(uniformData);
-  auto drawMeshes = new MultimeshDrawCommand(renderBuffer.colourImage, renderBuffer.depthImage, descriptorAllocator,
-                                             descriptorWriter, renderDimension, uniformBuffer, request.objectsToDraw);
+  auto drawMeshes =
+      new MultimeshDrawCommand(renderBuffer.colourImage, renderBuffer.depthImage, descriptorAllocator, descriptorWriter,
+                               renderTarget.GetExtent(), uniformBuffer, request.objectsToDraw);
 
   commands.push_back(drawMeshes);
 

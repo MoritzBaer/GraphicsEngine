@@ -20,8 +20,7 @@ class ForwardRendering : public RenderingStrategy {
   void DestroyRenderBuffer();
 
 public:
-  std::vector<Command *> GetRenderingCommands(RenderingRequest const &request, Maths::Dimension2 const &renderDimension,
-                                              Buffer<DrawData> const &uniformBuffer,
+  std::vector<Command *> GetRenderingCommands(RenderingRequest const &request, Buffer<DrawData> const &uniformBuffer,
                                               DescriptorAllocator &descriptorAllocator,
                                               DescriptorWriter &descriptorWriter, Image<2> &renderTarget) override;
 

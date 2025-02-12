@@ -45,7 +45,11 @@ public:
   template <uint8_t D>
   inline Texture<D> CreateTexture(Maths::Dimension<D> const &imageSize, VkFilter magFilter = VK_FILTER_LINEAR,
                                   VkFilter minFilter = VK_FILTER_LINEAR, VkFormat format = VK_FORMAT_R8G8B8A8_UNORM,
-                                  bool mipped = true, VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT)
+                                  bool mipped = true, VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT,
+                                  VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                                                            VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                                                            VK_IMAGE_USAGE_SAMPLED_BIT,
+                                  VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT)
 #ifdef NDEBUG
       const
 #endif
@@ -253,7 +257,8 @@ inline AllocatedImage<D> GPUObjectManager::CreateAllocatedImage(VkFormat format,
 template <uint8_t D>
 inline Texture<D> GPUObjectManager::CreateTexture(Maths::Dimension<D> const &imageSize, VkFilter magFilter,
                                                   VkFilter minFilter, VkFormat format, bool mipped,
-                                                  VkSampleCountFlagBits msaaSamples)
+                                                  VkSampleCountFlagBits msaaSamples, VkImageUsageFlags usage,
+                                                  VkImageAspectFlags aspectMask)
 #ifdef NDEBUG
     const
 #endif
@@ -263,18 +268,16 @@ inline Texture<D> GPUObjectManager::CreateTexture(Maths::Dimension<D> const &ima
 
   VkSampler sampler;
   instanceManager->CreateSampler(&samplerInfo, &sampler);
-  return Texture<D>(CreateAllocatedImage(
-                        format, imageSize,
-                        VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-                        VK_IMAGE_ASPECT_COLOR_BIT,
-                        (mipped ? static_cast<uint32_t>(std::floor(std::log2(imageSize.maxEntry()))) : 0) + 1, 1,
-                        msaaSamples
+  return Texture<D>(
+      CreateAllocatedImage(format, imageSize, usage, aspectMask,
+                           (mipped ? static_cast<uint32_t>(std::floor(std::log2(imageSize.maxEntry()))) : 0) + 1, 1,
+                           msaaSamples
 #ifndef NDEBUG
-                        ,
-                        "TEXTURE"
+                           ,
+                           "TEXTURE"
 #endif
-                        ),
-                    sampler);
+                           ),
+      sampler);
 }
 
 template <uint8_t D, typename T>

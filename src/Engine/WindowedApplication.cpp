@@ -109,50 +109,40 @@ void SwapChainProvider::DestroyFrameResources(FrameResources &resources) {
   gpuObjectManager->DestroyBuffer(resources.uniformBuffer);
 }
 
-RenderResourceProvider::RenderResources SwapChainProvider::GetRenderResources() {
+RenderResourceProvider::FrameResources SwapChainProvider::GetFrameResources() {
 
   PROFILE_FUNCTION()
 
   resourceIndex = currentFrame % MAX_FRAME_OVERLAP;
 
-  VkCommandBufferSubmitInfo commandBufferSubmitInfo{};
-  {
-    PROFILE_SCOPE("Waiting for previous frame to finish rendering")
-    instanceManager->WaitForFences(&frameResources[resourceIndex].renderFence);
-    instanceManager->ResetFences(&frameResources[resourceIndex].renderFence);
-  }
-
   frameResources[resourceIndex].descriptorAllocator.ClearDescriptors();
-
-  VkResult swapchainImageAcqusitionResult;
-  swapchainImageIndex = instanceManager->GetNextSwapchainImageIndex(swapchainImageAcqusitionResult, swapchain,
-                                                                    frameResources[resourceIndex].presentSemaphore);
-  if (swapchainImageAcqusitionResult == VK_ERROR_OUT_OF_DATE_KHR ||
-      swapchainImageAcqusitionResult == VK_SUBOPTIMAL_KHR) {
-    RecreateSwapchain();
-    return {.commandQueue = {},
-            .presentSemaphore = VK_NULL_HANDLE,
-            .renderSemaphore = VK_NULL_HANDLE,
-            .renderFence = VK_NULL_HANDLE,
-            .descriptorAllocator = {},
-            .uniformBuffer = {},
-            .renderTarget = nullptr};
-  }
 
   return {.commandQueue = frameResources[resourceIndex].commandQueue,
           .presentSemaphore = frameResources[resourceIndex].presentSemaphore,
           .renderSemaphore = frameResources[resourceIndex].renderSemaphore,
           .renderFence = frameResources[resourceIndex].renderFence,
           .descriptorAllocator = frameResources[resourceIndex].descriptorAllocator,
-          .uniformBuffer = frameResources[resourceIndex].uniformBuffer,
-          .renderTarget = &swapchainImages[swapchainImageIndex]};
+          .uniformBuffer = frameResources[resourceIndex].uniformBuffer};
+}
+
+Image2 &SwapChainProvider::GetRenderTarget(bool &acquisitionSuccessful) {
+  VkResult swapchainImageAcqusitionResult;
+  swapchainImageIndex = instanceManager->GetNextSwapchainImageIndex(swapchainImageAcqusitionResult, swapchain,
+                                                                    frameResources[resourceIndex].presentSemaphore);
+  acquisitionSuccessful = true;
+  if (swapchainImageAcqusitionResult == VK_ERROR_OUT_OF_DATE_KHR ||
+      swapchainImageAcqusitionResult == VK_SUBOPTIMAL_KHR) {
+    RecreateSwapchain();
+    acquisitionSuccessful = false;
+  }
+  return swapchainImages[swapchainImageIndex];
 }
 
 void SwapChainProvider::DisplayRenderTarget() {
 
   VkPresentInfoKHR presentInfo{.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
                                .waitSemaphoreCount = 1,
-                               .pWaitSemaphores = &frameResources[currentFrame % MAX_FRAME_OVERLAP].renderSemaphore,
+                               .pWaitSemaphores = &frameResources[resourceIndex].renderSemaphore,
                                .swapchainCount = 1,
                                .pSwapchains = &swapchain,
                                .pImageIndices = &swapchainImageIndex};

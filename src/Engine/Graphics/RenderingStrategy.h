@@ -11,7 +11,6 @@ class RenderingStrategy {
 public:
   virtual ~RenderingStrategy() = default;
   virtual std::vector<Command *> GetRenderingCommands(RenderingRequest const &request,
-                                                      Maths::Dimension2 const &renderDimension,
                                                       Buffer<DrawData> const &uniformBuffer,
                                                       DescriptorAllocator &descriptorAllocator,
                                                       DescriptorWriter &descriptorWriter, Image<2> &renderTarget) = 0;
@@ -20,13 +19,13 @@ public:
 class BackgroundStrategy : public RenderingStrategy {
 public:
   virtual ~BackgroundStrategy() = default;
-  virtual std::vector<Command *> GetRenderingCommands(Maths::Dimension2 const &renderDimension,
-                                                      Image<2> &renderTarget) = 0;
-  inline std::vector<Command *>
-  GetRenderingCommands(RenderingRequest const &request, Maths::Dimension2 const &renderDimension,
-                       Buffer<DrawData> const &uniformBuffer, DescriptorAllocator &descriptorAllocator,
-                       DescriptorWriter &descriptorWriter, Image<2> &renderTarget) override {
-    return GetRenderingCommands(renderDimension, renderTarget);
+  virtual std::vector<Command *> GetRenderingCommands(Image<2> &renderTarget) = 0;
+  inline std::vector<Command *> GetRenderingCommands(RenderingRequest const &request,
+                                                     Buffer<DrawData> const &uniformBuffer,
+                                                     DescriptorAllocator &descriptorAllocator,
+                                                     DescriptorWriter &descriptorWriter,
+                                                     Image<2> &renderTarget) override {
+    return GetRenderingCommands(renderTarget);
   }
 };
 } // namespace Engine::Graphics
