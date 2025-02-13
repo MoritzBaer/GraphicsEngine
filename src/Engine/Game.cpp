@@ -67,8 +67,8 @@ Game::Game(const char *name, Engine::Graphics::VulkanSuite
 #endif
                *vulkan)
     : mainDeletionQueue(), assetManager(), vulkan(vulkan), shaderCompiler(&vulkan->instanceManager), prefabs(),
-      renderingStrategy(nullptr), renderer(&vulkan->instanceManager, &vulkan->gpuObjectManager), activeScene(nullptr),
-      rendering(true), running(true) {
+      renderingStrategy(nullptr), renderer(&vulkan->instanceManager), activeScene(nullptr), rendering(true),
+      running(true) {
 }
 
 void Game::Init() {

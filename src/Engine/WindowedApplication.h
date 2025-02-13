@@ -17,7 +17,6 @@ private:
 
   static const uint32_t MAX_FRAME_OVERLAP = 3;
 
-  VkQueue graphicsQueue;
   VkQueue presentQueue;
 
   VkSwapchainKHR swapchain;
@@ -28,21 +27,12 @@ private:
   uint32_t currentFrame = 0;
 
   Maths::Dimension2 windowDimension;
-  Maths::Dimension2 renderBufferDimension{1600, 900};
-  float renderScale = 1.0f;
-  DescriptorAllocator descriptorAllocator;
-  DescriptorLayoutBuilder descriptorLayoutBuilder;
-  DescriptorWriter descriptorWriter;
-  VkDescriptorSetLayout singleTextureDescriptorLayout;
 
   uint32_t resourceIndex;
   uint32_t swapchainImageIndex;
 
   void CreateSwapchain();
   void DestroySwapchain();
-
-  void CreateFrameResources(FrameResources &resources);
-  void DestroyFrameResources(FrameResources &resources);
 
   FrameResources GetFrameResources() override;
   Image2 &GetRenderTarget(bool &acquisitionSuccessful) override;
@@ -59,6 +49,7 @@ private:
 public:
   SwapChainProvider(InstanceManager const *instanceManager, GPUObjectManager *gpuObjectManager,
                     Maths::Dimension2 const &windowSize);
+  ~SwapChainProvider();
 
   inline void SetWindowSize(Maths::Dimension2 const &newSize) {
     windowDimension = newSize;

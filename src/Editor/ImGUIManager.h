@@ -40,7 +40,21 @@ public:
 };
 
 struct ImGUIView {
-  virtual void Draw() = 0;
+private:
+  const char *name;
+  bool open = true;
+
+public:
+  ImGUIView(const char *name) : name(name) {}
+
+  void Draw() {
+    ImGui::Begin(name, &open, ImGuiWindowFlags_NoBackground);
+    if (open) {
+      DrawContent();
+      ImGui::End();
+    }
+  }
+  virtual void DrawContent() = 0;
 };
 
 } // namespace Engine::Graphics

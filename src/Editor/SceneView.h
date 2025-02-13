@@ -13,11 +13,11 @@ class SceneView : public Engine::Graphics::ImGUIView {
 
 public:
   SceneView(Engine::Core::Entity *selectedEntity)
-      : ImGUIView(), sceneHierarchy(nullptr), selectedEntity(selectedEntity) {}
+      : ImGUIView("Scene"), sceneHierarchy(nullptr), selectedEntity(selectedEntity) {}
   inline void SetSceneHierarchy(Engine::Core::SceneHierarchy const *sceneHierarchy) {
     this->sceneHierarchy = sceneHierarchy;
   };
-  void Draw();
+  void DrawContent() override;
 };
 
 } // namespace Editor

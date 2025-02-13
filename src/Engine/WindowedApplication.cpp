@@ -74,41 +74,6 @@ void SwapChainProvider::DestroySwapchain() {
   instanceManager->DestroySwapchain(swapchain);
 }
 
-void SwapChainProvider::CreateFrameResources(FrameResources &resources) {
-
-  VkFenceCreateInfo fenceInfo = vkinit::FenceCreateInfo();
-
-  VkSemaphoreCreateInfo semaphoreInfo{.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-
-  instanceManager->CreateFence(&fenceInfo, &resources.renderFence);
-  instanceManager->CreateSemaphore(&semaphoreInfo, &resources.renderSemaphore);
-  instanceManager->CreateSemaphore(&semaphoreInfo, &resources.presentSemaphore);
-
-  resources.commandQueue = gpuObjectManager->CreateCommandQueue();
-
-  std::vector<DescriptorAllocator::PoolSizeRatio> frame_sizes = {
-      {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 3},
-      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3},
-      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3},
-      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4},
-  };
-
-  resources.descriptorAllocator = DescriptorAllocator(instanceManager);
-  resources.descriptorAllocator.InitPools(10, frame_sizes);
-  resources.uniformBuffer =
-      gpuObjectManager->CreateBuffer<DrawData>(1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-}
-
-void SwapChainProvider::DestroyFrameResources(FrameResources &resources) {
-  gpuObjectManager->DestroyCommandQueue(resources.commandQueue);
-  instanceManager->DestroySemaphore(resources.presentSemaphore);
-  instanceManager->DestroySemaphore(resources.renderSemaphore);
-  instanceManager->DestroyFence(resources.renderFence);
-  resources.descriptorAllocator.ClearDescriptors();
-  resources.descriptorAllocator.DestroyPools();
-  gpuObjectManager->DestroyBuffer(resources.uniformBuffer);
-}
-
 RenderResourceProvider::FrameResources SwapChainProvider::GetFrameResources() {
 
   PROFILE_FUNCTION()
@@ -116,13 +81,9 @@ RenderResourceProvider::FrameResources SwapChainProvider::GetFrameResources() {
   resourceIndex = currentFrame % MAX_FRAME_OVERLAP;
 
   frameResources[resourceIndex].descriptorAllocator.ClearDescriptors();
+  frameResources[resourceIndex].descriptorWriter.Clear();
 
-  return {.commandQueue = frameResources[resourceIndex].commandQueue,
-          .presentSemaphore = frameResources[resourceIndex].presentSemaphore,
-          .renderSemaphore = frameResources[resourceIndex].renderSemaphore,
-          .renderFence = frameResources[resourceIndex].renderFence,
-          .descriptorAllocator = frameResources[resourceIndex].descriptorAllocator,
-          .uniformBuffer = frameResources[resourceIndex].uniformBuffer};
+  return frameResources[resourceIndex];
 }
 
 Image2 &SwapChainProvider::GetRenderTarget(bool &acquisitionSuccessful) {
@@ -158,13 +119,19 @@ std::vector<Command const *> SwapChainProvider::PrepareTargetForDisplaying() {
 
 SwapChainProvider::SwapChainProvider(InstanceManager const *instanceManager, GPUObjectManager *gpuObjectManager,
                                      Maths::Dimension2 const &windowSize)
-    : instanceManager(instanceManager), descriptorLayoutBuilder(instanceManager), descriptorWriter(instanceManager),
-      gpuObjectManager(gpuObjectManager), windowDimension(windowSize), currentFrame(0), swapchainImageIndex(0) {
+    : instanceManager(instanceManager), gpuObjectManager(gpuObjectManager), windowDimension(windowSize),
+      currentFrame(0), swapchainImageIndex(0) {
   PROFILE_FUNCTION()
-  instanceManager->GetGraphicsQueue(&graphicsQueue);
   instanceManager->GetPresentQueue(&presentQueue);
   CreateSwapchain();
   for (int i = 0; i < MAX_FRAME_OVERLAP; i++) {
-    CreateFrameResources(frameResources[i]);
+    Engine::Graphics::CreateFrameResources(frameResources[i], instanceManager, gpuObjectManager);
   }
+}
+
+SwapChainProvider::~SwapChainProvider() {
+  for (int i = 0; i < MAX_FRAME_OVERLAP; i++) {
+    Engine::Graphics::DestroyFrameResources(frameResources[i], instanceManager, gpuObjectManager);
+  }
+  DestroySwapchain();
 }

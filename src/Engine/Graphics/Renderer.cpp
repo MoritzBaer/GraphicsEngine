@@ -8,17 +8,12 @@
 
 namespace Engine::Graphics {
 
-Renderer::Renderer(InstanceManager const *instanceManager, GPUObjectManager const *gpuObjectManager)
-    : instanceManager(instanceManager), descriptorLayoutBuilder(instanceManager), descriptorWriter(instanceManager),
-      gpuObjectManager(gpuObjectManager) {
+Renderer::Renderer(InstanceManager const *instanceManager) : instanceManager(instanceManager) {
   PROFILE_FUNCTION()
   instanceManager->GetGraphicsQueue(&graphicsQueue);
 }
 
-Renderer::~Renderer() {
-  descriptorAllocator.ClearDescriptors();
-  descriptorAllocator.DestroyPools();
-}
+Renderer::~Renderer() {}
 
 void Renderer::DrawFrame(RenderingRequest const &request) {
 
@@ -50,9 +45,9 @@ void Renderer::DrawFrame(RenderingRequest const &request) {
 
     commands.insert(commands.end(), prepareTarget.begin(), prepareTarget.end());
 
-    DescriptorWriter descriptorWriter(instanceManager);
-    auto strategyCommands = renderingStrategy->GetRenderingCommands(
-        request, frameResources.uniformBuffer, frameResources.descriptorAllocator, descriptorWriter, renderTarget);
+    auto strategyCommands = renderingStrategy->GetRenderingCommands(request, frameResources.uniformBuffer,
+                                                                    frameResources.descriptorAllocator,
+                                                                    frameResources.descriptorWriter, renderTarget);
     commands.insert(commands.end(), strategyCommands.begin(), strategyCommands.end());
 
     prepareTarget = renderResourceProvider->PrepareTargetForDisplaying();

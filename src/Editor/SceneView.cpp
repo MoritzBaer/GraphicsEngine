@@ -35,16 +35,11 @@ void SceneView::DrawNode(Engine::Core::SceneHierarchy::TreeNode const &node, ImG
   }
 }
 
-void SceneView::Draw() {
+void SceneView::DrawContent() {
   ImGuiTreeNodeFlags flags =
       ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding | ImGuiTreeNodeFlags_OpenOnArrow;
-  if (ImGui::Begin("Scene")) {
-
-    for (auto const &node : *sceneHierarchy) {
-      DrawNode(node, flags);
-    }
-
-    ImGui::End();
+  for (auto const &node : *sceneHierarchy) {
+    DrawNode(node, flags);
   }
 }
 

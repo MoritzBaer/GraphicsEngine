@@ -82,22 +82,6 @@ void ImGUIManager::BeginFrame() {
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
 
-  if (ImGui::Begin("Debug GUI")) {
-    ImGui::Text("FPS: %.1f", 1.0f / Time::deltaTime);
-    ImGui::SameLine();
-    if (showImGuiDemo) {
-      if (ImGui::Button("Hide demo window")) {
-        showImGuiDemo = false;
-      }
-    } else if (ImGui::Button("Show demo window")) {
-      showImGuiDemo = true;
-    }
-    if (showImGuiDemo) {
-      ImGui::ShowDemoWindow();
-    }
-    ImGui::End();
-  }
-
   for (auto view : views) {
     view->Draw();
   }

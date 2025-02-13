@@ -15,11 +15,31 @@
 namespace Editor {
 struct GameControl : public Engine::Graphics::ImGUIView {
   bool *runGame;
-  GameControl(bool *runGame) : ImGUIView(), runGame(runGame) {}
+  GameControl(bool *runGame) : ImGUIView("Game Control"), runGame(runGame) {}
 
-  void Draw() override {
+  void DrawContent() override {
     if (ImGui::Button("Start Game")) {
       *runGame = true;
+    }
+  }
+};
+
+struct DebugInfo : public Engine::Graphics::ImGUIView {
+  bool showImGuiDemo = false;
+  DebugInfo() : ImGUIView("Debug Info") {}
+
+  void DrawContent() override {
+    ImGui::Text("FPS: %.1f", 1.0f / Time::deltaTime);
+    ImGui::SameLine();
+    if (showImGuiDemo) {
+      if (ImGui::Button("Hide demo window")) {
+        showImGuiDemo = false;
+      }
+    } else if (ImGui::Button("Show demo window")) {
+      showImGuiDemo = true;
+    }
+    if (showImGuiDemo) {
+      ImGui::ShowDemoWindow();
     }
   }
 };
@@ -30,6 +50,7 @@ template <class GameInstance> struct Editor : public Game {
   bool gameInitialized;
   Engine::Graphics::ImGUIManager *imGuiManager;
   GameControl gameControl;
+  DebugInfo debugInfo;
   SceneView sceneView;
   RenderView gameView;
   RenderView viewport;
@@ -53,6 +74,7 @@ template <class GameInstance> struct Editor : public Game {
   ~Editor() { vulkan->instanceManager.WaitUntilDeviceIdle(); }
 
   inline void Init() override {
+    imGuiManager->RegisterView(&debugInfo);
     imGuiManager->RegisterView(&gameControl);
     imGuiManager->RegisterView(&sceneView);
     imGuiManager->RegisterView(&entityDetails);

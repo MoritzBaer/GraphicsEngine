@@ -11,7 +11,7 @@ class EntityDetails : public Engine::Graphics::ImGUIView {
   bool oldActive = true;
 
 public:
-  EntityDetails(Engine::Core::Entity const *selectedEntity) : ImGUIView(), selectedEntity(selectedEntity) {}
-  void Draw();
+  EntityDetails(Engine::Core::Entity const *selectedEntity) : ImGUIView("Details"), selectedEntity(selectedEntity) {}
+  void DrawContent() override;
 };
 } // namespace Editor

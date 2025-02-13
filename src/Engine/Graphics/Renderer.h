@@ -18,28 +18,15 @@ namespace Engine::Graphics {
 class MeshRenderer;
 
 class Renderer {
+private:
   InstanceManager const *instanceManager;
-  GPUObjectManager const *gpuObjectManager;
   RenderingStrategy *renderingStrategy;
   RenderResourceProvider *renderResourceProvider;
 
-private:
-  uint8_t currentBackgroundEffect = 1;
-
-  static const uint32_t MAX_FRAME_OVERLAP = 3;
-
   VkQueue graphicsQueue;
 
-  Maths::Dimension2 windowDimension;
-  Maths::Dimension2 renderBufferDimension{1600, 900};
-  float renderScale = 1.0f;
-  DescriptorAllocator descriptorAllocator;
-  DescriptorLayoutBuilder descriptorLayoutBuilder;
-  DescriptorWriter descriptorWriter;
-  VkDescriptorSetLayout singleTextureDescriptorLayout;
-
 public:
-  Renderer(InstanceManager const *instanceManager, GPUObjectManager const *gpuObjectManager);
+  Renderer(InstanceManager const *instanceManager);
   ~Renderer();
 
   void DrawFrame(RenderingRequest const &request);
