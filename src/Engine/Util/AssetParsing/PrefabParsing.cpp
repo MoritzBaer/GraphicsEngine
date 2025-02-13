@@ -10,6 +10,22 @@
 #include "Members.h"
 #include "json-parsing.h"
 
+#ifndef USER_COMPONENTS
+#define USER_COMPONENTS
+#endif
+
+#define ENGINE_COMPONENTS                                                                                              \
+  INHERITANCE_PARSER(Engine::ComponentDSO, Engine::TransformDSO)                                                       \
+  INHERITANCE_PARSER(Engine::ComponentDSO, Engine::MeshRendererDSO)                                                    \
+  INHERITANCE_PARSER(Engine::ComponentDSO, Engine::CameraDSO)                                                          \
+  INHERITANCE_PARSER(Engine::ComponentDSO, Engine::DisplayDSO)                                                         \
+  INHERITANCE_PARSER(Engine::ComponentDSO, Engine::HierarchyDSO)                                                       \
+  INHERITANCE_PARSER(Engine::ComponentDSO, Engine::ScriptComponentDSO)
+
+#ifndef USER_SCRIPTS
+#define USER_SCRIPTS
+#endif
+
 namespace Engine {
 
 struct ComponentDSO {
@@ -171,6 +187,16 @@ Core::Scene *AssetManager::AssetLoader<Core::Scene *>::ConvertDSO(AssetDSO<Core:
 
 template <> void AssetManager::AssetDestroyer<Core::Scene *>::DestroyAsset(Core::Scene *&asset) const { delete asset; }
 
+// Scripts
+
+struct ScriptDSO {
+  virtual ~ScriptDSO() = default;
+};
+
+struct ScriptComponentDSO : public ComponentDSO {
+  std::vector<ScriptDSO *> scripts;
+};
+
 } // namespace Engine
 
 OBJECT_PARSER(Engine::TransformDSO, FIELD_PARSER(position) FIELD_PARSER(rotation) FIELD_PARSER(scale));
@@ -179,13 +205,9 @@ OBJECT_PARSER(Engine::MeshRendererDSO, FIELD_PARSER(meshName) FIELD_PARSER(mater
 OBJECT_PARSER(Engine::CameraDSO,
               FIELD_PARSER(fov) FIELD_PARSER(nearClip) FIELD_PARSER(farClip) FIELD_PARSER(aspectRatio));
 OBJECT_PARSER(Engine::DisplayDSO, FIELD_PARSER(label));
+OBJECT_PARSER(Engine::ScriptComponentDSO, FIELD_PARSER(scripts));
 
-ABSTRACT_OBJECT_PARSER(Engine::ComponentDSO, ,
-                       INHERITANCE_PARSER(Engine::ComponentDSO, Engine::TransformDSO)
-                           INHERITANCE_PARSER(Engine::ComponentDSO, Engine::MeshRendererDSO)
-                               INHERITANCE_PARSER(Engine::ComponentDSO, Engine::CameraDSO)
-                                   INHERITANCE_PARSER(Engine::ComponentDSO, Engine::DisplayDSO)
-                                       INHERITANCE_PARSER(Engine::ComponentDSO, Engine::HierarchyDSO));
+ABSTRACT_OBJECT_PARSER(Engine::ComponentDSO, , ENGINE_COMPONENTS USER_COMPONENTS);
 
 OBJECT_PARSER(Engine::AssetManager::AssetDSO<Engine::Core::Entity>, FIELD_PARSER(components));
 OBJECT_PARSER(Engine::PrefabDSO, FIELD_PARSER(prefabName) FIELD_PARSER(transform));
@@ -194,3 +216,5 @@ ABSTRACT_OBJECT_PARSER(Engine::EntityDSO, ,
                            INHERITANCE_PARSER(Engine::EntityDSO, Engine::AssetManager::AssetDSO<Engine::Core::Entity>));
 
 OBJECT_PARSER(Engine::AssetManager::AssetDSO<Engine::Core::Scene *>, FIELD_PARSER(entities) FIELD_PARSER(mainCamName));
+
+ABSTRACT_OBJECT_PARSER(Engine::ScriptDSO, , USER_SCRIPTS);
