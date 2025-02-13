@@ -68,7 +68,7 @@ Game::Game(const char *name, Engine::Graphics::VulkanSuite
                *vulkan)
     : mainDeletionQueue(), assetManager(), vulkan(vulkan), shaderCompiler(&vulkan->instanceManager), prefabs(),
       renderingStrategy(nullptr), renderer(&vulkan->instanceManager), activeScene(nullptr), rendering(true),
-      running(true) {
+      running(true), clock() {
 }
 
 void Game::Init() {
@@ -115,13 +115,13 @@ void Game::CalculateFrame() {
   {
     PROFILE_FUNCTION()
 
-    Engine::Time::Update();
+    clock.Update();
 
     Engine::WindowManager::HandleEventsOnAllWindows();
 
     auto scripts = activeScene->ecs.FilterEntities<Engine::Core::ScriptComponent>();
     for (auto &[scriptComponent] : scripts) {
-      scriptComponent->UpdateScripts(Engine::Time::deltaTime);
+      scriptComponent->UpdateScripts(clock);
     }
 
     if (rendering) {
@@ -147,7 +147,7 @@ void Game::CalculateFrame() {
   }
 }
 
-void Game::Start() { Engine::Time::Update(); }
+void Game::Start() { clock.Start(); }
 
 Game::~Game() {
   BEGIN_PROFILE_SESSION()

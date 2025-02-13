@@ -3,6 +3,7 @@
 #include "AssetManager.h"
 #include "Core/ECS.h"
 #include "Core/Scene.h"
+#include "Core/Time.h"
 #include "Graphics/InstanceManager.h"
 #include "Graphics/MemoryAllocator.h"
 #include "Graphics/Renderer.h"
@@ -25,6 +26,7 @@ struct Game {
   Engine::AssetManager assetManager;
   Engine::Graphics::Renderer renderer;
   Engine::Graphics::RenderingStrategy *renderingStrategy;
+  Engine::Core::Clock clock;
 
   bool rendering;
   bool running;

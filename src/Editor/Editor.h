@@ -26,10 +26,11 @@ struct GameControl : public Engine::Graphics::ImGUIView {
 
 struct DebugInfo : public Engine::Graphics::ImGUIView {
   bool showImGuiDemo = false;
-  DebugInfo() : ImGUIView("Debug Info") {}
+  Engine::Core::Clock const *clock;
+  DebugInfo(Engine::Core::Clock const *clock) : ImGUIView("Debug Info"), clock(clock) {}
 
   void DrawContent() override {
-    ImGui::Text("FPS: %.1f", 1.0f / Time::deltaTime);
+    ImGui::Text("FPS: %.1f", 1.0f / clock->deltaTime);
     ImGui::SameLine();
     if (showImGuiDemo) {
       if (ImGui::Button("Hide demo window")) {
@@ -68,7 +69,7 @@ template <class GameInstance> struct Editor : public Game {
       : Game("Editor", vulkan), game(vulkan, std::forward<GameArgs>(gameArgs)...), gameControl(&runGame),
         runGame(false), gameInitialized(false), imGuiManager(imGuiManager), sceneView(&selectedEntity),
         entityDetails(&selectedEntity), gameView(&vulkan->gpuObjectManager, &vulkan->instanceManager),
-        viewport(&vulkan->gpuObjectManager, &vulkan->instanceManager) {
+        viewport(&vulkan->gpuObjectManager, &vulkan->instanceManager), debugInfo(&clock) {
   }
 
   ~Editor() { vulkan->instanceManager.WaitUntilDeviceIdle(); }

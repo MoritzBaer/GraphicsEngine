@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Engine/Core/ECS.h"
+#include "Engine/Core/Time.h"
 
 namespace Engine::Core {
 
@@ -15,7 +16,7 @@ public:
   virtual void OnCreate() {}
   virtual void OnDestroy() {}
   virtual void OnStart() {}
-  virtual void OnUpdate(float deltaTime) {}
+  virtual void OnUpdate(Clock const &clock) {}
   virtual Script *Clone() = 0;
 };
 
@@ -30,13 +31,13 @@ public:
     scripts.push_back(script);
     return script;
   }
-  void UpdateScripts(float deltaTime) {
+  void UpdateScripts(Clock clock) {
     for (auto script : scripts) {
       if (!script->started) {
         script->OnStart();
         script->started = true;
       }
-      script->OnUpdate(deltaTime);
+      script->OnUpdate(clock);
     }
   }
   ~ScriptComponent() {

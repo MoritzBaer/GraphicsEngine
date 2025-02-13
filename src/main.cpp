@@ -11,11 +11,11 @@ struct SpinnyScript : public Core::Script {
   SpinnyScript(Core::Entity entity) : Core::Script(entity) {}
   void OnCreate() override { transform = entity.GetComponent<Engine::Graphics::Transform>(); }
 
-  void OnUpdate(float deltaTime) override {
-    transform->rotation = (Engine::Maths::Transformations::RotateAroundAxis(Engine::Maths::Vector3(0, 1, 0),
-                                                                            Engine::Time::deltaTime * 0.2f) *
-                           transform->rotation)
-                              .Normalized();
+  void OnUpdate(Core::Clock const &clock) override {
+    transform->rotation =
+        (Engine::Maths::Transformations::RotateAroundAxis(Engine::Maths::Vector3(0, 1, 0), clock.deltaTime * 0.2f) *
+         transform->rotation)
+            .Normalized();
   }
 
   Script *Clone() override { return new SpinnyScript(entity); }
@@ -30,8 +30,8 @@ struct BobbyScript : public Core::Script {
 
   void OnStart() override { initialY = transform->position.y(); }
   void OnCreate() override { transform = entity.GetComponent<Engine::Graphics::Transform>(); }
-  void OnUpdate(float deltaTime) override {
-    transform->position.y() = initialY + std::sin(Engine::Time::time) * bobbingAmplitude;
+  void OnUpdate(Core::Clock const &clock) override {
+    transform->position.y() = initialY + std::sin(clock.time) * bobbingAmplitude;
   }
 
   Script *Clone() override { return new BobbyScript(entity, bobbingAmplitude); }
