@@ -5,6 +5,8 @@
 
 namespace Engine::Core {
 
+struct ScriptComponent;
+
 class Script {
 protected:
   Entity entity;
@@ -17,14 +19,14 @@ public:
   virtual void OnDestroy() {}
   virtual void OnStart() {}
   virtual void OnUpdate(Clock const &clock) {}
-  virtual Script *Clone() = 0;
+  virtual void Clone(ScriptComponent *targetComponent) = 0;
 };
 
-struct ScriptComponent : public Component {
+struct ScriptComponent : public ComponentT<ScriptComponent> {
   std::vector<Script *> scripts;
 
 public:
-  ScriptComponent(Entity entity) : Component(entity) {};
+  ScriptComponent(Entity entity) : ComponentT<ScriptComponent>(entity) {};
   template <class T, class... T_Args> inline T *InstantiateScript(T_Args... args) {
     T *script = new T(entity, args...);
     script->OnCreate();
@@ -47,6 +49,20 @@ public:
     }
   }
 
-  void CopyFrom(Component const *other) override;
+  inline void CopyFrom(ScriptComponent const &other) override {
+    for (auto script : other.scripts) {
+      script->Clone(this);
+    }
+  }
 };
+
 } // namespace Engine::Core
+
+namespace Engine {
+
+struct ScriptDSO {
+  virtual void Attach(Core::ScriptComponent *scriptComponent,
+                      AssetManager::LoaderMembers<Core::Entity> *loaderMembers) = 0;
+};
+
+} // namespace Engine

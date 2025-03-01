@@ -19,6 +19,12 @@ if(DEFINED USER_COMPONENTS_SOURCE_PATH)
     message("USER_COMPONENTS_SOURCE_PATH defined, adding definition")
     add_compile_definitions(USER_COMPONENTS_SOURCE=${USER_COMPONENTS_SOURCE_PATH})
 endif()
+if(DEFINED USER_SCRIPTS_SOURCE_PATH)
+    message("USER_SCRIPTS_SOURCE_PATH defined, adding definition")
+    add_compile_definitions(USER_SCRIPTS_SOURCE=${USER_SCRIPTS_SOURCE_PATH})
+else()
+    add_compile_definitions(USER_SCRIPTS_SOURCE="Demo/Scripts.h")
+endif()
 
 if(BUILD_WITH_PROFILING)
     add_definitions("-DRUN_PROFILER")
@@ -28,8 +34,6 @@ else()
 endif()
 
 find_package(Vulkan REQUIRED COMPONENTS shaderc_combined)
-
-message("Vulkan found: ${Vulkan_FOUND} (with include dirs ${Vulkan_INCLUDE_DIR} and libraries ${Vulkan_LIBRARIES})")
 
 include_directories("dependencies/glfw-3.3.9.bin.WIN64/include")
 include_directories("dependencies/VMA")
@@ -42,6 +46,7 @@ include_directories("src/Engine")
 
 file(GLOB_RECURSE EngineFiles
     if(DEFINED USER_COMPONENTS_SOURCE_PATH) USER_COMPONENTS_SOURCE_PATH endif()
+    if(DEFINED USER_SCRIPTS_SOURCE_PATH) USER_SCRIPTS_SOURCE_PATH endif()
     "src/Engine/*.h"
     "src/Engine/*.cpp"  
 )
@@ -51,6 +56,7 @@ aux_source_directory(src/external EXTERNAL)
 add_library(Engine STATIC ${EngineFiles})
 
 macro(make_app NAME ENTRY_POINT)
+    message("Building demo app ${NAME}")
     add_executable(${NAME} "src/${ENTRY_POINT}.cpp")
 
     target_link_libraries(${NAME} Engine)

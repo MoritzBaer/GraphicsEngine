@@ -2,39 +2,6 @@
 #include "Core/Time.h"
 #include "WindowedApplication.h"
 
-struct SpinnyScript : public Core::Script {
-  Engine::Graphics::Transform *transform;
-  float rotationSpeed = 1.0f;
-
-  SpinnyScript(Core::Entity entity) : Core::Script(entity) {}
-  void OnCreate() override { transform = entity.GetComponent<Engine::Graphics::Transform>(); }
-
-  void OnUpdate(Core::Clock const &clock) override {
-    transform->rotation =
-        (Engine::Maths::Transformations::RotateAroundAxis(Engine::Maths::Vector3(0, 1, 0), clock.deltaTime * 0.2f) *
-         transform->rotation)
-            .Normalized();
-  }
-
-  Script *Clone() override { return new SpinnyScript(entity); }
-};
-
-struct BobbyScript : public Core::Script {
-  Engine::Graphics::Transform *transform;
-  float initialY;
-  float bobbingAmplitude;
-
-  BobbyScript(Core::Entity entity, float bobbingAmplitude) : Core::Script(entity), bobbingAmplitude(bobbingAmplitude) {}
-
-  void OnStart() override { initialY = transform->position.y(); }
-  void OnCreate() override { transform = entity.GetComponent<Engine::Graphics::Transform>(); }
-  void OnUpdate(Core::Clock const &clock) override {
-    transform->position.y() = initialY + std::sin(clock.time) * bobbingAmplitude;
-  }
-
-  Script *Clone() override { return new BobbyScript(entity, bobbingAmplitude); }
-};
-
 struct TestProject : public Game {
   TestProject(Engine::Graphics::VulkanSuite
 #ifdef NDEBUG

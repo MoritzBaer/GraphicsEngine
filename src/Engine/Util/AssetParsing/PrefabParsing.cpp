@@ -15,8 +15,13 @@
 #include USER_COMPONENTS_SOURCE
 #endif
 
-#ifndef USER_COMPONENTS
-#define USER_COMPONENTS
+#ifdef USER_SCRIPTS_SOURCE
+#pragma message("USER_SCRIPTS_SOURCE defined")
+#include USER_SCRIPTS_SOURCE
+#endif
+
+#ifndef USER_SCRIPTS
+#define USER_SCRIPTS
 #endif
 
 #define ENGINE_COMPONENTS                                                                                              \
@@ -25,10 +30,6 @@
   INHERITANCE_PARSER(Engine::ComponentDSO, Engine::CameraDSO)                                                          \
   INHERITANCE_PARSER(Engine::ComponentDSO, Engine::HierarchyDSO)                                                       \
   INHERITANCE_PARSER(Engine::ComponentDSO, Engine::ScriptComponentDSO)
-
-#ifndef USER_SCRIPTS
-#define USER_SCRIPTS
-#endif
 
 namespace Engine {
 
@@ -189,17 +190,13 @@ template <> void AssetManager::AssetDestroyer<Core::Scene *>::DestroyAsset(Core:
 
 // Scripts
 
-struct ScriptDSO {
-  virtual ~ScriptDSO() = default;
-};
-
 struct ScriptComponentDSO : public ComponentDSO_T<Core::ScriptComponent> {
   std::vector<ScriptDSO *> scripts;
 
   void FillValues(Core::ScriptComponent *scriptComponent,
                   AssetManager::LoaderMembers<Core::Entity> *loaderMembers) override {
     for (auto scriptDSO : scripts) {
-      // TODO: Add script to component
+      scriptDSO->Attach(scriptComponent, loaderMembers);
     }
   }
 };

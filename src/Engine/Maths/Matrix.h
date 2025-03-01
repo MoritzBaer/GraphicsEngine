@@ -760,7 +760,10 @@ template <uint8_t n, uint8_t m, typename T> inline void MatrixT<n, m, T>::Conver
 
 } // namespace Engine::Maths
 
+#include <format>
 #include <functional>
+#include <sstream>
+
 namespace std {
 template <uint8_t n, typename T> struct hash<Engine::Maths::VectorT<n, T>> {
   inline size_t operator()(Engine::Maths::VectorT<n, T> const &v) const {
@@ -788,6 +791,26 @@ template <uint8_t n, uint8_t m, typename T> struct hash<Engine::Maths::MatrixT<n
     return h;
   }
 };
+
+template <uint8_t n, typename T> struct formatter<Engine::Maths::VectorT<n, T>> {
+  template <typename ParseContext> constexpr auto parse(ParseContext &ctx) { return ctx.begin(); }
+
+  template <typename FormatContext> auto format(Engine::Maths::VectorT<n, T> const &v, FormatContext &ctx) {
+    std::ostringstream out;
+    out << "{";
+    for (uint8_t i = 0; i < n; i++) {
+
+      out << v[i];
+      if (i < n - 1) {
+        out << ", ";
+      }
+    }
+    out << "}";
+
+    return ranges::copy(std::move(out).str(), ctx.out()).out;
+  }
+};
+
 } // namespace std
 
 TEMPLATED_OBJECT_PARSER(uint8_t n COMMA uint8_t m COMMA typename T, Engine::Maths::MatrixT<n COMMA m COMMA T>,
