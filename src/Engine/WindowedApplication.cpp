@@ -80,13 +80,14 @@ RenderResourceProvider::FrameResources SwapChainProvider::GetFrameResources() {
 
   resourceIndex = currentFrame % MAX_FRAME_OVERLAP;
 
-  frameResources[resourceIndex].descriptorAllocator.ClearDescriptors();
   frameResources[resourceIndex].descriptorWriter.Clear();
 
   return frameResources[resourceIndex];
 }
 
 Image2 &SwapChainProvider::GetRenderTarget(bool &acquisitionSuccessful) {
+  frameResources[resourceIndex].descriptorAllocator.ClearDescriptors();
+
   VkResult swapchainImageAcqusitionResult;
   swapchainImageIndex = instanceManager->GetNextSwapchainImageIndex(swapchainImageAcqusitionResult, swapchain,
                                                                     frameResources[resourceIndex].presentSemaphore);

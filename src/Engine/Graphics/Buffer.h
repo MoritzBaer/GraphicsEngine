@@ -1,7 +1,6 @@
 #pragma once
 
 #include "CommandQueue.h"
-#include "Debug/Logging.h"
 #include "DescriptorHandling.h"
 #include "InstanceManager.h"
 #include "MemoryAllocator.h"
@@ -14,6 +13,15 @@ namespace Engine::Graphics {
 
 class GPUMemoryManager;
 class GPUObjectManager;
+
+template <uint8_t size> struct IndexTypeFromSize {
+  inline static constexpr std::conditional_t<size == 2 || size == 4, VkIndexType, void> value =
+      size == 2 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32;
+};
+
+template <typename T> struct IndexType {
+  static constexpr VkIndexType value = IndexTypeFromSize<sizeof(T)>::value;
+};
 
 template <typename T> class Buffer {
   VkBuffer buffer;
@@ -56,19 +64,7 @@ public:
   inline void BindAsIndexBuffer(VkCommandBuffer const &commandBuffer) const
     requires(std::integral<T>)
   {
-    VkIndexType indexType;
-    switch (sizeof(T)) {
-    case 2:
-      indexType = VK_INDEX_TYPE_UINT16;
-      break;
-    case 4:
-      indexType = VK_INDEX_TYPE_UINT32;
-      break;
-    default:
-      ENGINE_ERROR("Invalid index type!");
-    }
-
-    vkCmdBindIndexBuffer(commandBuffer, buffer, 0, indexType);
+    vkCmdBindIndexBuffer(commandBuffer, buffer, 0, IndexType<T>::value);
   }
 };
 

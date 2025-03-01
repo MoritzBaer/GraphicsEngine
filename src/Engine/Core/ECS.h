@@ -22,7 +22,7 @@ template <typename T> struct ComponentID {
   inline static componentID value = componentID(-1);
 };
 
-struct Component;
+class Component;
 class Entity;
 
 class ECS {
@@ -156,8 +156,20 @@ public:
   virtual void CopyFrom(Component const *other) = 0;
 };
 
+#define TO_STR(x) #x
+
+void _CopyError(const char *typeName);
+
 template <class C> struct ComponentT : public Component {
-  ComponentT(EntityId e, ECS *ecs) : Component(e, ecs) {}
+  ComponentT(Entity e) : Component(e) {}
+  virtual void CopyFrom(C const &other) = 0;
+  void CopyFrom(Component const *other) override {
+    if (auto otherComponent = dynamic_cast<C const *>(other)) {
+      CopyFrom(*otherComponent);
+    } else {
+      _CopyError(TO_STR(C));
+    }
+  }
 };
 
 // IMPLEMENTATIONS
@@ -246,3 +258,22 @@ inline bool ECS::IsActive(EntityId e) const { return aliveAndComponentFlags[e] &
 inline bool ECS::IsAlive(EntityId e) const { return e != EntityId(-1) && (aliveAndComponentFlags[e] & ALIVE_FLAG); }
 
 } // namespace Engine::Core
+
+// For Deserialization
+
+#include "AssetManager.h"
+
+namespace Engine {
+
+struct ComponentDSO {
+  virtual void AttachToEntity(Core::Entity entity, AssetManager::LoaderMembers<Core::Entity> *loaderMembers) = 0;
+};
+
+template <typename T> struct ComponentDSO_T : public ComponentDSO {
+  void AttachToEntity(Core::Entity entity, AssetManager::LoaderMembers<Core::Entity> *loaderMembers) override {
+    FillValues(entity.AddComponent<T>(), loaderMembers);
+  }
+  virtual void FillValues(T *component, AssetManager::LoaderMembers<Core::Entity> *loaderMembers) = 0;
+};
+
+} // namespace Engine

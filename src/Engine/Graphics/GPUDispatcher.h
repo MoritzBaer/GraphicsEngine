@@ -1,7 +1,6 @@
 #pragma once
 
 #include "CommandQueue.h"
-#include "Debug/Logging.h"
 #include "InstanceManager.h"
 #include "VulkanUtil.h"
 
@@ -23,16 +22,7 @@ public:
 
   ~GPUDispatcher() { instanceManager->DestroyFence(fence); }
 
-  inline void Dispatch(std::span<Command const *> const &commands) const {
-    instanceManager->ResetFences(&fence);
-    auto commandInfo = commandQueue.EnqueueCommandSequence(commands);
-    std::vector<VkCommandBufferSubmitInfo> buffer{commandInfo};
-    VkSubmitInfo2 submitInfo = vkinit::SubmitInfo({}, buffer, {});
-
-    VULKAN_ASSERT(vkQueueSubmit2(dispatchQueue, 1, &submitInfo, fence), "Failed to submit immediate queue")
-
-    instanceManager->WaitForFences(&fence);
-  }
+  void Dispatch(std::span<Command const *> const &commands) const;
 
   inline void Dispatch(Command const *command) const {
     std::vector<Command const *> commandSpan = {command};

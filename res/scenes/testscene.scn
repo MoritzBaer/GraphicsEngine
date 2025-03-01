@@ -1,5 +1,5 @@
 {
-    "mainCamName": "Main Camera",
+    "mainCamId": 1,
     "entities": [
         {
             "Engine::AssetManager::AssetDSO<Engine::Core::Entity>": {
@@ -16,11 +16,6 @@
                             "meshName": "suzanne",
                             "materialName": "speeder"
                         }
-                    },
-                    {
-                        "Engine::DisplayDSO": {
-                            "label": "Suzanne"
-                        }
                     }
                 ]
             }
@@ -33,11 +28,6 @@
                             "position": { "data": [ 0, 2, 15 ] },
                             "rotation": { "w": 1, "x": 0, "y": 0, "z": 0 },
                             "scale": { "data": [ 1, 1, 1 ] }
-                        }
-                    },
-                    {
-                        "Engine::DisplayDSO": {
-                            "label": "Main Camera"
                         }
                     },
                     {
@@ -66,11 +56,6 @@
                             "meshName": "cube",
                             "materialName": "guns"
                         }
-                    },
-                    {
-                        "Engine::DisplayDSO": {
-                            "label": "Ground"
-                        }
                     }
                 ]
             }
@@ -93,11 +78,6 @@
                             "position": { "data": [ 0, 0, 0 ] },
                             "rotation": { "w": 1, "x": 0, "y": 0, "z": 0 },
                             "scale": { "data": [ 1, 1, 1 ] }
-                        }
-                    },
-                    {
-                        "Engine::DisplayDSO": {
-                            "label": "Cube Spinner"
                         }
                     },
                     {

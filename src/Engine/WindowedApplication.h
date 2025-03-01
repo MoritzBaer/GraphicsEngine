@@ -95,7 +95,7 @@ public:
   template <typename... GameArgs>
   GameApp(const char *name, Engine::Maths::Dimension2 const &windowSize, GameArgs &&...gameArgs)
       : game(windowedApplication.GetVulkan(), std::forward<GameArgs>(gameArgs)...),
-        windowedApplication(name, windowSize) {
+        windowedApplication(name, windowSize), name(name) {
     game.renderer.SetRenderResourceProvider(windowedApplication.GetSwapChainProvider());
     windowedApplication.GetWindow()->SetCloseCallback([this]() { game.running = false; });
     windowedApplication.GetWindow()->SetMinimizeCallback([this]() { game.rendering = false; });
@@ -111,7 +111,7 @@ public:
 template <typename GameType> inline void GameApp<GameType>::Run() {
   try {
     game.Init();
-
+    game.Start();
     while (game.IsRunning())
       game.CalculateFrame();
   } catch (std::exception &e) {

@@ -25,11 +25,6 @@
                                         "meshName": "speeder",
                                         "materialName": "speeder"
                                     }
-                                },
-                                {
-                                    "Engine::DisplayDSO": {
-                                        "label": "speeder_body"
-                                    }
                                 }
                             ]
                         }
@@ -49,21 +44,11 @@
                                         "meshName": "guns",
                                         "materialName": "guns"
                                     }
-                                },
-                                {
-                                    "Engine::DisplayDSO": {
-                                        "label": "speeder_guns"
-                                    }
                                 }
                             ]
                         }
                     }
                 ]
-            }
-        },
-        {
-            "Engine::DisplayDSO": {
-                "label": "speeder"
             }
         }
     ]

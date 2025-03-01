@@ -1,5 +1,5 @@
 {
-    "mainCamName": "Main Camera",
+    "mainCamId": 0,
     "entities": [
         {
             "Engine::AssetManager::AssetDSO<Engine::Core::Entity>": {
@@ -9,11 +9,6 @@
                             "position": { "data": [ 0, 1, -5 ] },
                             "rotation": { "w": 1, "x": 0, "y": 0, "z": 0 },
                             "scale": { "data": [ 1, 1, 1 ] }
-                        }
-                    },
-                    {
-                        "Engine::DisplayDSO": {
-                            "label": "Main Camera"
                         }
                     },
                     {

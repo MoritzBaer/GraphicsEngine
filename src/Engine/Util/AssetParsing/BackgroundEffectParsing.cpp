@@ -35,7 +35,7 @@ AssetManager::AssetLoader<Graphics::RenderingStrategies::CompiledEffect>::Conver
   members->pipelineInfo.stage = effectShader.GetStageInfo();
 
   Graphics::RenderingStrategies::CompiledEffect effect{.pipelineLayout = members->computePipelineLayout,
-                                                       .pipeline = nullptr};
+                                                       .pipeline = VK_NULL_HANDLE};
   members->instanceManager->CreateComputePipeline(members->pipelineInfo, &effect.pipeline);
   return effect;
 }

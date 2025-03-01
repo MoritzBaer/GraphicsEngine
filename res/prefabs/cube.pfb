@@ -12,11 +12,6 @@
                 "meshName": "cube",
                 "materialName": "missing"
             }
-        },
-        {
-            "Engine::DisplayDSO": {
-                "label": "Cube"
-            }
         }
     ]
 }

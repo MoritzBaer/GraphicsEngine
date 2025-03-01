@@ -4,7 +4,6 @@
 #include "Core/Time.h"
 #include "Debug/Logging.h"
 #include "Debug/Profiling.h"
-#include "Editor/Display.h"
 #include "Graphics/Camera.h"
 #include "Graphics/MeshRenderer.h"
 #include "Graphics/RenderingStrategies/ForwardRendering.h"
@@ -75,7 +74,6 @@ void Game::Init() {
   BEGIN_PROFILE_SESSION()
   PROFILE_FUNCTION()
 
-  Core::ECS::RegisterComponent<Editor::Display>();
   Core::ECS::RegisterComponent<Engine::Core::HierarchyComponent>(); // Must be registered before all
                                                                     // HierarchicalComponents
   Core::ECS::RegisterComponent<Engine::Graphics::Transform>();
@@ -126,11 +124,10 @@ void Game::CalculateFrame() {
 
     if (rendering) {
       auto renderersWithTransforms =
-          activeScene->ecs
-              .FilterEntities<Engine::Graphics::MeshRenderer, Engine::Graphics::Transform, Editor::Display>();
+          activeScene->ecs.FilterEntities<Engine::Graphics::MeshRenderer, Engine::Graphics::Transform>();
       std::vector<Engine::Graphics::MeshRenderer const *> meshRenderers{};
       meshRenderers.reserve(renderersWithTransforms.size());
-      for (auto &[meshRenderer, transform, __] : renderersWithTransforms) {
+      for (auto &[meshRenderer, transform] : renderersWithTransforms) {
         if (!transform->HasInactiveParent())
           meshRenderers.push_back(meshRenderer);
       }

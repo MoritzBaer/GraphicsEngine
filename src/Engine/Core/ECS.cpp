@@ -110,6 +110,10 @@ void ECS::DestroyEntity(EntityId e) {
   KILL(e)
 }
 
+void _CopyError(const char * typeName) {
+  ENGINE_ERROR("Tried to copy {} from different type!", typeName);
+}
+
 std::vector<Component *> ECS::GetComponents(EntityId e) const {
   std::vector<Component *> result;
   if (e == EntityId(-1) || !(aliveAndComponentFlags[e] & ALIVE_FLAG)) {

@@ -22,18 +22,13 @@
                         1
                     ]
                 },
-                "children": []
+                "children": [ ]
             }
         },
         {
             "Engine::MeshRendererDSO": {
                 "meshName": "speeder",
                 "materialName": "speeder"
-            }
-        },
-        {
-            "Engine::DisplayDSO": {
-                "label": "speeder_body"
             }
         }
     ]

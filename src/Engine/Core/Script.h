@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Engine/Core/ECS.h"
-#include "Engine/Core/Time.h"
+#include "Core/ECS.h"
+#include "Core/Time.h"
 
 namespace Engine::Core {
 

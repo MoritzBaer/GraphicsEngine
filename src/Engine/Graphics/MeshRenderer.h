@@ -7,7 +7,7 @@
 
 namespace Engine::Graphics {
 
-struct MeshRenderer : public Core::Component {
+struct MeshRenderer : public Core::ComponentT<MeshRenderer> {
 private:
 public:
   struct {
@@ -20,7 +20,7 @@ public:
     inline AllocatedMesh *&operator=(AllocatedMesh *mesh) {
       // Maybe make copy of the mesh. In that case, delete the old mesh at assignment
       this->mesh = mesh;
-      return mesh;
+      return this->mesh;
     }
   } mesh;
   struct {
@@ -33,11 +33,11 @@ public:
     inline Material *&operator=(Material *material) {
       // TODO: Eventually use copy of given material
       this->material = material;
-      return material;
+      return this->material;
     }
   } material;
 
-  MeshRenderer(Core::Entity entity) : Core::Component(entity) {
+  MeshRenderer(Core::Entity entity) : Core::ComponentT<MeshRenderer>(entity) {
     if (!entity.HasComponent<Transform>()) {
       entity.AddComponent<Transform>();
     }
@@ -45,13 +45,9 @@ public:
 
   ~MeshRenderer() {}
 
-  inline void CopyFrom(Core::Component const *other) override {
-    if (auto otherMeshRenderer = dynamic_cast<MeshRenderer const *>(other)) {
-      mesh = otherMeshRenderer->mesh;
-      material = otherMeshRenderer->material;
-    } else {
-      ENGINE_ERROR("Tried to copy MeshRenderer from different type!");
-    }
+  inline void CopyFrom(MeshRenderer const &other) override {
+    mesh = other.mesh;
+    material = other.material;
   }
 };
 

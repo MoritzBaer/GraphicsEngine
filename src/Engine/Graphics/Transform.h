@@ -4,14 +4,13 @@
 
 #include "Core/HierarchyComponent.h"
 #include "Debug/Logging.h"
-#include "Editor/Publishable.h"
 #include "Maths/Transformations.h"
 #include "json-parsing.h"
 
 using namespace Engine::Maths;
 
 namespace Engine::Graphics {
-struct Transform : public Core::HierarchicalComponent {
+struct Transform : public Core::HierarchicalComponent<Transform> {
   Vector3 position;
   Quaternion rotation;
   Vector3 scale;
@@ -19,11 +18,10 @@ struct Transform : public Core::HierarchicalComponent {
   Transform *parent;
 
   Transform(Core::Entity entity)
-      : Core::HierarchicalComponent(entity), position(Vector3::Zero()), rotation(Quaternion::Identity()),
+      : Core::HierarchicalComponent<Transform>(entity), position(Vector3::Zero()), rotation(Quaternion::Identity()),
         scale(Vector3::One()), parent(nullptr) {}
 
   inline void SetParent(Transform *newParent, bool recalculateTransform = true);
-  inline void SetParent(Core::Entity const &newParent, bool recalculateTransform = true);
 
   inline void LookAt(Vector3 const &target, Vector3 const &up) { rotation = Quaternion::LookAt(position, target, up); }
   // TODO: Use Transform::Up()
@@ -48,14 +46,10 @@ struct Transform : public Core::HierarchicalComponent {
     }
   }
 
-  inline void CopyFrom(Core::Component const *other) override {
-    if (auto otherTransform = dynamic_cast<Transform const *>(other)) {
-      position = otherTransform->position;
-      rotation = otherTransform->rotation;
-      scale = otherTransform->scale;
-    } else {
-      ENGINE_ERROR("Tried to copy Transform from different type!");
-    }
+  inline void CopyFrom(Transform const &other) override {
+    position = other.position;
+    rotation = other.rotation;
+    scale = other.scale;
   }
 
   inline void OnHierarchyChange() override { SetParent(hierarchy->parent->entity.GetComponent<Transform>(), true); }
@@ -76,11 +70,6 @@ inline void Transform::SetParent(Transform *newParent, bool recaltulateTransform
     position = (parent->WorldToModelMatrix() * Vector4{position[X], position[Y], position[Z], 1}).xyz();
     rotation *= parent->WorldRotation().Conjugate();
   }
-}
-
-inline void Transform::SetParent(Core::Entity const &newParent, bool recalculateTransform) {
-  ENGINE_ASSERT(newParent.HasComponent<Transform>(), "Tried to assign a transformless entity as parent!")
-  SetParent(newParent.GetComponent<Transform>(), recalculateTransform);
 }
 
 Matrix4 Transform::ModelToParentMatrix() const {

@@ -1,7 +1,5 @@
 #include "Core/Script.h"
 #include "Core/Time.h"
-#include "Editor/Display.h"
-#include "Editor/Editor.h"
 #include "WindowedApplication.h"
 
 struct SpinnyScript : public Core::Script {
@@ -58,7 +56,7 @@ int main() {
   Engine::WindowManager::Init();
 
   try {
-    auto app = new Editor::EditorApp<TestProject>("Test Project", {1600, 900});
+    auto app = new GameApp<TestProject>("Test Project", {1600, 900});
     app->Run();
   } catch (std::exception &e) {
     ENGINE_ERROR("Exception: {}", e.what());

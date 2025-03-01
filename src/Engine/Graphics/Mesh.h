@@ -3,7 +3,6 @@
 #include "Buffer.h"
 #include "CommandQueue.h"
 #include "Maths/Matrix.h"
-#include "glm/matrix.hpp"
 #include <algorithm>
 
 namespace Engine::Graphics {

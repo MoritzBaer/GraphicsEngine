@@ -136,24 +136,6 @@ void DescriptorAllocator::DestroyPools() {
   fullPools.clear();
 }
 
-VkDescriptorSet DescriptorAllocator::Allocate(VkDescriptorSetLayout layout) {
-  VkDescriptorPool selectedPool = GetPool();
-
-  VkDescriptorSet allocatedSet;
-  VkResult res = instanceManager->AllocateDescriptorSets(layout, selectedPool, &allocatedSet);
-
-  if (res == VK_ERROR_OUT_OF_POOL_MEMORY || res == VK_ERROR_FRAGMENTED_POOL) {
-    fullPools.push_back(selectedPool);
-    selectedPool = GetPool();
-    VULKAN_ASSERT(instanceManager->AllocateDescriptorSets(layout, selectedPool, &allocatedSet),
-                  "Failed to allocate descriptor set in new pool!")
-  }
-
-  readyPools.push_back(selectedPool);
-
-  return allocatedSet;
-}
-
 VkDescriptorPool DescriptorAllocator::GetPool() {
   if (!readyPools.empty()) {
     VkDescriptorPool pool = readyPools.back();
@@ -183,6 +165,24 @@ VkDescriptorPool DescriptorAllocator::CreatePool(uint32_t maxSets, std::span<Poo
   VkDescriptorPool descriptorPool;
   instanceManager->CreateDescriptorPool(&descriptorPoolCreateInfo, &descriptorPool);
   return descriptorPool;
+}
+
+inline VkDescriptorSet DescriptorAllocator::Allocate(VkDescriptorSetLayout layout) {
+  VkDescriptorPool selectedPool = GetPool();
+
+  VkDescriptorSet allocatedSet;
+  VkResult res = instanceManager->AllocateDescriptorSets(layout, selectedPool, &allocatedSet);
+
+  if (res == VK_ERROR_OUT_OF_POOL_MEMORY || res == VK_ERROR_FRAGMENTED_POOL) {
+    fullPools.push_back(selectedPool);
+    selectedPool = GetPool();
+    VULKAN_ASSERT(instanceManager->AllocateDescriptorSets(layout, selectedPool, &allocatedSet),
+                  "Failed to allocate descriptor set in new pool!")
+  }
+
+  readyPools.push_back(selectedPool);
+
+  return allocatedSet;
 }
 
 void DescriptorWriter::WriteBuffer(uint32_t binding, VkBuffer buffer, size_t size, size_t offset,

@@ -9,30 +9,40 @@ namespace Engine::Core {
 
 class HierarchyComponent;
 
-class HierarchicalComponent : public Component {
+class HierarchyListener {
 protected:
   HierarchyComponent *hierarchy;
   friend class SceneCache;
 
 public:
-  HierarchicalComponent(Entity entity);
+  HierarchyListener(HierarchyComponent *hierarchy) : hierarchy(hierarchy) {};
   virtual void OnHierarchyChange() = 0;
 };
 
-class HierarchyComponent : public Component {
-  std::vector<HierarchicalComponent *> hierarchyChangeListeners;
+template <typename T> class HierarchicalComponent : public ComponentT<T>, public HierarchyListener {
+public:
+  HierarchicalComponent(Entity entity);
+  virtual void OnHierarchyChange() override = 0;
+};
+
+class HierarchyComponent : public ComponentT<HierarchyComponent> {
+  std::vector<HierarchyListener *> hierarchyChangeListeners;
 
 public:
   HierarchyComponent *parent;
   std::vector<HierarchyComponent *> children;
 
-  HierarchyComponent(Entity entity) : Component(entity), parent(nullptr), children() {}
+  HierarchyComponent(Entity entity) : ComponentT<HierarchyComponent>(entity), parent(nullptr), children() {}
   inline void SetParent(HierarchyComponent *newParent);
-  inline void RegisterListener(HierarchicalComponent *listener) { hierarchyChangeListeners.push_back(listener); }
-  inline void CopyFrom(Component const *other) override;
+  inline void RegisterListener(HierarchyListener *listener) { hierarchyChangeListeners.push_back(listener); }
+  inline void CopyFrom(HierarchyComponent const &other) override;
 };
 
-inline HierarchicalComponent::HierarchicalComponent(Entity entity) : Component(entity) {
+template <typename T>
+inline HierarchicalComponent<T>::HierarchicalComponent(Entity entity)
+    : ComponentT<T>(entity),
+      HierarchyListener(entity.HasComponent<HierarchyComponent>() ? entity.GetComponent<HierarchyComponent>()
+                                                                  : entity.AddComponent<HierarchyComponent>()) {
   if (!entity.HasComponent<HierarchyComponent>()) {
     hierarchy = entity.AddComponent<HierarchyComponent>();
   } else {
@@ -54,15 +64,12 @@ void HierarchyComponent::SetParent(HierarchyComponent *newParent) {
   }
 }
 
-inline void HierarchyComponent::CopyFrom(Component const *other) {
-  if (auto otherHierarchy = dynamic_cast<HierarchyComponent const *>(other)) {
-    for (auto child : otherHierarchy->children) {
-      auto newChild = child->entity.CopyToOtherECS(entity.parentECS).GetComponent<HierarchyComponent>();
-      newChild->parent = this;
-      children.push_back(newChild);
-    }
-  } else {
-    ENGINE_ERROR("Tried to copy HierarchyComponent from different type!");
+void HierarchyComponent::CopyFrom(HierarchyComponent const &other) {
+  for (auto child : other.children) {
+    auto newChild = child->entity.CopyToOtherECS(entity.parentECS).GetComponent<HierarchyComponent>();
+    newChild->parent = this;
+    children.push_back(newChild);
   }
 }
+
 } // namespace Engine::Core
