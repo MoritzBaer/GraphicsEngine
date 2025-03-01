@@ -25,7 +25,6 @@ include_directories("dependencies/VMA")
 include_directories("dependencies/GLM/")
 include_directories(${Vulkan_INCLUDE_DIR})
 
-include_directories("src/external/imgui")
 include_directories("src/external/json-parsing")
 include_directories("src/external/stb")
 include_directories("src/Engine")
@@ -33,16 +32,7 @@ include_directories("src/")
 
 file(GLOB_RECURSE SourceFiles
     "src/Engine/*.h"
-    "src/Engine/*.cpp"
-    "src/Editor/*.h"
-    "src/Editor/*.cpp"
-    "src/external/imgui/backends/imgui_impl_vulkan.cpp"
-    "src/external/imgui/backends/imgui_impl_glfw.cpp"
-    "src/external/imgui/imgui_draw.cpp"
-    "src/external/imgui/imgui_tables.cpp"
-    "src/external/imgui/imgui_widgets.cpp"
-    "src/external/imgui/imgui.cpp"
-    "src/external/imgui/imgui_demo.cpp"
+    "src/Engine/*.cpp"  
 )
 
 aux_source_directory(src/external EXTERNAL)
