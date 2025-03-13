@@ -19,6 +19,7 @@ if(DEFINED USER_COMPONENTS_SOURCE_PATH)
     message("USER_COMPONENTS_SOURCE_PATH defined, adding definition")
     add_compile_definitions(USER_COMPONENTS_SOURCE=${USER_COMPONENTS_SOURCE_PATH})
 endif()
+
 if(DEFINED USER_SCRIPTS_SOURCE_PATH)
     message("USER_SCRIPTS_SOURCE_PATH defined, adding definition")
     add_compile_definitions(USER_SCRIPTS_SOURCE=${USER_SCRIPTS_SOURCE_PATH})
@@ -48,11 +49,12 @@ file(GLOB_RECURSE EngineFiles
     if(DEFINED USER_COMPONENTS_SOURCE_PATH) USER_COMPONENTS_SOURCE_PATH endif()
     if(DEFINED USER_SCRIPTS_SOURCE_PATH) USER_SCRIPTS_SOURCE_PATH endif()
     "src/Engine/*.h"
-    "src/Engine/*.cpp"  
+    "src/Engine/*.cpp"
 )
 
 aux_source_directory(src/external EXTERNAL)
 
+add_compile_options(/Zc:preprocessor)
 add_library(Engine STATIC ${EngineFiles})
 
 macro(make_app NAME ENTRY_POINT)

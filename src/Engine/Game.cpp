@@ -9,6 +9,7 @@
 #include "Graphics/RenderingStrategies/ForwardRendering.h"
 #include "Graphics/Transform.h"
 #include "Util/AssetParsing/Members.h"
+#include <thread>
 
 using Engine::Graphics::Shader;
 using Engine::Graphics::ShaderType;

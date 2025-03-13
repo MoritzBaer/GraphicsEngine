@@ -11,12 +11,12 @@
 #include "json-parsing.h"
 
 #ifdef USER_COMPONENTS_SOURCE
-#pragma message("USER_COMPONENTS_SOURCE defined")
+#pragma message("USER_COMPONENTS_SOURCE defined as " USER_COMPONENTS_SOURCE)
 #include USER_COMPONENTS_SOURCE
 #endif
 
 #ifdef USER_SCRIPTS_SOURCE
-#pragma message("USER_SCRIPTS_SOURCE defined")
+#pragma message("USER_SCRIPTS_SOURCE defined as " USER_SCRIPTS_SOURCE)
 #include USER_SCRIPTS_SOURCE
 #endif
 
