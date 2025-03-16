@@ -4,7 +4,9 @@
 #include "Util/DeletionQueue.h"
 #include "Util/Macros.h"
 #include "Window.h"
+#ifdef USING_IMGUI
 #include "backends/imgui_impl_vulkan.h"
+#endif
 #include "vulkan/vulkan.h"
 #include <optional>
 #include <vector>
@@ -54,7 +56,9 @@ public:
 
   inline void GetPresentQueue(VkQueue *queue) const { vkGetDeviceQueue(graphicsHandler, GetPresentFamily(), 0, queue); }
 
+#ifdef USING_IMGUI
   void FillImGUIInitInfo(ImGui_ImplVulkan_InitInfo &initInfo) const;
+#endif
   inline void CreateMemoryAllocator(MemoryAllocator &allocator) const {
     allocator.Create(gpu, graphicsHandler, vulkanInstance);
   }

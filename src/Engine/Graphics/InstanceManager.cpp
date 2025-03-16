@@ -404,12 +404,14 @@ void InstanceManager::CreateLogicalDevice() {
   VULKAN_ASSERT(vkCreateDevice(gpu, &deviceInfo, nullptr, &graphicsHandler), "Failed to create logical device!")
 }
 
+#ifdef USING_IMGUI
 void InstanceManager::FillImGUIInitInfo(ImGui_ImplVulkan_InitInfo &initInfo) const {
   initInfo.Instance = vulkanInstance;
   initInfo.PhysicalDevice = gpu;
   initInfo.Device = graphicsHandler;
   GetGraphicsQueue(&initInfo.Queue);
 }
+#endif
 
 bool InstanceManager::SupportsFormat(VkPhysicalDeviceImageFormatInfo2 const &formatInfo) const {
   VkImageFormatProperties2 properties = {};

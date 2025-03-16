@@ -24,7 +24,7 @@ if(DEFINED USER_SCRIPTS_SOURCE_PATH)
     message("USER_SCRIPTS_SOURCE_PATH defined, adding definition")
     add_compile_definitions(USER_SCRIPTS_SOURCE=${USER_SCRIPTS_SOURCE_PATH})
 else()
-    add_compile_definitions(USER_SCRIPTS_SOURCE="Demo/Scripts.h")
+    add_compile_definitions(USER_SCRIPTS_SOURCE="Scripts.h")
 endif()
 
 if(BUILD_WITH_PROFILING)
@@ -44,6 +44,7 @@ include_directories(${Vulkan_INCLUDE_DIR})
 include_directories("src/external/json-parsing")
 include_directories("src/external/stb")
 include_directories("src/Engine")
+include_directories("src/Demo")
 
 file(GLOB_RECURSE EngineFiles
     if(DEFINED USER_COMPONENTS_SOURCE_PATH) USER_COMPONENTS_SOURCE_PATH endif()

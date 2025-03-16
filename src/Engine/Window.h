@@ -38,7 +38,9 @@ public:
   void CallCallbacks();
 
   void CreateSurfaceOnWindow(VkInstance instance, VkSurfaceKHR *surface) const;
+#ifdef USING_IMGUI
   void InitImGUIOnWindow() const;
+#endif
   Maths::Dimension2 GetCanvasSize() const;
 
   void CallResizeIfCorrectWindow(Window const *window, Maths::Dimension2 const &size);

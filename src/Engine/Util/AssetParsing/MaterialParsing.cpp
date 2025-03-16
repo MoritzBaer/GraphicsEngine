@@ -214,11 +214,8 @@ template <> void AssetManager::AssetDestroyer<Graphics::Material *>::DestroyAsse
 
 // JSON stuff
 
-OBJECT_PARSER(Engine::AlbedoAndBumpData, FIELD_PARSER(albedoTexture) FIELD_PARSER(bumpTexture) FIELD_PARSER(hue)
-                                             FIELD_PARSER(specularStrength) FIELD_PARSER(phongExponent));
+JSON(Engine::AlbedoAndBumpData, FIELDS(albedoTexture, bumpTexture, hue, specularStrength, phongExponent));
 
-ABSTRACT_OBJECT_PARSER(Engine::MaterialInstanceData, ,
-                       INHERITANCE_PARSER(Engine::MaterialInstanceData, Engine::AlbedoAndBumpData));
+JSON(Engine::MaterialInstanceData *, SUBTYPES(Engine::AlbedoAndBumpData));
 
-OBJECT_PARSER(Engine::AssetManager::AssetDSO<Engine::Graphics::Material *>,
-              FIELD_PARSER(pipelineName) FIELD_PARSER(instanceData) FIELD_PARSER(instanceData));
+JSON(Engine::AssetManager::AssetDSO<Engine::Graphics::Material *>, FIELDS(pipelineName, instanceData, instanceData));

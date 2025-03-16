@@ -4,9 +4,7 @@
 #include "Graphics/Transform.h"
 #include "json-parsing.h"
 
-#define USER_SCRIPTS                                                                                                   \
-  INHERITANCE_PARSER(Engine::ScriptDSO, Demo::SpinnyScriptDSO)                                                         \
-  INHERITANCE_PARSER(Engine::ScriptDSO, Demo::BobbyScriptDSO)
+#define USER_SCRIPTS Demo::SpinnyScriptDSO, Demo::BobbyScriptDSO
 
 namespace Demo {
 
@@ -31,10 +29,10 @@ struct SpinnyScript : public Engine::Core::Script {
   }
 };
 
-struct SpinnyScriptDSO : public ScriptDSO {
+struct SpinnyScriptDSO : public Engine::ScriptDSO {
   float rotationSpeed;
   void Attach(Engine::Core::ScriptComponent *scriptComponent,
-              AssetManager::LoaderMembers<Engine::Core::Entity> *loaderMembers) override {
+              Engine::AssetManager::LoaderMembers<Engine::Core::Entity> *loaderMembers) override {
     scriptComponent->InstantiateScript<SpinnyScript>(rotationSpeed);
   }
 };
@@ -58,7 +56,7 @@ struct BobbyScript : public Engine::Core::Script {
   }
 };
 
-struct BobbyScriptDSO : public ScriptDSO {
+struct BobbyScriptDSO : public Engine::ScriptDSO {
   float bobbingAmplitude;
   void Attach(Engine::Core::ScriptComponent *scriptComponent,
               Engine::AssetManager::LoaderMembers<Engine::Core::Entity> *loaderMembers) override {
@@ -68,5 +66,5 @@ struct BobbyScriptDSO : public ScriptDSO {
 
 } // namespace Demo
 
-OBJECT_PARSER(Demo::SpinnyScriptDSO, FIELD_PARSER(rotationSpeed));
-OBJECT_PARSER(Demo::BobbyScriptDSO, FIELD_PARSER(bobbingAmplitude));
+JSON(Demo::SpinnyScriptDSO, FIELDS(rotationSpeed));
+JSON(Demo::BobbyScriptDSO, FIELDS(bobbingAmplitude));

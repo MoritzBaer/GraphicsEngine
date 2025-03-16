@@ -41,10 +41,12 @@ inline void Texture<D>::UpdateDescriptors(DescriptorWriter &writer, VkDescriptor
   writer.Clear();
 }
 
+#ifdef USING_IMGUI
 #include "backends/imgui_impl_vulkan.h"
 
 template <uint8_t D> inline VkDescriptorSet Texture<D>::AddToImGui() const {
   return ImGui_ImplVulkan_AddTexture(sampler, Image<D>::imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
+#endif
 
 } // namespace Engine::Graphics

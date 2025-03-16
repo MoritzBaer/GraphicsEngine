@@ -105,6 +105,17 @@
                                 }
                             ]
                         }
+                    },
+                    {
+                        "Engine::ScriptComponentDSO": {
+                            "scripts": [
+                                {
+                                    "Demo::SpinnyScriptDSO": {
+                                        "rotationSpeed": 1.0
+                                    }
+                                }
+                            ]
+                        }
                     }
                 ]
             }

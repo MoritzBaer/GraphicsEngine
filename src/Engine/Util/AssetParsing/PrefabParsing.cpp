@@ -15,21 +15,19 @@
 #include USER_COMPONENTS_SOURCE
 #endif
 
+#ifdef USER_COMPONENTS
+#define COMBINED_COMPONENTS ENGINE_COMPONENTS, USER_COMPONENTS
+#else
+#define COMBINED_COMPONENTS ENGINE_COMPONENTS
+#endif
+
 #ifdef USER_SCRIPTS_SOURCE
 #pragma message("USER_SCRIPTS_SOURCE defined as " USER_SCRIPTS_SOURCE)
 #include USER_SCRIPTS_SOURCE
 #endif
 
-#ifndef USER_SCRIPTS
-#define USER_SCRIPTS
-#endif
-
 #define ENGINE_COMPONENTS                                                                                              \
-  INHERITANCE_PARSER(Engine::ComponentDSO, Engine::TransformDSO)                                                       \
-  INHERITANCE_PARSER(Engine::ComponentDSO, Engine::MeshRendererDSO)                                                    \
-  INHERITANCE_PARSER(Engine::ComponentDSO, Engine::CameraDSO)                                                          \
-  INHERITANCE_PARSER(Engine::ComponentDSO, Engine::HierarchyDSO)                                                       \
-  INHERITANCE_PARSER(Engine::ComponentDSO, Engine::ScriptComponentDSO)
+  Engine::TransformDSO, Engine::MeshRendererDSO, Engine::CameraDSO, Engine::HierarchyDSO, Engine::ScriptComponentDSO
 
 namespace Engine {
 
@@ -203,21 +201,20 @@ struct ScriptComponentDSO : public ComponentDSO_T<Core::ScriptComponent> {
 
 } // namespace Engine
 
-OBJECT_PARSER(Engine::TransformDSO, FIELD_PARSER(position) FIELD_PARSER(rotation) FIELD_PARSER(scale));
-OBJECT_PARSER(Engine::HierarchyDSO, FIELD_PARSER(children));
-OBJECT_PARSER(Engine::MeshRendererDSO, FIELD_PARSER(meshName) FIELD_PARSER(materialName));
-OBJECT_PARSER(Engine::CameraDSO,
-              FIELD_PARSER(fov) FIELD_PARSER(nearClip) FIELD_PARSER(farClip) FIELD_PARSER(aspectRatio));
-OBJECT_PARSER(Engine::ScriptComponentDSO, FIELD_PARSER(scripts));
+JSON(Engine::TransformDSO, FIELDS(position, rotation, scale));
+JSON(Engine::HierarchyDSO, FIELDS(children));
+JSON(Engine::MeshRendererDSO, FIELDS(meshName, materialName));
+JSON(Engine::CameraDSO, FIELDS(fov, nearClip, farClip, aspectRatio));
+JSON(Engine::ScriptComponentDSO, FIELDS(scripts));
 
-ABSTRACT_OBJECT_PARSER(Engine::ComponentDSO, , ENGINE_COMPONENTS USER_COMPONENTS);
+JSON(Engine::ComponentDSO *, SUBTYPES(COMBINED_COMPONENTS));
 
-OBJECT_PARSER(Engine::AssetManager::AssetDSO<Engine::Core::Entity>, FIELD_PARSER(components));
-OBJECT_PARSER(Engine::PrefabDSO, FIELD_PARSER(prefabName) FIELD_PARSER(transform));
-ABSTRACT_OBJECT_PARSER(Engine::EntityDSO, ,
-                       INHERITANCE_PARSER(Engine::EntityDSO, Engine::PrefabDSO)
-                           INHERITANCE_PARSER(Engine::EntityDSO, Engine::AssetManager::AssetDSO<Engine::Core::Entity>));
+JSON(Engine::AssetManager::AssetDSO<Engine::Core::Entity>, FIELDS(components));
+JSON(Engine::PrefabDSO, FIELDS(prefabName, transform));
+JSON(Engine::EntityDSO *, SUBTYPES(Engine::PrefabDSO, Engine::AssetManager::AssetDSO<Engine::Core::Entity>));
 
-OBJECT_PARSER(Engine::AssetManager::AssetDSO<Engine::Core::Scene *>, FIELD_PARSER(entities) FIELD_PARSER(mainCamId));
+JSON(Engine::AssetManager::AssetDSO<Engine::Core::Scene *>, FIELDS(entities, mainCamId));
 
-ABSTRACT_OBJECT_PARSER(Engine::ScriptDSO, , USER_SCRIPTS);
+#ifdef USER_SCRIPTS
+JSON(Engine::ScriptDSO *, SUBTYPES(USER_SCRIPTS));
+#endif

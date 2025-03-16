@@ -3,9 +3,11 @@
 #include "Debug/Logging.h"
 #include "Util/Macros.h"
 #include "WindowManager.h"
+#ifdef USING_IMGUI
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
 #include "imgui.h"
+#endif
 
 namespace Engine {
 
@@ -46,7 +48,9 @@ void Window::CreateSurfaceOnWindow(VkInstance instance, VkSurfaceKHR *surface) c
   VULKAN_ASSERT(glfwCreateWindowSurface(instance, glfwWindow, nullptr, surface), "Failed to create surface!")
 }
 
+#ifdef USING_IMGUI
 void Window::InitImGUIOnWindow() const { ImGui_ImplGlfw_InitForVulkan(glfwWindow, true); }
+#endif
 
 Maths::Dimension2 Window::GetCanvasSize() const {
   int x, y;
