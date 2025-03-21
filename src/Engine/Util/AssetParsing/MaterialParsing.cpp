@@ -11,8 +11,8 @@ template <> struct Engine::AssetManager::AssetDSO<Engine::Graphics::Pipeline *> 
   std::string geometryShaderName;
 };
 
-OBJECT_PARSER(Engine::AssetManager::AssetDSO<Engine::Graphics::Pipeline *>,
-              FIELD_PARSER(vertexShaderName) FIELD_PARSER(fragmentShaderName) FIELD_PARSER(geometryShaderName));
+JSON(Engine::AssetManager::AssetDSO<Engine::Graphics::Pipeline *>,
+     FIELDS(vertexShaderName, fragmentShaderName, geometryShaderName));
 
 namespace Engine {
 

@@ -32,4 +32,4 @@ public:
 } // namespace Engine::Graphics::RenderingStrategies
 
 #include "json-parsing.h"
-OBJECT_PARSER(Engine::Graphics::RenderingStrategies::ComputePushConstants, FIELD_PARSER(pushData))
+JSON(Engine::Graphics::RenderingStrategies::ComputePushConstants, FIELDS(pushData))

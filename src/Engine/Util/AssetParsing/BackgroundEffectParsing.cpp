@@ -85,7 +85,6 @@ void AssetManager::AssetDestroyer<Graphics::RenderingStrategies::ComputeBackgrou
 
 } // namespace Engine
 
-OBJECT_PARSER(Engine::AssetManager::AssetDSO<Engine::Graphics::RenderingStrategies::CompiledEffect>,
-              FIELD_PARSER(shaderName))
-OBJECT_PARSER(Engine::AssetManager::AssetDSO<Engine::Graphics::RenderingStrategies::ComputeBackground *>,
-              FIELD_PARSER(effectName) FIELD_PARSER(data))
+JSON(Engine::AssetManager::AssetDSO<Engine::Graphics::RenderingStrategies::CompiledEffect>, FIELDS(shaderName))
+JSON(Engine::AssetManager::AssetDSO<Engine::Graphics::RenderingStrategies::ComputeBackground *>,
+     FIELDS(effectName, data))

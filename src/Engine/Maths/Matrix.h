@@ -813,7 +813,5 @@ template <uint8_t n, typename T> struct formatter<Engine::Maths::VectorT<n, T>> 
 
 } // namespace std
 
-TEMPLATED_OBJECT_PARSER(uint8_t n COMMA uint8_t m COMMA typename T, Engine::Maths::MatrixT<n COMMA m COMMA T>,
-                        FIELD_PARSER(data));
-TEMPLATED_OBJECT_SERIALIZER(uint8_t n COMMA uint8_t m COMMA typename T, Engine::Maths::MatrixT<n COMMA m COMMA T>,
-                            FIELD_SERIALIZER(data));
+TEMPLATED_JSON(TEMPLATE_ARGS(uint8_t n, uint8_t m, typename T), Engine::Maths::MatrixT<TEMPLATE_ARGS(n, m, T)>,
+               FIELDS(data));

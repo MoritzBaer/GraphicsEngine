@@ -127,6 +127,4 @@ inline Matrix3 Quaternion::RotationMatrix() const {
 }
 } // namespace Engine::Maths
 
-OBJECT_PARSER(Engine::Maths::Quaternion, FIELD_PARSER(w) FIELD_PARSER(x) FIELD_PARSER(y) FIELD_PARSER(z))
-OBJECT_SERIALIZER(Engine::Maths::Quaternion,
-                  FIELD_SERIALIZER(w) FIELD_SERIALIZER(x) FIELD_SERIALIZER(y) FIELD_SERIALIZER(z))
+JSON(Engine::Maths::Quaternion, FIELDS(w, x, y, z))
