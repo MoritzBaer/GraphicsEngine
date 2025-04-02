@@ -3,7 +3,9 @@
 #include "Core/ECS.h"
 #include "Debug/Logging.h"
 
+namespace Engine {
 class SceneCache;
+}
 
 namespace Engine::Core {
 

@@ -8,7 +8,12 @@
 #include "Graphics/MeshRenderer.h"
 #include "Graphics/RenderingStrategies/ForwardRendering.h"
 #include "Graphics/Transform.h"
-#include "Util/AssetParsing/Members.h"
+#include "Util/AssetParsing/MaterialParsing.h"
+#include "Util/AssetParsing/MeshParsing.h"
+#include "Util/AssetParsing/MultiUseImplementations.h"
+#include "Util/AssetParsing/PrefabParsing.h"
+#include "Util/AssetParsing/ShaderParsing.h"
+#include "Util/AssetParsing/TextureParsing.h"
 #include <thread>
 
 using Engine::Graphics::Shader;
@@ -17,56 +22,17 @@ using Engine::Graphics::ShaderType;
 using namespace Engine;
 
 #define REGISTER_SHADER_TYPE(Type)                                                                                     \
-  assetManager.RegisterAssetType<Shader<ShaderType::Type>>(                                                            \
-      new AssetCacheImpl<Shader<ShaderType::Type>>(&shaderCompiler), &shaderCompiler);
-
-struct TextureCache : public AssetManager::AssetCache<Graphics::Texture2D> {
-  AssetCacheImpl<Graphics::Texture2D> baseCache;
-  Graphics::GPUObjectManager *gpuObjectManager;
-
-  TextureCache(Graphics::GPUObjectManager *gpuObjectManager)
-      : baseCache(gpuObjectManager), gpuObjectManager(gpuObjectManager) {
-    uint32_t white = 0xFFFFFFFF;
-    uint32_t normalUp = 0xFFFF8080;
-    baseCache.InsertAsset("white", gpuObjectManager->CreateTexture(Maths::Dimension2(1, 1), &white));
-    baseCache.InsertAsset("normalUp", gpuObjectManager->CreateTexture(Maths::Dimension2(1, 1), &normalUp));
-  }
-  bool HasAsset(char const *assetName) override { return baseCache.HasAsset(assetName); }
-  void InsertAsset(char const *assetName, Graphics::Texture2D const &asset) override {
-    baseCache.InsertAsset(assetName, asset);
-  }
-  Graphics::Texture2D LoadAsset(char const *assetName) override { return baseCache.LoadAsset(assetName); }
-};
-
-struct SceneCache : public AssetManager::AssetCache<Core::Scene *> {
-  AssetCacheImpl<Core::Scene *> baseCache;
-
-  SceneCache() : baseCache() {}
-  bool HasAsset(char const *assetName) override { return baseCache.HasAsset(assetName); }
-  void InsertAsset(char const *assetName, Core::Scene *const &asset) override {
-    baseCache.InsertAsset(assetName, asset);
-  }
-  Core::Scene *LoadAsset(char const *assetName) override {
-    auto pattern = baseCache.LoadAsset(assetName);
-    auto copy = new Core::Scene();
-    copy->ecs.Copy(&pattern->ecs);
-    copy->sceneHierarchy.Rebuild();
-    copy->mainCamera = pattern->mainCamera.InOtherECS(&copy->ecs);
-    for (auto &[transform] : copy->ecs.FilterEntities<Graphics::Transform>()) {
-      if (transform->hierarchy->parent) {
-        transform->parent = transform->hierarchy->parent->entity.GetComponent<Graphics::Transform>();
-      }
-    }
-    return copy;
-  }
-};
+  assetManager                                                                                                         \
+      .RegisterAssetType<Shader<ShaderType::Type> *, ShaderLoader<ShaderType::Type>, ShaderCache<ShaderType::Type>>(   \
+          ShaderLoader<Graphics::ShaderType::Type>(&shaderCompiler),                                                   \
+          ShaderCache<Graphics::ShaderType::Type>(destroyer));
 
 Game::Game(const char *name, Engine::Graphics::VulkanSuite
 #ifdef NDEBUG
            const
 #endif
                *vulkan)
-    : mainDeletionQueue(), assetManager(), vulkan(vulkan), shaderCompiler(&vulkan->instanceManager), prefabs(),
+    : mainDeletionQueue(), assetManager(), vulkan(vulkan), shaderCompiler(&vulkan->instanceManager),
       renderingStrategy(nullptr), renderer(&vulkan->instanceManager), activeScene(nullptr), rendering(true),
       running(true), clock() {
 }
@@ -82,25 +48,27 @@ void Game::Init() {
   Core::ECS::RegisterComponent<Engine::Graphics::Camera>();
   Core::ECS::RegisterComponent<Engine::Core::ScriptComponent>();
 
-  auto textureCache = new TextureCache(&vulkan->gpuObjectManager);
-  assetManager.RegisterAssetType<Graphics::Texture2D>(textureCache, &vulkan->gpuObjectManager, textureCache);
+  assetManager.RegisterAssetType<Graphics::Texture2D, TextureLoader, TextureCache>(
+      TextureLoader(&vulkan->gpuObjectManager, &assetManager), TextureCache(&vulkan->gpuObjectManager));
+  ShaderDestroyer destroyer = ShaderDestroyer(&shaderCompiler);
   REGISTER_SHADER_TYPE(VERTEX);
   REGISTER_SHADER_TYPE(GEOMETRY);
   REGISTER_SHADER_TYPE(FRAGMENT);
   REGISTER_SHADER_TYPE(COMPUTE);
-  assetManager.RegisterAssetType<Graphics::Material *>(new AssetCacheImpl<Graphics::Material *>(), &assetManager);
-  assetManager.RegisterAssetType<Core::Entity>(new AssetCacheImpl<Core::Entity>(&prefabs), &prefabs, &assetManager);
-  assetManager.RegisterAssetType<Graphics::RenderingStrategies::CompiledEffect>(
-      new AssetCacheImpl<Graphics::RenderingStrategies::CompiledEffect>(&vulkan->instanceManager),
-      &vulkan->instanceManager, &assetManager);
-  assetManager.RegisterAssetType<Graphics::RenderingStrategies::ComputeBackground *>(
-      new AssetCacheImpl<Graphics::RenderingStrategies::ComputeBackground *>(), &vulkan->instanceManager,
-      &assetManager);
-  assetManager.RegisterAssetType<Graphics::Pipeline *>(
-      new AssetCacheImpl<Graphics::Pipeline *>(&vulkan->instanceManager), &vulkan->instanceManager, &assetManager);
-  assetManager.RegisterAssetType<Graphics::AllocatedMesh *>(
-      new AssetCacheImpl<Graphics::AllocatedMesh *>(&vulkan->gpuObjectManager), &vulkan->gpuObjectManager);
-  assetManager.RegisterAssetType<Core::Scene *>(new SceneCache(), &assetManager);
+  assetManager.RegisterAssetType<Graphics::Material *, MaterialLoader, MaterialCache>(MaterialLoader(&assetManager),
+                                                                                      MaterialCache());
+  assetManager.RegisterAssetType<Core::Entity, EntityManager>(&assetManager);
+  assetManager
+      .RegisterAssetType<Graphics::RenderingStrategies::CompiledEffect, CompiledEffectLoader, CompiledEffectCache>(
+          CompiledEffectLoader(&vulkan->instanceManager, &assetManager), CompiledEffectCache(&vulkan->instanceManager));
+  assetManager.RegisterAssetType<Graphics::RenderingStrategies::ComputeBackground *, ComputeBackgroundLoader,
+                                 ComputeBackgroundCache>(
+      ComputeBackgroundLoader(&vulkan->instanceManager, &assetManager), ComputeBackgroundCache());
+  assetManager.RegisterAssetType<Graphics::Pipeline *, PipelineLoader, PipelineCache>(
+      PipelineLoader(&assetManager, &vulkan->instanceManager), PipelineCache(&vulkan->instanceManager));
+  assetManager.RegisterAssetType<Graphics::AllocatedMesh *, MeshLoader, MeshCache>(
+      MeshLoader(&vulkan->gpuObjectManager), MeshCache(&vulkan->gpuObjectManager));
+  assetManager.RegisterAssetType<Core::Scene *, SceneManager>(SceneLoader(&assetManager), SceneCache());
 
   renderingStrategy = new Engine::Graphics::RenderingStrategies::ForwardRendering(
       &vulkan->instanceManager, &vulkan->gpuObjectManager,

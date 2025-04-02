@@ -2,7 +2,7 @@
     "mainCamId": 1,
     "entities": [
         {
-            "Engine::AssetManager::AssetDSO<Engine::Core::Entity>": {
+            "Engine::ExplicitEntityDSO": {
                 "components": [
                     {
                         "Engine::TransformDSO": {
@@ -21,7 +21,7 @@
             }
         },
         {
-            "Engine::AssetManager::AssetDSO<Engine::Core::Entity>": {
+            "Engine::ExplicitEntityDSO": {
                 "components": [
                     {
                         "Engine::TransformDSO": {
@@ -42,7 +42,7 @@
             }
         },
         {
-            "Engine::AssetManager::AssetDSO<Engine::Core::Entity>": {
+            "Engine::ExplicitEntityDSO": {
                 "components": [
                     {
                         "Engine::TransformDSO": {
@@ -71,7 +71,7 @@
             }
         },
         {
-            "Engine::AssetManager::AssetDSO<Engine::Core::Entity>": {
+            "Engine::ExplicitEntityDSO": {
                 "components": [
                     {
                         "Engine::TransformDSO": {

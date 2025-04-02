@@ -1,9 +1,7 @@
-#include "AssetManager.h"
+#include "MeshParsing.h"
 
 #include "Debug/Logging.h"
 #include "Debug/Profiling.h"
-#include "Graphics/AllocatedMesh.h"
-#include "Members.h"
 
 namespace Engine {
 
@@ -122,17 +120,7 @@ template <typename InputIterator> InputIterator tokenizeObj(InputIterator begin,
   return begin;
 }
 
-template <> struct AssetManager::AssetDSO<Graphics::AllocatedMesh *> {
-  std::vector<Maths::Vector3> vertexPositions;
-  std::vector<Maths::Vector3> vertexNormals;
-  std::vector<Maths::Vector2> vertexUVs;
-  std::vector<Maths::VectorT<3, Maths::VectorT<3, uint32_t>>> triangles;
-
-  inline Graphics::MeshT<OBJVertex> DeduplicateVertices() const;
-};
-
-template <>
-std::string AssetManager::AssetLoader<Graphics::AllocatedMesh *>::GetAssetPath(char const *assetName) const {
+template <> std::string AssetPath<Graphics::AllocatedMesh *>::FromName(char const *assetName) {
   return std::string("meshes/") + assetName + ".obj";
 }
 
@@ -146,10 +134,8 @@ enum class ObjParserState {
   GOBBLE_ONE
 };
 
-template <>
-AssetManager::AssetDSO<Graphics::AllocatedMesh *> *
-AssetManager::AssetLoader<Graphics::AllocatedMesh *>::ParseAsset(std::string const &assetSource) const {
-  auto begin = assetSource.begin();
+MeshDSO MeshParser::ParseDSO(std::vector<char> const &source) const {
+  auto begin = source.begin();
   Token currentToken{};
   uint8_t itemsRead = 0;
 
@@ -161,13 +147,13 @@ AssetManager::AssetLoader<Graphics::AllocatedMesh *>::ParseAsset(std::string con
   uint8_t tBufferIndex = 0;
 
   auto state = ObjParserState::IDLE;
-  AssetManager::AssetDSO<Graphics::AllocatedMesh *> *dso = new AssetManager::AssetDSO<Graphics::AllocatedMesh *>();
+  MeshDSO dso{};
 
   bool readNewToken = true;
 
   while (currentToken.type != Token::Type::EOI) {
     if (readNewToken) {
-      begin = tokenizeObj(begin, assetSource.end(), currentToken);
+      begin = tokenizeObj(begin, source.end(), currentToken);
     }
     readNewToken = true;
 
@@ -215,7 +201,7 @@ AssetManager::AssetLoader<Graphics::AllocatedMesh *>::ParseAsset(std::string con
         fBuffer[fBufferIndex++] = *(float *)currentToken.data;
         if (fBufferIndex == 3) {
           state = ObjParserState::IDLE;
-          dso->vertexPositions.push_back(Maths::Vector3{fBuffer[0], fBuffer[1], fBuffer[2]});
+          dso.vertexPositions.push_back(Maths::Vector3{fBuffer[0], fBuffer[1], fBuffer[2]});
         }
       } else {
         ENGINE_ERROR("Unexpected token while reading vertex position!");
@@ -227,7 +213,7 @@ AssetManager::AssetLoader<Graphics::AllocatedMesh *>::ParseAsset(std::string con
         fBuffer[fBufferIndex++] = *(float *)currentToken.data;
         if (fBufferIndex == 3) {
           state = ObjParserState::IDLE;
-          dso->vertexNormals.push_back(Maths::Vector3{fBuffer[0], fBuffer[1], fBuffer[2]});
+          dso.vertexNormals.push_back(Maths::Vector3{fBuffer[0], fBuffer[1], fBuffer[2]});
         }
       } else {
         ENGINE_ERROR("Unexpected token while reading vertex normal!");
@@ -239,7 +225,7 @@ AssetManager::AssetLoader<Graphics::AllocatedMesh *>::ParseAsset(std::string con
         fBuffer[fBufferIndex++] = *(float *)currentToken.data;
         if (fBufferIndex == 2) {
           state = ObjParserState::IDLE;
-          dso->vertexUVs.push_back(Maths::Vector2{fBuffer[0], fBuffer[1]});
+          dso.vertexUVs.push_back(Maths::Vector2{fBuffer[0], fBuffer[1]});
         }
       } else {
         ENGINE_ERROR("Unexpected token while reading vertex texture coordinates!");
@@ -262,7 +248,7 @@ AssetManager::AssetLoader<Graphics::AllocatedMesh *>::ParseAsset(std::string con
       tBufferIndex++;
     case ObjParserState::READ_TRIANGLE:
       if (tBufferIndex == 3) {
-        dso->triangles.push_back(tBuffer);
+        dso.triangles.push_back(tBuffer);
         state = ObjParserState::IDLE;
         break;
       }
@@ -279,18 +265,18 @@ AssetManager::AssetLoader<Graphics::AllocatedMesh *>::ParseAsset(std::string con
   return dso;
 }
 
-inline Graphics::MeshT<OBJVertex> AssetManager::AssetDSO<Graphics::AllocatedMesh *>::DeduplicateVertices() const {
+inline Graphics::MeshT<OBJVertex> DeduplicateVertices(MeshDSO const &dso) {
   Graphics::MeshT<OBJVertex> objMesh;
   std::unordered_map<Maths::VectorT<3, uint32_t>, uint32_t> vertexIndices{};
 
-  for (auto const &triangle : triangles) {
+  for (auto const &triangle : dso.triangles) {
     for (int v = 0; v < 3; v++) {
       auto const &idTriple = triangle[v];
       if (vertexIndices.find(idTriple) == vertexIndices.end()) {
         vertexIndices.emplace(idTriple, static_cast<uint32_t>(objMesh.vertices.size()));
-        objMesh.vertices.push_back(OBJVertex{.position = vertexPositions[idTriple[0] - 1],
-                                             .uv = vertexUVs[idTriple[1] - 1],
-                                             .normal = vertexNormals[idTriple[2] - 1]});
+        objMesh.vertices.push_back(OBJVertex{.position = dso.vertexPositions[idTriple[0] - 1],
+                                             .uv = dso.vertexUVs[idTriple[1] - 1],
+                                             .normal = dso.vertexNormals[idTriple[2] - 1]});
       }
       objMesh.indices.push_back(vertexIndices[idTriple]);
     }
@@ -354,18 +340,15 @@ inline Graphics::Mesh CalculateTangentSpace(Graphics::MeshT<OBJVertex> &objMesh)
   return result;
 }
 
-template <>
-Graphics::AllocatedMesh *
-AssetManager::AssetLoader<Graphics::AllocatedMesh *>::ConvertDSO(AssetDSO<Graphics::AllocatedMesh *> const *dso) const {
-  auto objMesh = dso->DeduplicateVertices();
+Graphics::AllocatedMesh *MeshConverter::ConvertDSO(MeshDSO const &dso) const {
+  auto objMesh = DeduplicateVertices(dso);
   auto const &mesh = CalculateTangentSpace(objMesh);
-  return new Graphics::AllocatedMesh(
-      members->gpuObjectManager->AllocateMesh<Graphics::Vertex, Graphics::VertexFormat>(mesh));
+  return new Graphics::AllocatedMesh(gpuObjectManager->AllocateMesh<Graphics::Vertex, Graphics::VertexFormat>(mesh));
 }
 
-template <>
-void AssetManager::AssetDestroyer<Graphics::AllocatedMesh *>::DestroyAsset(Graphics::AllocatedMesh *&asset) const {
-  members->gpuObjectManager->DeallocateMesh(asset);
+void MeshDestroyer::DestroyAsset(Graphics::AllocatedMesh *&asset) const {
+  gpuObjectManager->DeallocateMesh(asset);
+  delete asset;
 }
 
 } // namespace Engine

@@ -2,7 +2,7 @@
     "mainCamId": 0,
     "entities": [
         {
-            "Engine::AssetManager::AssetDSO<Engine::Core::Entity>": {
+            "Engine::ExplicitEntityDSO": {
                 "components": [
                     {
                         "Engine::TransformDSO": {

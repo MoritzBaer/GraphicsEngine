@@ -57,20 +57,3 @@ public:
 };
 
 } // namespace Engine::Core
-
-namespace Engine {
-
-struct ScriptDSO {
-  virtual void Attach(Core::ScriptComponent *scriptComponent,
-                      AssetManager::LoaderMembers<Core::Entity> *loaderMembers) = 0;
-};
-
-template <typename T, typename... T_Args> struct ScriptT : public ScriptDSO {
-  std::tuple<T_Args...> args;
-  void Attach(Core::ScriptComponent *scriptComponent,
-              AssetManager::LoaderMembers<Core::Entity> *loaderMembers) override {
-    scriptComponent->InstantiateScript<T>(args...);
-  }
-};
-
-} // namespace Engine

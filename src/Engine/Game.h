@@ -21,7 +21,6 @@ struct Game {
 #endif
           *vulkan;
   Engine::Graphics::ShaderCompiler shaderCompiler;
-  Engine::Core::ECS prefabs;
   Engine::Core::Scene *activeScene;
   Engine::AssetManager assetManager;
   Engine::Graphics::Renderer renderer;

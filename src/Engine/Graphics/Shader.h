@@ -35,8 +35,10 @@ public:
   ShaderCompiler(InstanceManager const *instanceManager);
 
   template <ShaderType Type>
-  inline Shader<Type> CompileShaderCode(const char *shaderName, std::string const &shaderCode) const;
-  template <ShaderType Type> void DestroyShader(Shader<Type> &shader) const;
+  inline Shader<Type> *CompileShaderCode(const char *shaderName, std::string const &shaderCode) const;
+  template <ShaderType Type>
+  inline void RecompileShaderCode(const char *shaderName, std::string const &shaderCode, Shader<Type> &shader) const;
+  template <ShaderType Type> void DestroyShader(Shader<Type> *&shader) const;
 };
 
 template <ShaderType Type> struct StageConstants {
@@ -68,13 +70,13 @@ template <ShaderType Type> inline VkPipelineShaderStageCreateInfo Shader<Type>::
           .pName = "main"};
 }
 
-template <ShaderType Type> inline void ShaderCompiler::DestroyShader(Shader<Type> &shader) const {
-  instanceManager->DestroyShaderModule(shader.shaderModule);
+template <ShaderType Type> inline void ShaderCompiler::DestroyShader(Shader<Type> *&shader) const {
+  instanceManager->DestroyShaderModule(shader->shaderModule);
 }
 
 template <ShaderType Type>
-inline Shader<Type> ShaderCompiler::CompileShaderCode(const char *shaderName, std::string const &shaderCode) const {
-  Shader<Type> result;
+inline Shader<Type> *ShaderCompiler::CompileShaderCode(const char *shaderName, std::string const &shaderCode) const {
+  auto result = new Shader<Type>();
 
   auto preprocessedCode = compiler.PreprocessGlsl(shaderCode, StageConstants<Type>::kind, shaderName, options);
   AssertPreprocessingWorked(preprocessedCode.GetCompilationStatus(), shaderName,
@@ -92,9 +94,17 @@ inline Shader<Type> ShaderCompiler::CompileShaderCode(const char *shaderName, st
                                                   .codeSize = static_cast<uint32_t>(bytecode.size()) * sizeof(uint32_t),
                                                   .pCode = bytecode.data()};
 
-  instanceManager->CreateShaderModule(&shaderModuleCreateInfo, &result.shaderModule);
+  instanceManager->CreateShaderModule(&shaderModuleCreateInfo, &result->shaderModule);
 
   return result;
+}
+
+template <ShaderType Type>
+inline void ShaderCompiler::RecompileShaderCode(const char *shaderName, std::string const &shaderCode,
+                                                Shader<Type> &shader) const {
+  auto temp = CompileShaderCode<Type>(shaderName, shaderCode);
+  DestroyShader(shader);
+  shader = temp;
 }
 
 } // namespace Engine::Graphics

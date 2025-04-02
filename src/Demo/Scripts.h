@@ -2,6 +2,7 @@
 
 #include "Core/Script.h"
 #include "Graphics/Transform.h"
+#include "Util/AssetParsing/ScriptParsing.h"
 #include "json-parsing.h"
 
 #define USER_SCRIPTS Demo::SpinnyScriptDSO, Demo::BobbyScriptDSO
@@ -31,8 +32,7 @@ struct SpinnyScript : public Engine::Core::Script {
 
 struct SpinnyScriptDSO : public Engine::ScriptDSO {
   float rotationSpeed;
-  void Attach(Engine::Core::ScriptComponent *scriptComponent,
-              Engine::AssetManager::LoaderMembers<Engine::Core::Entity> *loaderMembers) override {
+  void Attach(Engine::Core::ScriptComponent *scriptComponent, Engine::AssetManager *) override {
     scriptComponent->InstantiateScript<SpinnyScript>(rotationSpeed);
   }
 };
@@ -58,8 +58,7 @@ struct BobbyScript : public Engine::Core::Script {
 
 struct BobbyScriptDSO : public Engine::ScriptDSO {
   float bobbingAmplitude;
-  void Attach(Engine::Core::ScriptComponent *scriptComponent,
-              Engine::AssetManager::LoaderMembers<Engine::Core::Entity> *loaderMembers) override {
+  void Attach(Engine::Core::ScriptComponent *scriptComponent, Engine::AssetManager *) override {
     scriptComponent->InstantiateScript<BobbyScript>(bobbingAmplitude);
   }
 };

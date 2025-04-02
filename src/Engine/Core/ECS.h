@@ -258,22 +258,3 @@ inline bool ECS::IsActive(EntityId e) const { return aliveAndComponentFlags[e] &
 inline bool ECS::IsAlive(EntityId e) const { return e != EntityId(-1) && (aliveAndComponentFlags[e] & ALIVE_FLAG); }
 
 } // namespace Engine::Core
-
-// For Deserialization
-
-#include "AssetManager.h"
-
-namespace Engine {
-
-struct ComponentDSO {
-  virtual void AttachToEntity(Core::Entity entity, AssetManager::LoaderMembers<Core::Entity> *loaderMembers) = 0;
-};
-
-template <typename T> struct ComponentDSO_T : public ComponentDSO {
-  void AttachToEntity(Core::Entity entity, AssetManager::LoaderMembers<Core::Entity> *loaderMembers) override {
-    FillValues(entity.AddComponent<T>(), loaderMembers);
-  }
-  virtual void FillValues(T *component, AssetManager::LoaderMembers<Core::Entity> *loaderMembers) = 0;
-};
-
-} // namespace Engine

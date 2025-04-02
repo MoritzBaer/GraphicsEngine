@@ -10,7 +10,7 @@
         {
             "Engine::HierarchyDSO": {
                 "children": [
-                    { "Engine::AssetManager::AssetDSO<Engine::Core::Entity>":
+                    { "Engine::ExplicitEntityDSO":
                         {
                             "components": [
                                 {
@@ -29,7 +29,7 @@
                             ]
                         }
                     },
-                    { "Engine::AssetManager::AssetDSO<Engine::Core::Entity>":
+                    { "Engine::ExplicitEntityDSO":
                         {
                             "components": [
                                 {
