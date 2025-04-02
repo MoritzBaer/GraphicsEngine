@@ -20,9 +20,9 @@ template <> std::string ShaderLoader<Graphics::ShaderType::COMPUTE>::FileExtensi
 
 Graphics::RenderingStrategies::CompiledEffect CompiledEffectLoader::LoadAsset(std::string const &effectName) const {
 
-  auto effectShader = assetManager->LoadAsset<Graphics::Shader<Graphics::ShaderType::COMPUTE> *>(effectName);
+  auto effectShader = assetManager->LoadAsset<Graphics::Shader<Graphics::ShaderType::COMPUTE>>(effectName);
   auto pipelineInfoCopy = pipelineInfo;
-  pipelineInfoCopy.stage = effectShader->GetStageInfo();
+  pipelineInfoCopy.stage = effectShader.GetStageInfo();
 
   Graphics::RenderingStrategies::CompiledEffect effect{.pipelineLayout = computePipelineLayout,
                                                        .pipeline = VK_NULL_HANDLE};

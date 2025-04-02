@@ -19,8 +19,8 @@ template <Graphics::ShaderType Type> class ShaderLoader {
 
 public:
   ShaderLoader(Graphics::ShaderCompiler *shaderCompiler) : shaderCompiler(shaderCompiler) {}
-  Graphics::Shader<Type> *ConvertDSO(ShaderDSO const &dso) const;
-  Graphics::Shader<Type> *LoadAsset(const char *name) const;
+  Graphics::Shader<Type> ConvertDSO(ShaderDSO const &dso) const;
+  Graphics::Shader<Type> LoadAsset(const char *name) const;
 };
 
 class ShaderDestroyer {
@@ -28,12 +28,12 @@ class ShaderDestroyer {
 
 public:
   ShaderDestroyer(Graphics::ShaderCompiler const *shaderCompiler) : shaderCompiler(shaderCompiler) {}
-  template <Graphics::ShaderType Type> void DestroyAsset(Graphics::Shader<Type> *&asset) const;
+  template <Graphics::ShaderType Type> void DestroyAsset(Graphics::Shader<Type> &asset) const;
 };
 
-template <Graphics::ShaderType Type> using ShaderCache = AssetCacheImpl<Graphics::Shader<Type> *, ShaderDestroyer>;
+template <Graphics::ShaderType Type> using ShaderCache = AssetCacheImpl<Graphics::Shader<Type>, ShaderDestroyer>;
 template <Graphics::ShaderType Type>
-using ShaderManager = TypeManagerImpl<Graphics::Shader<Type> *, ShaderLoader<Type>, ShaderCache<Type>>;
+using ShaderManager = TypeManagerImpl<Graphics::Shader<Type>, ShaderLoader<Type>, ShaderCache<Type>>;
 
 class CompiledEffectLoader {
   inline static constexpr VkPushConstantRange pushConstants{
@@ -110,19 +110,18 @@ using ComputeBackgroundLoader =
 using ComputeBackgroundManager = TypeManagerImpl<Graphics::RenderingStrategies::ComputeBackground *,
                                                  ComputeBackgroundLoader, ComputeBackgroundCache>;
 
-template <Graphics::ShaderType Type>
-Graphics::Shader<Type> *ShaderLoader<Type>::ConvertDSO(ShaderDSO const &dso) const {
+template <Graphics::ShaderType Type> Graphics::Shader<Type> ShaderLoader<Type>::ConvertDSO(ShaderDSO const &dso) const {
   return shaderCompiler->CompileShaderCode<Type>(dso.shaderName.c_str(),
                                                  std::string(dso.shaderSource.begin(), dso.shaderSource.end()));
 }
 
 template <Graphics::ShaderType Type>
-inline Graphics::Shader<Type> *ShaderLoader<Type>::LoadAsset(const char *name) const {
+inline Graphics::Shader<Type> ShaderLoader<Type>::LoadAsset(const char *name) const {
   std::string fileName = name + FileExtension();
   return ConvertDSO(FromFile(fileName));
 }
 
-template <Graphics::ShaderType Type> inline void ShaderDestroyer::DestroyAsset(Graphics::Shader<Type> *&asset) const {
+template <Graphics::ShaderType Type> inline void ShaderDestroyer::DestroyAsset(Graphics::Shader<Type> &asset) const {
   shaderCompiler->DestroyShader<Type>(asset);
 }
 

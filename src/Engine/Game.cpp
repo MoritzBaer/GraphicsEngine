@@ -23,7 +23,7 @@ using namespace Engine;
 
 #define REGISTER_SHADER_TYPE(Type)                                                                                     \
   assetManager                                                                                                         \
-      .RegisterAssetType<Shader<ShaderType::Type> *, ShaderLoader<ShaderType::Type>, ShaderCache<ShaderType::Type>>(   \
+      .RegisterAssetType<Shader<ShaderType::Type>, ShaderLoader<ShaderType::Type>, ShaderCache<ShaderType::Type>>(     \
           ShaderLoader<Graphics::ShaderType::Type>(&shaderCompiler),                                                   \
           ShaderCache<Graphics::ShaderType::Type>(destroyer));
 

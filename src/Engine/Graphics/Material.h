@@ -93,8 +93,8 @@ public:
     Reset();
   }
 
-  PipelineBuilder &SetShaderStages(Graphics::Shader<Graphics::ShaderType::VERTEX> const *vertexShader,
-                                   Graphics::Shader<Graphics::ShaderType::FRAGMENT> const *fragmentShader);
+  PipelineBuilder &SetShaderStages(Graphics::Shader<Graphics::ShaderType::VERTEX> const &vertexShader,
+                                   Graphics::Shader<Graphics::ShaderType::FRAGMENT> const &fragmentShader);
   PipelineBuilder &SetInputTopology(VkPrimitiveTopology const &topology);
   PipelineBuilder &SetPolygonMode(VkPolygonMode const &polygonMode);
   PipelineBuilder &SetCullMode(VkCullModeFlags const &cullMode, VkFrontFace const &frontFace);

@@ -62,10 +62,10 @@ PipelineBuilder &PipelineBuilder::Reset() {
 }
 
 PipelineBuilder &
-PipelineBuilder::SetShaderStages(Graphics::Shader<Graphics::ShaderType::VERTEX> const *vertexShader,
-                                 Graphics::Shader<Graphics::ShaderType::FRAGMENT> const *fragmentShader) {
-  shaderStageInfos[static_cast<size_t>(ShaderType::VERTEX)] = vertexShader->GetStageInfo();
-  shaderStageInfos[static_cast<size_t>(ShaderType::FRAGMENT)] = fragmentShader->GetStageInfo();
+PipelineBuilder::SetShaderStages(Graphics::Shader<Graphics::ShaderType::VERTEX> const &vertexShader,
+                                 Graphics::Shader<Graphics::ShaderType::FRAGMENT> const &fragmentShader) {
+  shaderStageInfos[static_cast<size_t>(ShaderType::VERTEX)] = vertexShader.GetStageInfo();
+  shaderStageInfos[static_cast<size_t>(ShaderType::FRAGMENT)] = fragmentShader.GetStageInfo();
   return *this;
 }
 

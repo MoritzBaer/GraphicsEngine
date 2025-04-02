@@ -14,9 +14,9 @@ template <> std::string AssetPath<Graphics::Pipeline *>::FromName(char const *as
 
 Graphics::Pipeline *PipelineConverter::ConvertDSO(PipelineDSO const &dso) const {
   // Dummy implementation // TODO: implement properly
-  auto *vertexShader = assetManager->LoadAsset<Graphics::Shader<Graphics::ShaderType::VERTEX> *>(dso.vertexShaderName);
-  auto *fragmentShader =
-      assetManager->LoadAsset<Graphics::Shader<Graphics::ShaderType::FRAGMENT> *>(dso.fragmentShaderName);
+  auto vertexShader = assetManager->LoadAsset<Graphics::Shader<Graphics::ShaderType::VERTEX>>(dso.vertexShaderName);
+  auto fragmentShader =
+      assetManager->LoadAsset<Graphics::Shader<Graphics::ShaderType::FRAGMENT>>(dso.fragmentShaderName);
 
   size_t uniformSize = sizeof(VkDeviceAddress) + sizeof(Maths::Matrix4);
 
