@@ -1,5 +1,6 @@
 #pragma once
 
+#include "AssetManager.h"
 #include "Core/Script.h"
 
 namespace Engine {

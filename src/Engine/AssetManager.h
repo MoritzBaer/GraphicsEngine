@@ -70,6 +70,8 @@ public:
     }
     cache.clear();
   }
+  inline auto begin() { return cache.begin(); }
+  inline auto end() { return cache.end(); }
 };
 
 template <typename T_Asset> class DestroyerlessCacheImpl {
@@ -81,6 +83,8 @@ public:
   inline bool HasAsset(char const *assetName) const { return cache.find(assetName) != cache.end(); }
   inline T_Asset LoadAsset(char const *assetName) const { return cache.find(assetName)->second; }
   inline void Clear() { cache.clear(); }
+  inline auto begin() { return cache.begin(); }
+  inline auto end() { return cache.end(); }
 };
 
 template <typename T_Asset, typename T_DSO, DSOParser<std::vector<char>, T_DSO> T_Parser,
@@ -161,6 +165,10 @@ public:
       if (typeManagers[c])
         delete typeManagers[c];
     }
+  }
+
+  template <typename T_Asset> inline bool IsRegistered() const {
+    return AssetTypeID<T_Asset>::value != typeID(-1) && typeManagers[AssetTypeID<T_Asset>::value];
   }
 
   template <typename T_Asset, TypeManager<T_Asset> T_Manager>

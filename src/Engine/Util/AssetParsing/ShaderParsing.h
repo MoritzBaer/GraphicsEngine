@@ -87,6 +87,8 @@ public:
 };
 
 using CompiledEffectCache = AssetCacheImpl<Graphics::RenderingStrategies::CompiledEffect, CompiledEffectDestroyer>;
+using CompiledEffectManager =
+    TypeManagerImpl<Graphics::RenderingStrategies::CompiledEffect, CompiledEffectLoader, CompiledEffectCache>;
 
 struct ComputeBackgroundDSO {
   std::string effectName;
@@ -103,7 +105,19 @@ public:
   Graphics::RenderingStrategies::ComputeBackground *ConvertDSO(ComputeBackgroundDSO const &dso) const;
 };
 
-using ComputeBackgroundCache = DestroyerlessCacheImpl<Graphics::RenderingStrategies::ComputeBackground *>;
+class ComputeBackgroundDestroyer {
+  Graphics::InstanceManager const *instanceManager;
+
+public:
+  ComputeBackgroundDestroyer(Graphics::InstanceManager const *instanceManager) : instanceManager(instanceManager) {}
+  inline void DestroyAsset(Graphics::RenderingStrategies::ComputeBackground *asset) const {
+    asset->Cleanup();
+    delete asset;
+  }
+};
+
+using ComputeBackgroundCache =
+    AssetCacheImpl<Graphics::RenderingStrategies::ComputeBackground *, ComputeBackgroundDestroyer>;
 using ComputeBackgroundLoader =
     AssetLoaderImpl<Graphics::RenderingStrategies::ComputeBackground *, ComputeBackgroundDSO,
                     JsonParser<ComputeBackgroundDSO>, ComputeBackgroundConverter>;

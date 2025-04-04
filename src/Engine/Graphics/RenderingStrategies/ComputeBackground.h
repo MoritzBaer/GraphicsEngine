@@ -25,8 +25,8 @@ public:
   ComputeBackground(InstanceManager const *instanceManager, CompiledEffect const &effect,
                     ComputePushConstants const &data);
   ComputeBackground() = default;
-  ~ComputeBackground() override;
   std::vector<Command *> GetRenderingCommands(Image<2> &renderTarget) override;
+  void Cleanup();
 };
 
 } // namespace Engine::Graphics::RenderingStrategies

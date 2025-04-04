@@ -49,12 +49,6 @@ ComputeBackground::ComputeBackground(InstanceManager const *instanceManager, Com
   descriptorSetLayout = descriptorLayoutBuilder.Build(VK_SHADER_STAGE_COMPUTE_BIT);
 }
 
-ComputeBackground::~ComputeBackground() {
-  descriptorAllocator.ClearDescriptors();
-  descriptorAllocator.DestroyPools();
-  instanceManager->DestroyDescriptorSetLayout(descriptorSetLayout);
-}
-
 std::vector<Command *> ComputeBackground::GetRenderingCommands(Image<2> &renderTarget) {
 
   auto targetDescriptor = descriptorAllocator.Allocate(descriptorSetLayout);
@@ -74,6 +68,12 @@ std::vector<Command *> ComputeBackground::GetRenderingCommands(Image<2> &renderT
   commands.push_back(computeRun);
 
   return commands;
+}
+
+void ComputeBackground::Cleanup() {
+  descriptorAllocator.ClearDescriptors();
+  descriptorAllocator.DestroyPools();
+  instanceManager->DestroyDescriptorSetLayout(descriptorSetLayout);
 }
 
 } // namespace Engine::Graphics::RenderingStrategies
