@@ -3,6 +3,7 @@
 #include "Debug/Logging.h"
 #include "Debug/Profiling.h"
 #include "Macros.h"
+#include <filesystem>
 #include <fstream>
 
 namespace Engine::Util::FileIO {
@@ -29,5 +30,18 @@ void WriteFile(char const *fileName, char const *data) {
 
   file.write(data, strlen(data));
   file.close();
+}
+
+void CopyFilesystemObject(char const *src, char const *dst, std::filesystem::copy_options options) {
+  std::filesystem::copy(src, dst, options);
+  ENGINE_ASSERT(std::filesystem::exists(dst), "Failed to copy file from {} to {}!", src, dst)
+}
+
+void CopyFile(char const *src, char const *dst) {
+  CopyFilesystemObject(src, dst, std::filesystem::copy_options::overwrite_existing);
+}
+void CopyDirectory(char const *src, char const *dst) {
+  CopyFilesystemObject(src, dst,
+                       std::filesystem::copy_options::overwrite_existing | std::filesystem::copy_options::recursive);
 }
 } // namespace Engine::Util::FileIO
