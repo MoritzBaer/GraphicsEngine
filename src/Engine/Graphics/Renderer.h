@@ -15,8 +15,6 @@
 
 namespace Engine::Graphics {
 
-class MeshRenderer;
-
 class Renderer {
 private:
   InstanceManager const *instanceManager;

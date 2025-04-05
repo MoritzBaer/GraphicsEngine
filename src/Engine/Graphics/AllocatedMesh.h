@@ -33,7 +33,7 @@ public:
 
   inline void BindAndDraw(VkCommandBuffer const &commandBuffer) const {
     indexBuffer.BindAsIndexBuffer(commandBuffer);
-    vkCmdDrawIndexed(commandBuffer, indexBuffer.Size(), 1, 0, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indexBuffer.Size()), 1, 0, 0, 0);
   }
   inline void AppendData(PushConstantsAggregate &aggregate) const { aggregate.PushData(&vertexBufferAddress); }
 };

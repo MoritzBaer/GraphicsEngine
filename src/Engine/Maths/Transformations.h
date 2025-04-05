@@ -36,7 +36,7 @@ inline Quaternion RotateAroundAxis(Vector3 const &axis, float theta) {
 }
 
 template <typename T> inline MatrixT<4, 4, T> Perspective(T near, T far, T fov, T aspectRatio) {
-  T s = T(1) / tan(PI * fov / T(360));
+  T s = T(1) / static_cast<T>(tan(PI * fov / T(360)));
   return {s / aspectRatio,
           0,
           0,

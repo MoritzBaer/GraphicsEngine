@@ -134,7 +134,7 @@ class ECS::EntityIterator {
   ECS *ecs;
 
 public:
-  inline Entity const &operator*() const { return Entity(currentEntity, ecs); }
+  inline Entity operator*() const { return Entity(currentEntity, ecs); }
   inline EntityIterator &operator++() {
     while (!(ecs->aliveAndComponentFlags[++currentEntity] & ALIVE_FLAG) && currentEntity < ecs->firstFreeEntity)
       ;
@@ -192,7 +192,7 @@ template <class C> inline C *ECS::ComponentArrayT<C>::GetComponent(EntityId e) {
 }
 
 template <class C> inline C *ECS::ComponentArrayT<C>::AddComponent(EntityId e) {
-  entityComponentIndexMap[e] = components.size();
+  entityComponentIndexMap[e] = static_cast<ComponentIndex>(components.size());
   C *newComponent = new C(Entity(e, parent));
   components.push_back(newComponent);
   return components.back();

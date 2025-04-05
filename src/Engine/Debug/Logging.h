@@ -39,7 +39,7 @@ namespace Engine::Debug::Logging
     inline void PrintWithAlignedSender(const char *sender, const char *message, T_Args&& ... args)
     {
         size_t senderLength = strlen(sender);
-        for(int i = senderLength; i < MAX_SENDER_LENGTH; i++) { std::cout << " "; }
+        for(auto i = senderLength; i < MAX_SENDER_LENGTH; i++) { std::cout << " "; }
         std::cout << "[" << sender << "]  " << std::vformat(message, std::make_format_args(args...)) << std::endl;
     }
 

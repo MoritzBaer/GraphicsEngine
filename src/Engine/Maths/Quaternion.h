@@ -46,7 +46,7 @@ public:
     // adapted source
     float trace = R.x() + U.y() + F.z();
     if (trace > 0.0) {
-      float s = 0.5f / sqrt(trace + 1.0);
+      float s = 0.5f / sqrt(trace + 1.0f);
       return {0.25f / s, (U.z() - F.y()) * s, (F.x() - R.z()) * s, (R.y() - U.x()) * s};
     } else {
       if (R.x() > U.y() && R.x() > F.z()) {
