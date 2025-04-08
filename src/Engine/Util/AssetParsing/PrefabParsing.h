@@ -8,7 +8,16 @@
 #include "Graphics/MeshRenderer.h"
 #include "Graphics/Transform.h"
 #include "MultiUseImplementations.h"
+#include "ScriptParsing.h"
 #include "json-parsing.h"
+
+#ifdef USER_SCRIPTS_SOURCE
+#pragma message("USER_SCRIPTS_SOURCE defined as " USER_SCRIPTS_SOURCE)
+#include USER_SCRIPTS_SOURCE
+#endif
+
+#define ENGINE_COMPONENTS                                                                                              \
+  Engine::TransformDSO, Engine::MeshRendererDSO, Engine::CameraDSO, Engine::HierarchyDSO, Engine::ScriptComponentDSO
 
 #ifdef USER_COMPONENTS_SOURCE
 #pragma message("USER_COMPONENTS_SOURCE defined as " USER_COMPONENTS_SOURCE)
@@ -20,14 +29,6 @@
 #else
 #define COMBINED_COMPONENTS ENGINE_COMPONENTS
 #endif
-
-#ifdef USER_SCRIPTS_SOURCE
-#pragma message("USER_SCRIPTS_SOURCE defined as " USER_SCRIPTS_SOURCE)
-#include USER_SCRIPTS_SOURCE
-#endif
-
-#define ENGINE_COMPONENTS                                                                                              \
-  Engine::TransformDSO, Engine::MeshRendererDSO, Engine::CameraDSO, Engine::HierarchyDSO, Engine::ScriptComponentDSO
 
 namespace Engine {
 
@@ -168,12 +169,14 @@ JSON(Engine::ScriptComponentDSO, FIELDS(scripts));
 
 JSON(Engine::ComponentDSO *, SUBTYPES(COMBINED_COMPONENTS));
 
-#ifdef USER_SCRIPTS
-JSON(Engine::ScriptDSO *, SUBTYPES(USER_SCRIPTS));
-#endif
-
 JSON(Engine::ExplicitEntityDSO, FIELDS(components));
 JSON(Engine::PrefabDSO, FIELDS(prefabName, transform));
 JSON(Engine::EntityDSO *, SUBTYPES(Engine::ExplicitEntityDSO, Engine::PrefabDSO));
 
 JSON(Engine::SceneDSO, FIELDS(entities, mainCamId));
+
+#ifdef USER_SCRIPTS
+JSON(Engine::ScriptDSO *, SUBTYPES(USER_SCRIPTS));
+#else
+JSON(Engine::ScriptDSO *);
+#endif
