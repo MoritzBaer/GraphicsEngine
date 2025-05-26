@@ -3,7 +3,7 @@
 #include "Graphics/Buffer.h"
 #include "Graphics/Camera.h"
 #include "Graphics/DescriptorHandling.h"
-#include "Graphics/DrawData.h"
+#include "Graphics/SceneData.h"
 #include "Graphics/GPUObjectManager.h"
 #include "Graphics/InstanceManager.h"
 #include "Graphics/MeshRenderer.h"

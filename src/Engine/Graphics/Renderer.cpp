@@ -45,9 +45,12 @@ void Renderer::DrawFrame(RenderingRequest const &request) {
 
     commands.insert(commands.end(), prepareTarget.begin(), prepareTarget.end());
 
-    auto strategyCommands = renderingStrategy->GetRenderingCommands(request, frameResources.uniformBuffer,
-                                                                    frameResources.descriptorAllocator,
-                                                                    frameResources.descriptorWriter, renderTarget);
+    Image2 *depthResult = nullptr;
+    auto strategyCommands = renderingStrategy->GetRenderingCommands(
+        request, frameResources.uniformBinder, frameResources.descriptorAllocator, frameResources.descriptorWriter,
+        renderTarget, depthResult);
+    if (depthResult) { delete depthResult; }
+
     commands.insert(commands.end(), strategyCommands.begin(), strategyCommands.end());
 
     prepareTarget = renderResourceProvider->PrepareTargetForDisplaying();

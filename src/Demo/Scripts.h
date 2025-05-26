@@ -13,8 +13,8 @@ struct SpinnyScript : public Engine::Core::Script {
   Engine::Graphics::Transform *transform;
   float rotationSpeed = 1.0f;
 
-  SpinnyScript(Engine::Core::Entity entity, float rotationSpeed = 1.0f)
-      : Engine::Core::Script(entity), rotationSpeed(rotationSpeed), transform(nullptr) {}
+  SpinnyScript(Engine::Core::Entity entity, Game * const & game, float rotationSpeed = 1.0f)
+      : Engine::Core::Script(entity, game), rotationSpeed(rotationSpeed), transform(nullptr) {}
   void OnCreate() override { transform = entity.GetComponent<Engine::Graphics::Transform>(); }
 
   void OnUpdate(Engine::Core::Clock const &clock) override {
@@ -42,8 +42,8 @@ struct BobbyScript : public Engine::Core::Script {
   float initialY;
   float bobbingAmplitude;
 
-  BobbyScript(Engine::Core::Entity entity, float bobbingAmplitude)
-      : Engine::Core::Script(entity), bobbingAmplitude(bobbingAmplitude), transform(nullptr) {}
+  BobbyScript(Engine::Core::Entity entity, Game * const & game, float bobbingAmplitude)
+      : Engine::Core::Script(entity, game), bobbingAmplitude(bobbingAmplitude), transform(nullptr) {}
 
   void OnStart() override { initialY = transform->position.y(); }
   void OnCreate() override { transform = entity.GetComponent<Engine::Graphics::Transform>(); }

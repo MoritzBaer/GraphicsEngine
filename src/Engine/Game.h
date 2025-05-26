@@ -12,6 +12,7 @@
 #include "Graphics/VulkanSuite.h"
 #include "Util/DeletionQueue.h"
 #include "WindowManager.h"
+#include "Debug/DebugRenderer.h"
 
 struct Game {
   Engine::DeletionQueue mainDeletionQueue;
@@ -26,13 +27,15 @@ struct Game {
   Engine::Graphics::Renderer renderer;
   Engine::Graphics::RenderingStrategy *renderingStrategy;
   Engine::Core::Clock clock;
+  #ifndef NDEBUG
+  Engine::Debug::DebugRenderer debugRenderer;
+  #endif
 
   bool rendering;
   bool running;
 
   const char *name;
 
-  // TODO: Make CreateWindow use dimension, pass dimension to Game()
   Game(const char *name, Engine::Graphics::VulkanSuite
 #ifdef NDEBUG
        const

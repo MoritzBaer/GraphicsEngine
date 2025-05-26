@@ -384,7 +384,9 @@ void InstanceManager::CreateLogicalDevice() {
       .synchronization2 = requiredFeatures13.synchronization2};
 
   VkPhysicalDeviceFeatures2 deviceFeatures2{
-      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, .pNext = &synchronization, .features = {}};
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, .pNext = &synchronization, .features = {
+        .geometryShader = VK_TRUE
+      }};
 
   VkDeviceCreateInfo deviceInfo{.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
                                 .pNext = &deviceFeatures2,

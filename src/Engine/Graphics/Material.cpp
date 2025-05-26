@@ -4,6 +4,17 @@
 
 namespace Engine::Graphics {
 
+void Material::Apply(VkCommandBuffer const &commandBuffer, DescriptorAllocator &descriptorAllocator,
+                     DescriptorWriter &writer, UniformBinding const &uniform) const {
+  pipeline->Bind(commandBuffer);
+  std::vector<VkDescriptorSet> descriptorSets;
+  BindDescriptors(descriptorSets, descriptorAllocator, writer, uniform);
+  if (!descriptorSets.empty()) {
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->Layout(), 0,
+                            static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
+  }
+}
+
 void PipelineBuilder::SetBlendFactors(VkBlendFactor const &srcFactor, VkBlendFactor const &dstFactor) {
   colourBlendAttachment.colorWriteMask =
       VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
@@ -140,6 +151,18 @@ PipelineBuilder &PipelineBuilder::AddDescriptorBinding(uint32_t set, uint32_t bi
   return *this;
 }
 
+PipelineBuilder &PipelineBuilder::AddVertexInputBinding(uint32_t binding, uint32_t stride,
+                                                        VkVertexInputRate inputRate) {
+  vertexInputBindings.push_back({.binding = binding, .stride = stride, .inputRate = inputRate});
+  return *this;
+}
+
+PipelineBuilder &PipelineBuilder::AddVertexInputAttribute(uint32_t location, uint32_t binding, VkFormat format,
+                                                          uint32_t offset) {
+  vertexInputAttributes.push_back({.location = location, .binding = binding, .format = format, .offset = offset});
+  return *this;
+}
+
 Pipeline *PipelineBuilder::Build() {
   std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
   for (uint32_t i = 0; i < descriptorSets.size(); i++) {
@@ -164,8 +187,12 @@ Pipeline *PipelineBuilder::Build() {
                                                       .attachmentCount = 1,
                                                       .pAttachments = &colourBlendAttachment};
 
-  VkPipelineVertexInputStateCreateInfo vertexInputInfo{.sType =
-                                                           VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
+  VkPipelineVertexInputStateCreateInfo vertexInputInfo{
+      .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+      .vertexBindingDescriptionCount = static_cast<uint32_t>(vertexInputBindings.size()),
+      .pVertexBindingDescriptions = vertexInputBindings.data(),
+      .vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexInputAttributes.size()),
+      .pVertexAttributeDescriptions = vertexInputAttributes.data()};
 
   VkDynamicState states[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
   VkPipelineDynamicStateCreateInfo dynamicStateInfo{

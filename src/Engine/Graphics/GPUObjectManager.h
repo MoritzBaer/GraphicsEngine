@@ -17,14 +17,13 @@ class GPUObjectManager {
       const
 #endif
           *memoryAllocator;
-  CommandQueue dispatcherQueue;
   GPUDispatcher dispatcher;
 
 public:
   GPUObjectManager(InstanceManager const *instanceManager, MemoryAllocator *memoryAllocator)
-      : instanceManager(instanceManager), memoryAllocator(memoryAllocator), dispatcherQueue(CreateCommandQueue()),
-        dispatcher(instanceManager, dispatcherQueue) {}
-  ~GPUObjectManager() { DestroyCommandQueue(dispatcherQueue); }
+      : instanceManager(instanceManager), memoryAllocator(memoryAllocator),
+        dispatcher(CreateGPUDispatcher()) {}
+  ~GPUObjectManager() { DestroyGPUDispatcher(dispatcher); }
 
   template <uint8_t D>
   inline Image<D> CreateImage(VkImage image, Maths::Dimension<D> const &imageSize, VkFormat imageFormat,
@@ -41,6 +40,10 @@ public:
                                                 char const *label = nullptr
 #endif
   ) const;
+  inline AllocatedImage2 CreateDepthBuffer(Maths::Dimension2 const &imageSize, VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT) const {
+    return CreateAllocatedImage(VK_FORMAT_D32_SFLOAT, imageSize, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                                VK_IMAGE_ASPECT_DEPTH_BIT, 1, 1, msaaSamples);
+  }
 
   template <uint8_t D>
   inline Texture<D> CreateTexture(Maths::Dimension<D> const &imageSize, VkFilter magFilter = VK_FILTER_LINEAR,
@@ -90,20 +93,43 @@ public:
       const
 #endif
       ;
+
   template <typename T>
-  Buffer<T> CreateBuffer(T const *data, size_t size, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage
+  inline Buffer<T> CreateBuffer(T const *data, size_t size, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage
 #ifndef NDEBUG
-                         ,
-                         char const *label = nullptr
+                                ,
+                                char const *label = nullptr
 #endif
   )
 #ifdef NDEBUG
       const
 #endif
   {
+#ifdef NDEBUG
+    auto buffer = CreateBuffer<T>(size, usage, memoryUsage);
+#else
     auto buffer = CreateBuffer<T>(size, usage, memoryUsage, label);
+#endif
     buffer.SetData(data, size);
     return buffer;
+  }
+
+  template <typename T>
+  inline Buffer<T> CreateBuffer(std::vector<T> const &data, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage
+#ifndef NDEBUG
+                                ,
+                                char const *label = nullptr
+#endif
+  )
+#ifdef NDEBUG
+      const
+#endif
+  {
+#ifdef NDEBUG
+    return CreateBuffer<T>(data.data(), data.size(), usage, memoryUsage);
+#else
+    return CreateBuffer<T>(data.data(), data.size(), usage, memoryUsage, label);
+#endif
   }
 
   template <typename T>
@@ -117,8 +143,14 @@ public:
       const
 #endif
   {
-    return CreateBuffer(&data, 1, usage, memoryUsage, label);
-  } // namespace Engine::Graphics
+    #ifdef NDEBUG
+        return CreateBuffer(&data, 1, usage, memoryUsage);
+    #else
+        return CreateBuffer(&data, 1, usage, memoryUsage, label);
+    #endif
+  } 
+
+  inline GPUDispatcher CreateGPUDispatcher() const { return GPUDispatcher(instanceManager, CreateCommandQueue()); }
 
   template <uint8_t D> inline void DestroyImage(Image<D> const &image) const {
     instanceManager->DestroyImageView(image.imageView);
@@ -132,7 +164,7 @@ public:
   {
     DestroyImage(image);
     memoryAllocator->DestroyImage(image.image, image.allocation);
-  } // namespace Engine::Graphics
+  } 
 
   template <uint8_t D>
   inline void DestroyTexture(Texture<D> const &texture)
@@ -174,6 +206,29 @@ public:
 
   inline CommandQueue CreateCommandQueue() const;
   inline void DestroyCommandQueue(CommandQueue const &queue) const;
+  inline void DestroyGPUDispatcher(GPUDispatcher const &dispatcher) const {
+    DestroyCommandQueue(dispatcher.commandQueue);
+    instanceManager->DestroyFence(dispatcher.fence);
+  }
+};
+
+// +-----------------+
+// | IMPLEMENTATIONS |
+// +-----------------+
+
+template <typename T_GPU> class UnstageMeshCommand : public Command {
+  BufferCopyCommand vertices;
+  BufferCopyCommand indices;
+
+public:
+  UnstageMeshCommand(Buffer<uint8_t> stagingBuffer, Buffer<T_GPU> vertexBuffer, Buffer<uint32_t> indexBuffer)
+      : vertices(GPUMemoryManager::CopyBufferToBuffer(stagingBuffer, vertexBuffer, vertexBuffer.PhysicalSize())),
+        indices(GPUMemoryManager::CopyBufferToBuffer(stagingBuffer, indexBuffer, indexBuffer.PhysicalSize(),
+                                                     vertexBuffer.PhysicalSize())) {}
+  inline void QueueExecution(VkCommandBuffer const &queue) const {
+    vertices.QueueExecution(queue);
+    indices.QueueExecution(queue);
+  }
 };
 
 inline CommandQueue GPUObjectManager::CreateCommandQueue() const {

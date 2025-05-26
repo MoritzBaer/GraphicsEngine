@@ -23,6 +23,20 @@ template <typename T> struct IndexType {
   static constexpr VkIndexType value = IndexTypeFromSize<sizeof(T)>::value;
 };
 
+class UniformBinding {
+  VkBuffer buffer;
+  size_t physicalSize;
+
+public:
+  UniformBinding(VkBuffer const &buffer, size_t physicalSize) : buffer(buffer), physicalSize(physicalSize) {}
+
+  inline void WriteToDescriptorSet(DescriptorWriter &writer, VkDescriptorSet descriptorSet, uint32_t binding) const {
+    writer.WriteBuffer(binding, buffer, physicalSize, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+    writer.UpdateSet(descriptorSet);
+    writer.Clear();
+  }
+};
+
 template <typename T> class Buffer {
   VkBuffer buffer;
   VmaAllocation allocation;
@@ -55,10 +69,11 @@ public:
   inline void SetData(T const &data) const { SetData(&data, 1); }
   inline void SetData(std::vector<T> const &data) const { SetData(data.data(), data.size()); }
 
-  inline void UpdateDescriptor(DescriptorWriter &writer, VkDescriptorSet descriptorSet, uint32_t binding) const {
-    writer.WriteBuffer(binding, buffer, PhysicalSize(), 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    writer.UpdateSet(descriptorSet);
-    writer.Clear();
+  inline UniformBinding BindAsUniform() const { return UniformBinding(buffer, PhysicalSize()); }
+
+  inline void BindAsVertexBuffer(VkCommandBuffer const &commandBuffer) const {
+    VkDeviceSize offset = 0;
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &buffer, &offset);
   }
 
   inline void BindAsIndexBuffer(VkCommandBuffer const &commandBuffer) const

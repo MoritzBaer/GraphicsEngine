@@ -35,7 +35,12 @@ Game::Game(const char *name, Engine::Graphics::VulkanSuite
                *vulkan)
     : mainDeletionQueue(), assetManager(), vulkan(vulkan), shaderCompiler(&vulkan->instanceManager),
       renderingStrategy(nullptr), renderer(&vulkan->instanceManager), activeScene(nullptr), rendering(true),
-      running(true), clock() {
+      running(true), clock()
+#ifndef NDEBUG
+      ,
+      debugRenderer(&vulkan->gpuObjectManager, &vulkan->instanceManager)
+#endif
+{
 }
 
 template <typename AssetType, typename... RegistrationArgs>
@@ -91,10 +96,14 @@ void Game::Init() {
   if (!assetManager.IsRegistered<Core::Scene *>()) {
     assetManager.RegisterAssetType<Core::Scene *>(SceneLoader(&assetManager), SceneCache());
   }
-
+  // TODO: Make configurable, maybe load from file?
   renderingStrategy = new Engine::Graphics::RenderingStrategies::ForwardRendering(
       &vulkan->instanceManager, &vulkan->gpuObjectManager,
       assetManager.LoadAsset<Engine::Graphics::RenderingStrategies::ComputeBackground *>("nightsky"));
+#ifndef NDEBUG
+  debugRenderer.InitPipelines(assetManager);
+  renderingStrategy = debugRenderer.Wrap(renderingStrategy);
+#endif
   renderer.SetRenderingStrategy(renderingStrategy);
 
   WRITE_PROFILE_SESSION("Init")
@@ -110,6 +119,9 @@ void Game::CalculateFrame() {
 
     auto scripts = activeScene->ecs.FilterEntities<Engine::Core::ScriptComponent>();
     for (auto &[scriptComponent] : scripts) {
+      if (!scriptComponent->IsInitialized()) {
+        scriptComponent->SetGame(this);
+      }
       scriptComponent->UpdateScripts(clock);
     }
 
@@ -135,7 +147,12 @@ void Game::CalculateFrame() {
   }
 }
 
-void Game::Start() { clock.Start(); }
+void Game::Start() {
+  for (auto &[scriptComponent] : activeScene->ecs.FilterEntities<Engine::Core::ScriptComponent>()) {
+    scriptComponent->SetGame(this);
+  }
+  clock.Start();
+}
 
 Game::~Game() {
   BEGIN_PROFILE_SESSION()

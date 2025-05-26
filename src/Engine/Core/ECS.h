@@ -206,7 +206,7 @@ template <class C> inline void ECS::ComponentArrayT<C>::RemoveComponent(EntityId
   components.pop_back();
 }
 
-template <class C> inline void ECS::RegisterComponent() {
+template <class C> static void ECS::RegisterComponent() {
   if (ComponentID<C>::value == componentID(-1)) {
     ComponentID<C>::value = nextComponentID++;
   }

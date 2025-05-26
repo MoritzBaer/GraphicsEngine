@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Image.h"
+#include "UniformBinder.h"
 
 namespace Engine::Graphics {
 struct RenderResourceProvider {
@@ -12,7 +13,7 @@ struct RenderResourceProvider {
     VkFence renderFence;
     DescriptorAllocator descriptorAllocator;
     DescriptorWriter descriptorWriter;
-    Buffer<DrawData> uniformBuffer;
+    UniformBinder uniformBinder;
   };
 
   virtual FrameResources GetFrameResources() = 0;
@@ -29,7 +30,6 @@ inline void CreateFrameResources(RenderResourceProvider::FrameResources &resourc
                                  const
 #endif
                                      *gpuObjectManager) {
-
   VkFenceCreateInfo fenceInfo = vkinit::FenceCreateInfo();
 
   VkSemaphoreCreateInfo semaphoreInfo{.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
@@ -50,8 +50,7 @@ inline void CreateFrameResources(RenderResourceProvider::FrameResources &resourc
   resources.descriptorWriter = DescriptorWriter(instanceManager);
   resources.descriptorAllocator = DescriptorAllocator(instanceManager);
   resources.descriptorAllocator.InitPools(10, frame_sizes);
-  resources.uniformBuffer =
-      gpuObjectManager->CreateBuffer<DrawData>(1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+  resources.uniformBinder = UniformBinder(gpuObjectManager);
 }
 
 inline void DestroyFrameResources(RenderResourceProvider::FrameResources &resources,
@@ -68,7 +67,7 @@ inline void DestroyFrameResources(RenderResourceProvider::FrameResources &resour
   resources.descriptorAllocator.ClearDescriptors();
   resources.descriptorAllocator.DestroyPools();
   resources.descriptorWriter.Clear();
-  gpuObjectManager->DestroyBuffer(resources.uniformBuffer);
+  resources.uniformBinder.Destroy();
 }
 
 } // namespace Engine::Graphics

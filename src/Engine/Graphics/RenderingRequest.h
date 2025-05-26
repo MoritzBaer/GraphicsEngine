@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Graphics/Camera.h"
-#include "Graphics/DrawData.h"
+#include "Graphics/SceneData.h"
 #include "Graphics/MeshRenderer.h"
 #include <vector>
 

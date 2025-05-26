@@ -10,11 +10,4 @@ struct SceneData {
   alignas(16) Maths::Vector3 lightColour;
 };
 
-struct DrawData {
-  Maths::Matrix4 view;
-  Maths::Matrix4 projection;
-  Maths::Matrix4 viewProjection;
-  SceneData sceneData;
-};
-
 } // namespace Engine::Graphics

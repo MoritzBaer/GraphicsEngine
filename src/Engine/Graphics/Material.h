@@ -2,7 +2,6 @@
 
 #include "Buffer.h"
 #include "DescriptorHandling.h"
-#include "DrawData.h"
 #include "Shader.h"
 #include "UniformAggregate.h"
 #include "Util/DeletionQueue.h"
@@ -29,7 +28,9 @@ public:
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
   }
   inline VkPipelineLayout Layout() const { return layout; }
-  inline VkDescriptorSetLayout DescriptorLayout(uint8_t set) const { return descriptorLayouts[set]; }
+  inline VkDescriptorSet AllocateForLayout(uint8_t set, DescriptorAllocator &descriptorAllocator) const {
+    return descriptorAllocator.Allocate(descriptorLayouts[set]);
+  }
 };
 
 class Material {
@@ -40,12 +41,12 @@ public:
   Material(Material const *other) : pipeline(other->pipeline) {}
   Material(Pipeline const *pipeline) : pipeline(pipeline) {}
   virtual void AppendData(PushConstantsAggregate &aggregate) const = 0;
-  virtual void Bind(VkCommandBuffer const &commandBuffer, DescriptorAllocator &descriptorAllocator,
-                    DescriptorWriter &writer, Buffer<DrawData> const &drawDataBuffer) const {
-    pipeline->Bind(commandBuffer);
-  }
+  void Apply(VkCommandBuffer const &commandBuffer, DescriptorAllocator &descriptorAllocator,
+                    DescriptorWriter &writer, UniformBinding const &uniform) const;
+  virtual void BindDescriptors(std::vector<VkDescriptorSet> &descriptorSets,
+                              DescriptorAllocator &descriptorAllocator, DescriptorWriter &writer,
+                              UniformBinding const &uniform) const {}
   VkPipelineLayout GetPipelineLayout() const { return pipeline->Layout(); }
-  VkDescriptorSetLayout GetDescriptorSetLayout(uint8_t set) const { return pipeline->DescriptorLayout(set); }
 };
 
 class PipelineBuilder {
@@ -78,6 +79,8 @@ class PipelineBuilder {
   std::array<VkPipelineShaderStageCreateInfo, static_cast<size_t>(ShaderType::NUMBER_OF_TYPES)> shaderStageInfos;
   std::vector<VkPushConstantRange> pushConstantRanges;
   std::vector<DescriptorSet> descriptorSets;
+  std::vector<VkVertexInputBindingDescription> vertexInputBindings;
+  std::vector<VkVertexInputAttributeDescription> vertexInputAttributes;
 
   inline void SetBlendFactors(VkBlendFactor const &srcFactor, VkBlendFactor const &dstFactor);
 
@@ -86,13 +89,15 @@ public:
   PipelineBuilder &Reset();
 
   PipelineBuilder(InstanceManager const *instanceManager)
-      : instanceManager(instanceManager), descriptorSets(4), shaderStageInfos(), pushConstantRanges() {
+      : instanceManager(instanceManager), descriptorSets(4), shaderStageInfos(), pushConstantRanges(), vertexInputBindings(),
+        vertexInputAttributes(), colourAttachmentformat(VK_FORMAT_UNDEFINED) {
     for (int i = 0; i < 4; i++) {
       descriptorSets[i].layoutBuilder = DescriptorLayoutBuilder(instanceManager);
     }
     Reset();
   }
 
+  template <ShaderType Type> PipelineBuilder &SetShaderStage(Shader<Type> const &shader);
   PipelineBuilder &SetShaderStages(Graphics::Shader<Graphics::ShaderType::VERTEX> const &vertexShader,
                                    Graphics::Shader<Graphics::ShaderType::FRAGMENT> const &fragmentShader);
   PipelineBuilder &SetInputTopology(VkPrimitiveTopology const &topology);
@@ -105,6 +110,8 @@ public:
   PipelineBuilder &SetDepthCompareOperation(VkCompareOp const &compareOp);
   PipelineBuilder &EnableBlending(BlendMode const &mode);
   PipelineBuilder &AddDescriptorBinding(uint32_t set, uint32_t binding, VkDescriptorType descriptorType);
+  PipelineBuilder &AddVertexInputBinding(uint32_t binding, uint32_t stride, VkVertexInputRate inputRate);
+  PipelineBuilder &AddVertexInputAttribute(uint32_t location, uint32_t binding, VkFormat format, uint32_t offset);
   template <ShaderType Type> PipelineBuilder &AddPushConstant(size_t size, size_t offset);
   template <ShaderType Type> PipelineBuilder &BindSetInShader(uint8_t set);
 
@@ -115,6 +122,11 @@ public:
 
 template <ShaderType Type> inline PipelineBuilder &PipelineBuilder::BindSetInShader(uint8_t set) {
   descriptorSets[set].descriptorSetStages = descriptorSets[set].descriptorSetStages | StageConstants<Type>::stageFlags;
+  return *this;
+}
+
+template <ShaderType Type> inline PipelineBuilder &PipelineBuilder::SetShaderStage(Shader<Type> const &shader) {
+  shaderStageInfos[static_cast<size_t>(Type)] = shader.GetStageInfo();
   return *this;
 }
 

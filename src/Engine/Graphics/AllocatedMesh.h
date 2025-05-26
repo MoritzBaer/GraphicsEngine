@@ -47,21 +47,4 @@ public:
   inline VmaAllocation GetAllocation() const override { return buffer.GetAllocation(); }
 };
 
-// Implementations
-
-template <typename T_GPU> class UnstageMeshCommand : public Command {
-  BufferCopyCommand vertices;
-  BufferCopyCommand indices;
-
-public:
-  UnstageMeshCommand(Buffer<uint8_t> stagingBuffer, Buffer<T_GPU> vertexBuffer, Buffer<uint32_t> indexBuffer)
-      : vertices(GPUMemoryManager::CopyBufferToBuffer(stagingBuffer, vertexBuffer, vertexBuffer.PhysicalSize())),
-        indices(GPUMemoryManager::CopyBufferToBuffer(stagingBuffer, indexBuffer, indexBuffer.PhysicalSize(),
-                                                     vertexBuffer.PhysicalSize())) {}
-  inline void QueueExecution(VkCommandBuffer const &queue) const {
-    vertices.QueueExecution(queue);
-    indices.QueueExecution(queue);
-  }
-};
-
 } // namespace Engine::Graphics

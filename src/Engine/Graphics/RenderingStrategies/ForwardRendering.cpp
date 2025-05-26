@@ -1,35 +1,24 @@
 #include "ForwardRendering.h"
 
-namespace Engine::Graphics::RenderingStrategies {
+#include "Engine/Graphics/RenderCommand.h"
 
-class MultimeshDrawCommand : public Command {
-  Image<2> const &drawImage;
-  Image<2> const &depthImage;
-  Maths::Dimension2 renderAreaSize;
-  Maths::Dimension2 renderAreaOffset;
-  DescriptorAllocator &descriptorAllocator;
-  DescriptorWriter &descriptorWriter;
-  Buffer<DrawData> const &uniformBuffer;
-  std::vector<MeshRenderer const *> singleMeshes;
+namespace Engine::Graphics {
 
-public:
-  MultimeshDrawCommand(Image<2> const &drawImage, Image<2> const &depthImage, DescriptorAllocator &descriptorAllocator,
-                       DescriptorWriter &descriptorWriter, Maths::Dimension2 const &renderAreaSize,
-                       Buffer<DrawData> const &uniformBuffer, std::vector<MeshRenderer const *> const &meshes)
-      : drawImage(drawImage), depthImage(depthImage), singleMeshes(meshes), uniformBuffer(uniformBuffer),
-        renderAreaSize(renderAreaSize), descriptorAllocator(descriptorAllocator), descriptorWriter(descriptorWriter) {}
-  void QueueExecution(VkCommandBuffer const &) const;
+struct DrawData {
+  Maths::Matrix4 view;
+  Maths::Matrix4 projection;
+  Maths::Matrix4 viewProjection;
+  SceneData sceneData;
 };
 
-void DrawSingleMesh(VkCommandBuffer const &commandBuffer, DescriptorAllocator &descriptorAllocator,
-                    DescriptorWriter &descriptorWriter, Buffer<DrawData> const &uniformBuffer,
-                    MeshRenderer const *renderInfo) {
+void MultiRenderCommand<MeshRenderer const *>::DoSingleRender(VkCommandBuffer const &commandBuffer,
+                                                              MeshRenderer const *const &renderInfo,
+                                                              UniformBinding const &uniformBinding) const {
   AllocatedMesh const *mesh = renderInfo->mesh;
   Material const *material = renderInfo->material;
 
   // Bind material pipelines
-  VkDescriptorSet descriptorSet = descriptorAllocator.Allocate(material->GetDescriptorSetLayout(1));
-  material->Bind(commandBuffer, descriptorAllocator, descriptorWriter, uniformBuffer);
+  material->Apply(commandBuffer, descriptorAllocator, descriptorWriter, uniformBinding);
 
   // Upload uniform data
   Maths::Matrix4 model = renderInfo->entity.GetComponent<Transform>()->ModelToWorldMatrix();
@@ -45,38 +34,11 @@ void DrawSingleMesh(VkCommandBuffer const &commandBuffer, DescriptorAllocator &d
   // Draw mesh
   mesh->BindAndDraw(commandBuffer);
 }
+} // namespace Engine::Graphics
 
-void MultimeshDrawCommand::QueueExecution(VkCommandBuffer const &queue) const {
-  VkRenderingAttachmentInfo colourAttachmentInfo = drawImage.BindAsColourAttachment();
-  VkRenderingAttachmentInfo depthAttachmentInfo = depthImage.BindAsDepthAttachment();
+namespace Engine::Graphics::RenderingStrategies {
 
-  VkExtent2D drawExtent{renderAreaSize.x(), renderAreaSize.y()};
-  VkOffset2D drawOffset{static_cast<int32_t>(renderAreaOffset.x()), static_cast<int32_t>(renderAreaOffset.y())};
-  VkRenderingInfo renderingInfo = vkinit::RenderingInfo(colourAttachmentInfo, depthAttachmentInfo, drawExtent);
-
-  VkViewport viewport{.x = static_cast<float>(drawOffset.x),
-                      .y = static_cast<float>(drawOffset.y),
-                      .width = static_cast<float>(drawExtent.width),
-                      .height = static_cast<float>(drawExtent.height),
-                      .minDepth = 0.0f,
-                      .maxDepth = 1.0f};
-
-  VkRect2D scissor{.offset = {2 * drawOffset.x, 2 * drawOffset.y},
-                   .extent = {drawExtent.width * 20, drawExtent.height * 20}};
-
-  vkCmdSetViewport(queue, 0, 1, &viewport);
-  vkCmdSetScissor(queue, 0, 1, &scissor);
-
-  vkCmdBeginRendering(queue, &renderingInfo);
-
-  for (auto mesh : singleMeshes) {
-    DrawSingleMesh(queue, descriptorAllocator, descriptorWriter, uniformBuffer, mesh);
-  }
-
-  vkCmdEndRendering(queue);
-}
-
-std::vector<VkFormat> formatsByPreference = {VK_FORMAT_R8G8B8A8_SRGB, VK_FORMAT_R16G16B16A16_SNORM,
+std::vector<VkFormat> formatsByPreference = {VK_FORMAT_R8G8B8A8_SRGB, VK_FORMAT_R16G16B16A16_SFLOAT,
                                              VK_FORMAT_R8G8B8A8_SNORM};
 
 VkImageUsageFlags renderBufferUsage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
@@ -100,9 +62,7 @@ VkFormat ForwardRendering::ChooseRenderBufferFormat() {
 void ForwardRendering::CreateRenderBuffer(Maths::Dimension2 const &renderDimension) {
   renderBuffer = {.colourImage = objectManager->CreateAllocatedImage(ChooseRenderBufferFormat(), renderDimension,
                                                                      renderBufferUsage, VK_IMAGE_ASPECT_COLOR_BIT),
-                  .depthImage = objectManager->CreateAllocatedImage(VK_FORMAT_D32_SFLOAT, renderDimension,
-                                                                    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                                                                    VK_IMAGE_ASPECT_DEPTH_BIT)};
+                  .depthImage = objectManager->CreateDepthBuffer(renderDimension)};
 }
 
 void ForwardRendering::DestroyRenderBuffer() {
@@ -111,10 +71,10 @@ void ForwardRendering::DestroyRenderBuffer() {
 }
 
 std::vector<Command *> ForwardRendering::GetRenderingCommands(RenderingRequest const &request,
-                                                              Buffer<DrawData> const &uniformBuffer,
+                                                              UniformBinder &uniformBufferProvider,
                                                               DescriptorAllocator &descriptorAllocator,
                                                               DescriptorWriter &descriptorWriter,
-                                                              Image<2> &renderTarget) {
+                                                              Image<2> &renderTarget, Image<2> *depthTarget) {
 
   auto commands = backgroundStrategy->GetRenderingCommands(renderBuffer.colourImage);
 
@@ -135,21 +95,32 @@ std::vector<Command *> ForwardRendering::GetRenderingCommands(RenderingRequest c
       .sceneData = request.sceneData,
   };
 
-  uniformBuffer.SetData(uniformData);
-  auto drawMeshes =
-      new MultimeshDrawCommand(renderBuffer.colourImage, renderBuffer.depthImage, descriptorAllocator, descriptorWriter,
-                               renderTarget.GetExtent(), uniformBuffer, request.objectsToDraw);
+  auto uniformBinding = uniformBufferProvider.GetBinding<DrawData>(uniformData);
+  auto drawMeshes = new MultiRenderCommand<MeshRenderer const *>(
+      renderBuffer.colourImage, renderBuffer.depthImage, descriptorAllocator, descriptorWriter,
+      renderTarget.GetExtent(), uniformBinding, request.objectsToDraw);
 
   commands.push_back(drawMeshes);
 
   // Commands for copying render to target
   auto transitionBufferToTransferSrc = renderBuffer.colourImage.Transition(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-  auto transitionPresenterToTransferDst = renderTarget.Transition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+  auto transitionTargetToTransferDst = renderTarget.Transition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
   auto copyBufferToPresenter = renderBuffer.colourImage.BlitTo(renderTarget);
 
   commands.push_back(transitionBufferToTransferSrc);
-  commands.push_back(transitionPresenterToTransferDst);
+  commands.push_back(transitionTargetToTransferDst);
   commands.push_back(copyBufferToPresenter);
+
+  // Commands for optionally copying depth to target
+  if (depthTarget) {
+    auto transitionDepthToTransferSrc = renderBuffer.depthImage.Transition(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    auto transitionDepthPresenterToTransferDst = depthTarget->Transition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    auto copyDepthToTarget = renderBuffer.depthImage.BlitTo(*depthTarget);
+
+    commands.push_back(transitionDepthToTransferSrc);
+    commands.push_back(transitionDepthPresenterToTransferDst);
+    commands.push_back(copyDepthToTarget);
+  }
 
   return commands;
 }

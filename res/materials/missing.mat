@@ -1,5 +1,5 @@
 {
-    "pipelineName": "dummy",
+    "pipelineName": "phong",
     "instanceData": {
         "Engine::AlbedoAndBumpData": {
             "albedoTexture": "missing",

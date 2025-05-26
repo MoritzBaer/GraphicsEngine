@@ -5,6 +5,8 @@
 #include "VulkanUtil.h"
 
 namespace Engine::Graphics {
+
+class GPUObjectManager;
 class GPUDispatcher {
   InstanceManager const *instanceManager;
 
@@ -12,15 +14,17 @@ class GPUDispatcher {
   CommandQueue commandQueue;
   VkQueue dispatchQueue;
 
+  friend class GPUObjectManager;
+
 public:
-  GPUDispatcher(InstanceManager const *instanceManager, CommandQueue const &commandQueue)
+  GPUDispatcher(InstanceManager const *instanceManager = nullptr, CommandQueue const &commandQueue = CommandQueue())
       : instanceManager(instanceManager), commandQueue(commandQueue) {
     auto fenceInfo = vkinit::FenceCreateInfo();
-    instanceManager->CreateFence(&fenceInfo, &fence);
-    instanceManager->GetGraphicsQueue(&dispatchQueue);
+    if (instanceManager) {
+      instanceManager->CreateFence(&fenceInfo, &fence);
+      instanceManager->GetGraphicsQueue(&dispatchQueue);
+    }
   }
-
-  ~GPUDispatcher() { instanceManager->DestroyFence(fence); }
 
   void Dispatch(std::span<Command const *> const &commands) const;
 
