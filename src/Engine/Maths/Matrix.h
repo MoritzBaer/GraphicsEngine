@@ -793,9 +793,9 @@ template <uint8_t n, uint8_t m, typename T> struct hash<Engine::Maths::MatrixT<n
 };
 
 template <uint8_t n, typename T> struct formatter<Engine::Maths::VectorT<n, T>> {
-  template <typename ParseContext> constexpr auto parse(ParseContext &ctx) { return ctx.begin(); }
+  template <typename ParseContext> constexpr auto parse(ParseContext &ctx) const { return ctx.begin(); }
 
-  template <typename FormatContext> auto format(Engine::Maths::VectorT<n, T> const &v, FormatContext &ctx) {
+  template <typename FormatContext> auto format(Engine::Maths::VectorT<n, T> const &v, FormatContext &ctx) const {
     std::ostringstream out;
     out << "{";
     for (uint8_t i = 0; i < n; i++) {

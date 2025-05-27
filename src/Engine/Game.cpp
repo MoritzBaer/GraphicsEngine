@@ -116,6 +116,7 @@ void Game::CalculateFrame() {
     clock.Update();
 
     Engine::WindowManager::HandleEventsOnAllWindows();
+    debugRenderer.Clear();
 
     auto scripts = activeScene->ecs.FilterEntities<Engine::Core::ScriptComponent>();
     for (auto &[scriptComponent] : scripts) {
@@ -148,6 +149,7 @@ void Game::CalculateFrame() {
 }
 
 void Game::Start() {
+  BEGIN_PROFILE_SESSION()
   for (auto &[scriptComponent] : activeScene->ecs.FilterEntities<Engine::Core::ScriptComponent>()) {
     scriptComponent->SetGame(this);
   }

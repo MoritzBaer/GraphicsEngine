@@ -14,13 +14,13 @@ inline void WriteFile(char const *fileName, string const &data) { WriteFile(file
 inline void WriteFile(string const &fileName, const char *data) { WriteFile(fileName.c_str(), data); }
 inline void WriteFile(string const &fileName, string const &data) { WriteFile(fileName.c_str(), data.c_str()); }
 
-void CopyFile(char const *src, char const *dst);
-inline void CopyFile(string const &src, char const *dst) { CopyFile(src.c_str(), dst); }
-inline void CopyFile(char const *src, string const &dst) { CopyFile(src, dst.c_str()); }
-inline void CopyFile(string const &src, string const &dst) { CopyFile(src.c_str(), dst.c_str()); }
+void CopyFile(char const *src, char const *dst, bool replaceIfNewer = false);
+inline void CopyFile(string const &src, char const *dst, bool replaceIfNewer = false) { CopyFile(src.c_str(), dst, replaceIfNewer); }
+inline void CopyFile(char const *src, string const &dst, bool replaceIfNewer = false) { CopyFile(src, dst.c_str(), replaceIfNewer); }
+inline void CopyFile(string const &src, string const &dst, bool replaceIfNewer = false) { CopyFile(src.c_str(), dst.c_str(), replaceIfNewer); }
 
-void CopyDirectory(char const *src, char const *dst);
-inline void CopyDirectory(string const &src, char const *dst) { CopyDirectory(src.c_str(), dst); }
-inline void CopyDirectory(char const *src, string const &dst) { CopyDirectory(src, dst.c_str()); }
-inline void CopyDirectory(string const &src, string const &dst) { CopyDirectory(src.c_str(), dst.c_str()); }
+void CopyDirectory(char const *src, char const *dst, bool replaceIfNewer = false);
+inline void CopyDirectory(string const &src, char const *dst, bool replaceIfNewer = false) { CopyDirectory(src.c_str(), dst, replaceIfNewer); }
+inline void CopyDirectory(char const *src, string const &dst, bool replaceIfNewer = false) { CopyDirectory(src, dst.c_str(), replaceIfNewer); }
+inline void CopyDirectory(string const &src, string const &dst, bool replaceIfNewer = false) { CopyDirectory(src.c_str(), dst.c_str()), replaceIfNewer; }
 } // namespace Engine::Util::FileIO

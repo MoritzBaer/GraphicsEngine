@@ -23,7 +23,7 @@
     "vertexInputBindings": [
         {
             "binding": 0,
-            "stride": 128,
+            "stride": 32,
             "inputRate": "VK_VERTEX_INPUT_RATE_VERTEX",
             "attributes": [
                 {

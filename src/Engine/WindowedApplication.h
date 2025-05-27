@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Debug/Logging.h"
+#include "Debug/Profiling.h"
 #include "Game.h"
 #include "Graphics/CommandQueue.h"
 #include "Graphics/DescriptorHandling.h"
@@ -111,9 +112,11 @@ public:
 template <typename GameType> inline void GameApp<GameType>::Run() {
   try {
     game.Init();
+    BEGIN_PROFILE_SESSION()
     game.Start();
     while (game.IsRunning())
       game.CalculateFrame();
+    WRITE_PROFILE_SESSION("Game Loop")
   } catch (std::exception &e) {
     Engine::Debug::Logging::PrintError(name, "Exception: {}", e.what());
   }
