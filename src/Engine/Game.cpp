@@ -149,7 +149,7 @@ void Game::CalculateFrame() {
 }
 
 void Game::Start() {
-  BEGIN_PROFILE_SESSION()
+  PROFILE_FUNCTION()
   for (auto &[scriptComponent] : activeScene->ecs.FilterEntities<Engine::Core::ScriptComponent>()) {
     scriptComponent->SetGame(this);
   }

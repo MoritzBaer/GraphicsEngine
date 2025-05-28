@@ -10,15 +10,24 @@ set(CMAKE_CXX_STANDARD 23)
 
 # set(CMAKE_VERBOSE_MAKEFILE ON)
 
+file(GLOB_RECURSE EngineFiles
+if(DEFINED USER_COMPONENTS_SOURCE_PATH) USER_COMPONENTS_SOURCE_PATH endif()
+if(DEFINED USER_SCRIPTS_SOURCE_PATH) USER_SCRIPTS_SOURCE_PATH endif()
+"src/Engine/*.h"
+"src/Engine/*.cpp"
+)
+
+add_library(Engine STATIC ${EngineFiles})
+
 # Allow for file name macro set relative to source folder
 string(LENGTH "${PROJECT_SOURCE_DIR}/src/" SOURCE_PATH_SIZE)
-add_compile_definitions(SOURCE_PATH_SIZE=${SOURCE_PATH_SIZE})
+target_compile_definitions(Engine PUBLIC SOURCE_PATH_SIZE=${SOURCE_PATH_SIZE})
 
 message("-- User components source path: ${USER_COMPONENTS_SOURCE_PATH}")
 
 if(DEFINED USER_COMPONENTS_SOURCE_PATH)
     message("-- USER_COMPONENTS_SOURCE_PATH defined, adding definition")
-    add_compile_definitions(USER_COMPONENTS_SOURCE=${USER_COMPONENTS_SOURCE_PATH})
+    target_compile_definitions(Engine PUBLIC USER_COMPONENTS_SOURCE=${USER_COMPONENTS_SOURCE_PATH})
 endif()
 
 if(DEFINED USER_SCRIPTS_SOURCE_PATH)
@@ -31,7 +40,7 @@ else()
 endif()
 
 if(BUILD_WITH_PROFILING)
-    add_definitions("-DRUN_PROFILER")
+    target_compile_definitions(Engine PUBLIC "-DRUN_PROFILER")
     message("-- BUILDING WITH PROFILER ACTIVE")
 else()
     message("-- building without profiling")
@@ -39,17 +48,9 @@ endif()
 
 find_package(Vulkan REQUIRED COMPONENTS shaderc_combined)
 
-file(GLOB_RECURSE EngineFiles
-    if(DEFINED USER_COMPONENTS_SOURCE_PATH) USER_COMPONENTS_SOURCE_PATH endif()
-    if(DEFINED USER_SCRIPTS_SOURCE_PATH) USER_SCRIPTS_SOURCE_PATH endif()
-    "src/Engine/*.h"
-    "src/Engine/*.cpp"
-)
-
 aux_source_directory(src/external EXTERNAL)
 
-add_compile_options(/Zc:preprocessor)
-add_library(Engine STATIC ${EngineFiles})
+target_compile_options(Engine PUBLIC /Zc:preprocessor)
 
 target_include_directories(Engine PUBLIC "dependencies/glfw-3.3.9.bin.WIN64/include")
 target_include_directories(Engine PUBLIC "dependencies/VMA")
