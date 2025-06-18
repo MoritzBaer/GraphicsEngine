@@ -1,12 +1,14 @@
 #include "Tests/AlignmentTests.h"
 #include "Tests/MathsTests.h"
+#include "Tests/TransformTests.h"
 
-using namespace Engine::Test;
+using namespace Test;
 
 BEGIN_TEST_CASE(all)
 
 RUN_SUB_CASE(maths)
 RUN_SUB_CASE(alignment)
+RUN_SUB_CASE(transform)
 
 END_TEST_CASE() // all
 

@@ -69,10 +69,9 @@ private:
     if (rowWise) // TODO: Figure out how to use other constructor
       ConvertToColumnForm();
   }
+  MatrixT(std::array<T, n * m> const &values) : data(values) {}
 
 public:
-  // Public constructors always expect data in row form
-  MatrixT(std::array<T, n * m> const &values) : MatrixT(true, values) {}
   // Public constructors always expect data in row form
   template <typename... _T, typename std::enable_if<sizeof...(_T) == n * m, int>::type = 0>
   MatrixT(_T... values) : MatrixT(true, values...) {}
@@ -81,6 +80,7 @@ public:
   inline bool operator==(MatrixT<n, m, T> const &other) const;
   inline bool operator!=(MatrixT<n, m, T> const &other) const { return !(*this == other); };
 
+  inline MatrixT<n, m, T> operator-() const;
   inline MatrixT<n, m, T> operator+(MatrixT<n, m, T> const &other) const;
   inline MatrixT<n, m, T> operator-(MatrixT<n, m, T> const &other) const;
   template <typename T2>
@@ -581,6 +581,8 @@ inline MatrixT<n, l, T> MatrixT<n, m, T>::operator*(MatrixT<m, l, T> const &othe
   for (int resCol = 0; resCol < l; resCol++) {
     for (int resRow = 0; resRow < n; resRow++) {
       for (int i = 0; i < m; i++) {
+        T d = data[MATRIX_AT_IJ(n, m, resRow, i)];
+        T od = other.data[MATRIX_AT_IJ(m, l, i, resCol)];
         newVals[MATRIX_AT_IJ(n, l, resRow, resCol)] +=
             data[MATRIX_AT_IJ(n, m, resRow, i)] * other.data[MATRIX_AT_IJ(m, l, i, resCol)];
       }
@@ -603,6 +605,14 @@ inline bool MatrixT<n, m, T>::operator==(MatrixT<n, m, T> const &other) const {
     }
   }
   return true;
+}
+
+template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> MatrixT<n, m, T>::operator-() const {
+  std::array<T, n * m> newVals;
+  for (int i = 0; i < n * m; i++) {
+    newVals[i] = -data[i];
+  }
+  return MatrixT<n, m, T>(newVals);
 }
 
 template <uint8_t n, uint8_t m, typename T>

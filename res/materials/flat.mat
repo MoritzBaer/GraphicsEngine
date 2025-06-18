@@ -1,0 +1,11 @@
+{
+    "pipelineName": "phong",
+    "instanceData": {
+        "Engine::AlbedoAndBumpData": {
+            "albedoTexture": "white",
+            "bumpTexture": "normalUp",
+            "specularStrength": 0.2,
+            "phongExponent": 4
+        }
+    }
+}

@@ -23,7 +23,7 @@
 #define TEST_ASSERT(expression, message, ...)                                                                          \
   if (!(expression)) {                                                                                                 \
     env.Fail();                                                                                                        \
-    Debug::Logging::PrintError("Test", message, __VA_ARGS__);                                                          \
+    Debug::Logging::PrintError("Test", message __VA_OPT__(, __VA_ARGS__));                                             \
   }
 
 #define TEST_ASSERT_EQUAL(T, object1, label1, object2, label2, message)                                                \
@@ -43,7 +43,9 @@
     Debug::Logging::PrintError("Test", "{}: {}", label2, sizeof(type2));                                               \
   }
 
-namespace Engine::Test {
+using namespace Engine;
+
+namespace Test {
 
 class TestEnv {
   const char *label;

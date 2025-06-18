@@ -4,6 +4,7 @@
 #include "ComponentParsing.h"
 #include "Core/Scene.h"
 #include "Core/Script.h"
+#include "Core/EntityIdentifier.h"
 #include "Graphics/Camera.h"
 #include "Graphics/MeshRenderer.h"
 #include "Graphics/Transform.h"
@@ -17,7 +18,7 @@
 #endif
 
 #define ENGINE_COMPONENTS                                                                                              \
-  Engine::TransformDSO, Engine::MeshRendererDSO, Engine::CameraDSO, Engine::HierarchyDSO, Engine::ScriptComponentDSO
+  Engine::TransformDSO, Engine::MeshRendererDSO, Engine::CameraDSO, Engine::HierarchyDSO, Engine::ScriptComponentDSO, Engine::IdentifierDSO
 
 #ifdef USER_COMPONENTS_SOURCE
 #pragma message("USER_COMPONENTS_SOURCE defined as " USER_COMPONENTS_SOURCE)
@@ -83,6 +84,14 @@ struct CameraDSO : public ComponentDSO_T<Graphics::Camera> {
 
   void FillValues(Graphics::Camera *camera, AssetManager *assetManger) override {
     camera->projection = Maths::Transformations::Perspective(nearClip, farClip, fov, aspectRatio);
+  }
+};
+
+struct IdentifierDSO : public ComponentDSO_T<Core::EntityIdentifier> {
+  std::string identifier;
+
+  void FillValues(Core::EntityIdentifier* eid, AssetManager *assetManger) override {
+    eid->uniqueIdentifier = identifier;
   }
 };
 
@@ -163,6 +172,7 @@ struct ScriptComponentDSO : public ComponentDSO_T<Core::ScriptComponent> {
 
 JSON(Engine::TransformDSO, FIELDS(position, rotation, scale));
 JSON(Engine::HierarchyDSO, FIELDS(children));
+JSON(Engine::IdentifierDSO, FIELDS(identifier));
 JSON(Engine::MeshRendererDSO, FIELDS(meshName, materialName));
 JSON(Engine::CameraDSO, FIELDS(fov, nearClip, farClip, aspectRatio));
 JSON(Engine::ScriptComponentDSO, FIELDS(scripts));

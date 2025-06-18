@@ -35,7 +35,7 @@ Game::Game(const char *name, Engine::Graphics::VulkanSuite
                *vulkan)
     : mainDeletionQueue(), assetManager(), vulkan(vulkan), shaderCompiler(&vulkan->instanceManager),
       renderingStrategy(nullptr), renderer(&vulkan->instanceManager), activeScene(nullptr), rendering(true),
-      running(true), clock()
+      running(true), clock(), identifierStorage()
 #ifndef NDEBUG
       ,
       debugRenderer(&vulkan->gpuObjectManager, &vulkan->instanceManager)
@@ -60,6 +60,7 @@ void Game::Init() {
   Core::ECS::RegisterComponent<Engine::Graphics::MeshRenderer>();
   Core::ECS::RegisterComponent<Engine::Graphics::Camera>();
   Core::ECS::RegisterComponent<Engine::Core::ScriptComponent>();
+  Core::ECS::RegisterComponent<Engine::Core::EntityIdentifier>();
 
   if (!assetManager.IsRegistered<Graphics::Texture2D>()) {
     assetManager.RegisterAssetType<Graphics::Texture2D>(TextureLoader(&vulkan->gpuObjectManager, &assetManager),
@@ -114,6 +115,7 @@ void Game::CalculateFrame() {
     PROFILE_FUNCTION()
 
     clock.Update();
+    identifierStorage.Rebuild(activeScene->ecs);
 
     Engine::WindowManager::HandleEventsOnAllWindows();
     debugRenderer.Clear();
@@ -139,7 +141,7 @@ void Game::CalculateFrame() {
           .objectsToDraw = meshRenderers,
           .camera = activeScene->mainCamera.GetComponent<Engine::Graphics::Camera>(),
           .sceneData = {.cameraPosition = activeScene->mainCamera.GetComponent<Engine::Graphics::Transform>()->position,
-                        .lightDirection = {0, -5, -1.5},
+                        .lightDirection = {1.5, 1.5, -5},
                         .lightColour = {1, 1, 1}}};
       renderer.DrawFrame(request);
     } else {

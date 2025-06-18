@@ -19,7 +19,7 @@ struct SpinnyScript : public Engine::Core::Script {
 
   void OnUpdate(Engine::Core::Clock const &clock) override {
     Engine::Maths::Vector3 oldRotation = transform->rotation.EulerAngles();
-    transform->rotation = (Engine::Maths::Transformations::RotateAroundAxis(Engine::Maths::Vector3(0, 1, 0),
+    transform->rotation = (Engine::Maths::Quaternion::RotateAroundAxis(Engine::Maths::Vector3(0, 1, 0),
                                                                             rotationSpeed * clock.deltaTime * 0.2f) *
                            transform->rotation)
                               .Normalized();

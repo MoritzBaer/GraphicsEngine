@@ -23,9 +23,10 @@ struct Transform : public Core::HierarchicalComponent<Transform> {
 
   inline void SetParent(Transform *newParent, bool recalculateTransform = true);
 
-  inline void LookAt(Vector3 const &target, Vector3 const &up) { rotation = Quaternion::LookAt(position, target, up); }
-  // TODO: Use Transform::Up()
-  inline void LookAt(Vector3 const &target) { LookAt(target, {0, 1, 0}); }
+  inline void LookAt(Vector3 const &target, Vector3 const &up) {
+    rotation = Quaternion::LookAt(position, target, {0, 1, 0}, up);
+  }
+  inline void LookAt(Vector3 const &target) { LookAt(target, {0, 0, 1}); }
   inline void Translate(Vector3 const &translation) { position += translation; }
 
   inline Matrix4 ModelToParentMatrix() const;
@@ -37,6 +38,13 @@ struct Transform : public Core::HierarchicalComponent<Transform> {
     return (ModelToWorldMatrix() * Vector4{position[X], position[Y], position[Z], 1}).xyz();
   }
   inline Quaternion WorldRotation() const;
+
+  inline Vector3 Right() const { return Transformations::RotateByQuaternion(Vector3(1, 0, 0), WorldRotation()); }
+  inline Vector3 Forward() const { return Transformations::RotateByQuaternion(Vector3(0, 1, 0), WorldRotation()); }
+  inline Vector3 Up() const { return Transformations::RotateByQuaternion(Vector3(0, 0, 1), WorldRotation()); }
+  inline Vector3 Left() const { return -Right(); }
+  inline Vector3 Down() const { return -Up(); }
+  inline Vector3 Backward() const { return -Forward(); }
 
   inline bool HasInactiveParent() const {
     if (parent) {
@@ -76,20 +84,17 @@ Matrix4 Transform::ModelToParentMatrix() const {
   {
     Matrix3 R = rotation.RotationMatrix();
     return Matrix4{scale[X] * R[0][0],
-                   scale[Y] * R[0][1],
-                   scale[Z] * R[0][2],
+                   scale[Y] * R[1][0],
+                   scale[Z] * R[2][0],
                    position[X],
-
-                   scale[X] * R[1][0],
+                   scale[X] * R[0][1],
                    scale[Y] * R[1][1],
-                   scale[Z] * R[1][2],
+                   scale[Z] * R[2][1],
                    position[Y],
-
-                   scale[X] * R[2][0],
-                   scale[Y] * R[2][1],
+                   scale[X] * R[0][2],
+                   scale[Y] * R[1][2],
                    scale[Z] * R[2][2],
                    position[Z],
-
                    0,
                    0,
                    0,

@@ -2,8 +2,10 @@
 
 #include "AssetManager.h"
 #include "Core/ECS.h"
+#include "Core/EntityIdentifier.h"
 #include "Core/Scene.h"
 #include "Core/Time.h"
+#include "Debug/DebugRenderer.h"
 #include "Graphics/InstanceManager.h"
 #include "Graphics/MemoryAllocator.h"
 #include "Graphics/Renderer.h"
@@ -12,7 +14,6 @@
 #include "Graphics/VulkanSuite.h"
 #include "Util/DeletionQueue.h"
 #include "WindowManager.h"
-#include "Debug/DebugRenderer.h"
 
 struct Game {
   Engine::DeletionQueue mainDeletionQueue;
@@ -27,9 +28,10 @@ struct Game {
   Engine::Graphics::Renderer renderer;
   Engine::Graphics::RenderingStrategy *renderingStrategy;
   Engine::Core::Clock clock;
-  #ifndef NDEBUG
+  Engine::Core::IdentifierStorage identifierStorage;
+#ifndef NDEBUG
   Engine::Debug::DebugRenderer debugRenderer;
-  #endif
+#endif
 
   bool rendering;
   bool running;

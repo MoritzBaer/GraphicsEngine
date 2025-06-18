@@ -9,12 +9,11 @@ option(DELIVER_RESOURCES "Copy resources to binary directory" ON)
 set(CMAKE_CXX_STANDARD 23)
 
 # set(CMAKE_VERBOSE_MAKEFILE ON)
-
 file(GLOB_RECURSE EngineFiles
-if(DEFINED USER_COMPONENTS_SOURCE_PATH) USER_COMPONENTS_SOURCE_PATH endif()
-if(DEFINED USER_SCRIPTS_SOURCE_PATH) USER_SCRIPTS_SOURCE_PATH endif()
-"src/Engine/*.h"
-"src/Engine/*.cpp"
+    if(DEFINED USER_COMPONENTS_SOURCE_PATH) USER_COMPONENTS_SOURCE_PATH endif()
+    if(DEFINED USER_SCRIPTS_SOURCE_PATH) USER_SCRIPTS_SOURCE_PATH endif()
+    "src/Engine/*.h"
+    "src/Engine/*.cpp"
 )
 
 add_library(Engine STATIC ${EngineFiles})
@@ -64,6 +63,8 @@ target_include_directories(Engine PUBLIC "src/Engine")
 target_link_libraries(Engine PUBLIC "${PROJECT_SOURCE_DIR}/dependencies/glfw-3.3.9.bin.WIN64/lib-vc2022/glfw3_mt.lib")
 target_link_libraries(Engine PUBLIC Vulkan::Vulkan)
 target_link_libraries(Engine PUBLIC Vulkan::shaderc_combined)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
 # To keep assets in the same place as the binaries
 if(DELIVER_RESOURCES)

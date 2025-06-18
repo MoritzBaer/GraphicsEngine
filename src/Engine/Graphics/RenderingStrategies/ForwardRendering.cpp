@@ -1,6 +1,10 @@
 #include "ForwardRendering.h"
 
-#include "Engine/Graphics/RenderCommand.h"
+#include "Graphics/RenderCommand.h"
+
+#define CALCULATE_CLIP_SPACE(name, z) \
+  auto name##CamSpace = projection * Vector4(0,0,z,1);\
+  auto name = Vector3(name##CamSpace[X], name##CamSpace[Y], name##CamSpace[Z]) / name##CamSpace[W];
 
 namespace Engine::Graphics {
 
@@ -87,6 +91,13 @@ std::vector<Command *> ForwardRendering::GetRenderingCommands(RenderingRequest c
 
   Maths::Matrix4 view = request.camera->entity.GetComponent<Transform>()->WorldToModelMatrix();
   Maths::Matrix4 projection = request.camera->projection;
+
+  auto v = projection * Vector4(0.01, 1.99, 0.01, 1);
+  Vector3 vp = v.xyz();
+  auto vh = vp / v[W];
+  auto v_ = projection * Vector4(0.01, 2.01, 0.01, 1);
+  Vector3 vp_ = v_.xyz();
+  auto vh_ = vp_ / v_[W];
 
   DrawData uniformData{
       .view = view,

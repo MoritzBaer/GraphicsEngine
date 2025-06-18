@@ -5,6 +5,12 @@
 
 namespace Engine::Maths {
 class Quaternion {
+  inline static Vector3 ProjectToVectorSpace(Vector3 const &v, Vector3 const &target) { return target * (v * target); }
+
+  inline static Vector3 ProjectToOrthogonalVectorSpace(Vector3 const &v, Vector3 const &target) {
+    return v - ProjectToVectorSpace(v, target);
+  }
+
 public:
   float w, x, y, z;
   Quaternion(float w, float x, float y, float z) : w(w), x(x), y(y), z(z) {}
@@ -33,33 +39,47 @@ public:
 
   inline Vector3 xyz() const { return {x, y, z}; }
 
-  inline static Quaternion LookAt(Vector3 const &position, Vector3 const &target, Vector3 const &up) {
-    Vector3 F = (target - position).Normalized(); // lookAt
-    Vector3 R = F.Cross(up).Normalized();         // sideaxis
-    Vector3 U = R.Cross(F);                       // rotatedup
+  inline static Quaternion RotateAroundAxis(Vector3 const &axis, float theta) {
+    float cosTheta = cos(theta / 2);
+    float sinTheta = sin(theta / 2);
+    auto a = axis.Normalized();
+    return {cosTheta, sinTheta * a[X], sinTheta * a[Y], sinTheta * a[Z]};
+  }
 
-    // note that R needed to be re-normalized
-    // since F and worldUp are not necessary perpendicular
-    // so must remove the sin(angle) factor of the cross-product
-    // same not true for U because dot(R, F) = 0
+  inline static Quaternion LookAt(Vector3 const &position, Vector3 const &target, Vector3 const &forward = {0, 1, 0},
+                                  Vector3 const &up = {0, 0, 1}) {
 
-    // adapted source
-    float trace = R.x() + U.y() + F.z();
-    if (trace > 0.0) {
-      float s = 0.5f / sqrt(trace + 1.0f);
-      return {0.25f / s, (U.z() - F.y()) * s, (F.x() - R.z()) * s, (R.y() - U.x()) * s};
+    Vector3 newForward = (target - position).Normalized();
+
+    // Project forward, newForward to vector space orthogonal to up
+    Vector3 forwardFlat = ProjectToOrthogonalVectorSpace(forward, up);
+    Vector3 newForwardFlat = ProjectToOrthogonalVectorSpace(newForward, up);
+
+    // Calculate rotation perpendicular to up
+    Vector3 rotationAxisFlat = forwardFlat.Cross(newForwardFlat);
+    if (rotationAxisFlat.SqrMagnitude() < EPS) {
+      rotationAxisFlat = up;
     } else {
-      if (R.x() > U.y() && R.x() > F.z()) {
-        float s = 2.0f * sqrt(1.0f + R.x() - U.y() - F.z());
-        return {(U.z() - F.y()) / s, 0.25f * s, (U.x() + R.y()) / s, (F.x() + R.z()) / s};
-      } else if (U.y() > F.z()) {
-        float s = 2.0f * sqrt(1.0f + U.y() - R.x() - F.z());
-        return {(F.x() - R.z()) / s, (U.x() + R.y()) / s, 0.25f * s, (F.y() + U.z()) / s};
-      } else {
-        float s = 2.0f * sqrt(1.0f + F.z() - R.x() - U.y());
-        return {(R.y() - U.x()) / s, (F.x() + R.z()) / s, (F.y() + U.z()) / s, 0.25f * s};
-      }
+      rotationAxisFlat.Normalize();
     }
+
+    float dotFlat = newForwardFlat * forwardFlat;
+    float angleFlat = acosf(dotFlat);
+
+    Quaternion rotateFlat = RotateAroundAxis(rotationAxisFlat, angleFlat);
+
+    // Calculate rotation towards up
+    Vector3 rotationAxisLift = newForwardFlat.Cross(newForward);
+    if (rotationAxisLift.SqrMagnitude() < EPS) {
+      return rotateFlat;
+    } else {
+      rotationAxisLift.Normalize();
+    }
+
+    float dotLift = newForwardFlat * newForward;
+    float angleLift = acosf(dotLift);
+
+    return (RotateAroundAxis(rotationAxisLift, angleLift) * rotateFlat).Normalized();
   }
 
   // Conversions
@@ -74,8 +94,7 @@ Quaternion Quaternion::operator*(Quaternion const &other) const {
 }
 
 Quaternion &Quaternion::Normalize() {
-  float sqrLen = Vector4{w, x, y, z}.SqrMagnitude();
-  *this /= sqrLen;
+  *this /= Vector4{w, x, y, z}.Length();
   return *this;
 }
 
@@ -121,10 +140,21 @@ inline Quaternion Quaternion::FromEulerAngles(Vector3 const &eulerAngles) {
 }
 
 inline Matrix3 Quaternion::RotationMatrix() const {
-  return Matrix3{w * w + x * x - y * y - z * z, 2 * (x * y + w * z),           2 * (x * z - w * y),
-                 2 * (x * y - w * z),           w * w - x * x + y * y - z * z, 2 * (w * x + y * z),
-                 2 * (w * y + x * z),           2 * (y * z - w * x),           w * w - x * x - y * y + z * z};
+  return Matrix3(1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w), 2 * (x * y + z * w),
+                 1 - 2 * (x * x + z * z), 2 * (y * z - x * w), 2 * (x * z - y * w), 2 * (y * z + x * w),
+                 1 - 2 * (x * x + y * y)) /
+         sqrt(w * w + x * x + y * y + z * z);
 }
 } // namespace Engine::Maths
+
+namespace std {
+template <> struct formatter<Engine::Maths::Quaternion> {
+  template <typename ParseContext> constexpr auto parse(ParseContext &ctx) const { return ctx.begin(); }
+
+  template <typename FormatContext> auto format(Engine::Maths::Quaternion const &q, FormatContext &ctx) const {
+    return ranges::copy(std::format("({:.3f}, {:.3f}, {:.3f}, {:.3f})", q.w, q.x, q.y, q.z), ctx.out()).out;
+  }
+};
+} // namespace std
 
 JSON(Engine::Maths::Quaternion, FIELDS(w, x, y, z))
