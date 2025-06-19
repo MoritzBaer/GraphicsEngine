@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.28)
 
 project(GRAPHICS_ENGINE)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(BUILD_WITH_PROFILING "Build for profiling" ON)
 option(BUILD_DEMO_APPS "Build demo apps" ON)
@@ -63,8 +64,6 @@ target_include_directories(Engine PUBLIC "src/Engine")
 target_link_libraries(Engine PUBLIC "${PROJECT_SOURCE_DIR}/dependencies/glfw-3.3.9.bin.WIN64/lib-vc2022/glfw3_mt.lib")
 target_link_libraries(Engine PUBLIC Vulkan::Vulkan)
 target_link_libraries(Engine PUBLIC Vulkan::shaderc_combined)
-
-set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
 # To keep assets in the same place as the binaries
 if(DELIVER_RESOURCES)

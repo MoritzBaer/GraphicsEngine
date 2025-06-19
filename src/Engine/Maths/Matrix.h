@@ -7,6 +7,7 @@
 #include <initializer_list>
 #include <sstream>
 #include <stdint.h>
+#include <tuple>
 
 #include "json-parsing.h"
 
@@ -84,8 +85,9 @@ public:
   inline constexpr operator VectorT<numEntries, T>() const {
     return VectorT<numEntries, T>(Access<n, T, indexes>(parent)...);
   }
-  inline constexpr operator T&() const requires(numEntries == 1){
-    return Access<n, T, 0>(parent);
+  inline constexpr operator T&() const requires(numEntries == 1) {
+    constexpr uint8_t idxs[] = {indexes...};
+    return Access<n, T, idxs[0]>(parent);
   }
   inline constexpr T operator[](uint8_t entry) const {
     VectorT<numEntries, T> ref = *this;
@@ -502,74 +504,74 @@ public:
   }
 
   // TODO: Allow value retrieval on const vectors?
-  inline T x() const requires(m == 1){ return data[X]; }
-  inline T y() const requires(m == 1 && n >= 2) { return data[Y]; }
-  inline T z() const requires(m == 1 && n >= 3) { return data[Z]; }
-  inline T w() const requires(m == 1 && n >= 4) { return data[W]; }
-  inline EntryReference<n, T, X> x() requires(m == 1) { return {*this}; }
-  inline EntryReference<n, T, Y> y() requires(m == 1 && n >= 2) { return {*this}; }
-  inline EntryReference<n, T, Z> z() requires(m == 1 && n >= 3) { return {*this}; }
-  inline EntryReference<n, T, W> w() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, X, Y> xy() requires(m == 1 && n >= 2) { return {*this}; }
-  inline EntryReference<n, T, X, Z> xz() requires(m == 1 && n >= 3) { return {*this}; }
-  inline EntryReference<n, T, X, W> xw() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, Y, X> yx() requires(m == 1 && n >= 2) { return {*this}; }
-  inline EntryReference<n, T, Y, Z> yz() requires(m == 1 && n >= 3) { return {*this}; }
-  inline EntryReference<n, T, Y, W> yw() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, Z, X> zx() requires(m == 1 && n >= 3) { return {*this}; }
-  inline EntryReference<n, T, Z, Y> zy() requires(m == 1 && n >= 3) { return {*this}; }
-  inline EntryReference<n, T, Z, W> zw() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, W, X> wx() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, W, Y> wy() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, W, Z> wz() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, X, Y, Z> xyz() requires(m == 1 && n >= 3) { return {*this}; }
-  inline EntryReference<n, T, X, Y, W> xyw() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, X, Z, Y> xzy() requires(m == 1 && n >= 3) { return {*this}; }
-  inline EntryReference<n, T, X, Z, W> xzw() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, X, W, Y> xwy() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, X, W, Z> xwz() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, Y, X, Z> yxz() requires(m == 1 && n >= 3) { return {*this}; }
-  inline EntryReference<n, T, Y, X, W> yxw() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, Y, Z, X> yzx() requires(m == 1 && n >= 3) { return {*this}; }
-  inline EntryReference<n, T, Y, Z, W> yzw() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, Y, W, X> ywx() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, Y, W, Z> ywz() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, Z, X, Y> zxy() requires(m == 1 && n >= 3) { return {*this}; }
-  inline EntryReference<n, T, Z, X, W> zxw() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, Z, Y, X> zyx() requires(m == 1 && n >= 3) { return {*this}; }
-  inline EntryReference<n, T, Z, Y, W> zyw() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, Z, W, X> zwx() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, Z, W, Y> zwy() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, W, X, Y> wxy() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, W, X, Z> wxz() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, W, Y, X> wyx() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, W, Y, Z> wyz() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, W, Z, X> wzx() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, W, Z, Y> wzy() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, X, Y, Z, W> xyzw() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, X, Y, W, Z> xywz() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, X, Z, Y, W> xzyw() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, X, Z, W, Y> xzwy() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, X, W, Y, Z> xwyz() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, X, W, Z, Y> xwzy() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, Y, X, Z, W> yxzw() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, Y, X, W, Z> yxwz() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, Y, Z, X, W> yzxw() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, Y, Z, W, X> yzwx() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, Y, W, X, Z> ywxz() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, Y, W, Z, X> ywzx() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, Z, X, Y, W> zxyw() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, Z, X, W, Y> zxwy() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, Z, Y, X, W> zyxw() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, Z, Y, W, X> zywx() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, Z, W, X, Y> zwxy() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, Z, W, Y, X> zwyx() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, W, X, Y, Z> wxyz() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, W, X, Z, Y> wxzy() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, W, Y, X, Z> wyxz() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, W, Y, Z, X> wyzx() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, W, Z, X, Y> wzxy() requires(m == 1 && n >= 4) { return {*this}; }
-  inline EntryReference<n, T, W, Z, Y, X> wzyx() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr T x() const requires(m == 1){ return data[X]; }
+  inline constexpr T y() const requires(m == 1 && n >= 2) { return data[Y]; }
+  inline constexpr T z() const requires(m == 1 && n >= 3) { return data[Z]; }
+  inline constexpr T w() const requires(m == 1 && n >= 4) { return data[W]; }
+  inline constexpr EntryReference<n, T, X> x() requires(m == 1) { return {*this}; }
+  inline constexpr EntryReference<n, T, Y> y() requires(m == 1 && n >= 2) { return {*this}; }
+  inline constexpr EntryReference<n, T, Z> z() requires(m == 1 && n >= 3) { return {*this}; }
+  inline constexpr EntryReference<n, T, W> w() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, X, Y> xy() requires(m == 1 && n >= 2) { return {*this}; }
+  inline constexpr EntryReference<n, T, X, Z> xz() requires(m == 1 && n >= 3) { return {*this}; }
+  inline constexpr EntryReference<n, T, X, W> xw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, Y, X> yx() requires(m == 1 && n >= 2) { return {*this}; }
+  inline constexpr EntryReference<n, T, Y, Z> yz() requires(m == 1 && n >= 3) { return {*this}; }
+  inline constexpr EntryReference<n, T, Y, W> yw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, Z, X> zx() requires(m == 1 && n >= 3) { return {*this}; }
+  inline constexpr EntryReference<n, T, Z, Y> zy() requires(m == 1 && n >= 3) { return {*this}; }
+  inline constexpr EntryReference<n, T, Z, W> zw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, W, X> wx() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, W, Y> wy() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, W, Z> wz() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, X, Y, Z> xyz() requires(m == 1 && n >= 3) { return {*this}; }
+  inline constexpr EntryReference<n, T, X, Y, W> xyw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, X, Z, Y> xzy() requires(m == 1 && n >= 3) { return {*this}; }
+  inline constexpr EntryReference<n, T, X, Z, W> xzw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, X, W, Y> xwy() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, X, W, Z> xwz() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, Y, X, Z> yxz() requires(m == 1 && n >= 3) { return {*this}; }
+  inline constexpr EntryReference<n, T, Y, X, W> yxw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, Y, Z, X> yzx() requires(m == 1 && n >= 3) { return {*this}; }
+  inline constexpr EntryReference<n, T, Y, Z, W> yzw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, Y, W, X> ywx() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, Y, W, Z> ywz() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, Z, X, Y> zxy() requires(m == 1 && n >= 3) { return {*this}; }
+  inline constexpr EntryReference<n, T, Z, X, W> zxw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, Z, Y, X> zyx() requires(m == 1 && n >= 3) { return {*this}; }
+  inline constexpr EntryReference<n, T, Z, Y, W> zyw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, Z, W, X> zwx() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, Z, W, Y> zwy() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, W, X, Y> wxy() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, W, X, Z> wxz() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, W, Y, X> wyx() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, W, Y, Z> wyz() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, W, Z, X> wzx() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, W, Z, Y> wzy() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, X, Y, Z, W> xyzw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, X, Y, W, Z> xywz() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, X, Z, Y, W> xzyw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, X, Z, W, Y> xzwy() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, X, W, Y, Z> xwyz() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, X, W, Z, Y> xwzy() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, Y, X, Z, W> yxzw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, Y, X, W, Z> yxwz() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, Y, Z, X, W> yzxw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, Y, Z, W, X> yzwx() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, Y, W, X, Z> ywxz() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, Y, W, Z, X> ywzx() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, Z, X, Y, W> zxyw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, Z, X, W, Y> zxwy() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, Z, Y, X, W> zyxw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, Z, Y, W, X> zywx() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, Z, W, X, Y> zwxy() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, Z, W, Y, X> zwyx() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, W, X, Y, Z> wxyz() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, W, X, Z, Y> wxzy() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, W, Y, X, Z> wyxz() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, W, Y, Z, X> wyzx() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, W, Z, X, Y> wzxy() requires(m == 1 && n >= 4) { return {*this}; }
+  inline constexpr EntryReference<n, T, W, Z, Y, X> wzyx() requires(m == 1 && n >= 4) { return {*this}; }
 
 private:
   // Adds factor * row1 to row2
