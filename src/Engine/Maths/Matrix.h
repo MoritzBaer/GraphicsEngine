@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <initializer_list>
 #include <sstream>
 #include <stdint.h>
@@ -15,10 +16,10 @@
 #define MATRIX_AT_IJ(n, m, row, col) col *n + row
 #define MATRIX_NM_AT_IJ(row, col) MATRIX_AT_IJ(n, m, row, col)
 
-inline const uint8_t X = 0;
-inline const uint8_t Y = 1;
-inline const uint8_t Z = 2;
-inline const uint8_t W = 3;
+inline constexpr uint8_t X = 0;
+inline constexpr uint8_t Y = 1;
+inline constexpr uint8_t Z = 2;
+inline constexpr uint8_t W = 3;
 
 namespace Engine::Maths {
 template <uint8_t n, uint8_t m, typename T> struct MatrixT;
@@ -53,9 +54,288 @@ template <typename T> constexpr uint8_t alignment(uint8_t n, uint8_t m) {
 
 } // namespace Engine::Maths
 
-template <uint8_t n, uint8_t m, typename T> PARTIALLY_SPECIALIZED_JSON(Engine::Maths::MatrixT<n COMMA m COMMA T>);
-
 namespace Engine::Maths {
+
+template <typename T2, typename T1>
+concept AdditiveAutoCasting = requires(T1 const &value1, T2 const &value2) {
+  { value1 + value2 } -> std::convertible_to<T1>;
+  { value1 - value2 } -> std::convertible_to<T1>;
+};
+
+template <typename T2, typename T1>
+concept MultiplicativeAutoCasting = requires(T1 const &value1, T2 const &value2) {
+  { value1 *value2 } -> std::convertible_to<T1>;
+  { value1 / value2 } -> std::convertible_to<T1>;
+};
+
+template <uint8_t n, typename T, uint8_t index> inline constexpr T &Access(VectorT<n, T> &v) { return v[index]; }
+template <uint8_t n, typename T, uint8_t index> inline constexpr T const &Access(VectorT<n, T> const &v) {
+  return v[index];
+}
+
+template <uint8_t n, typename T, uint8_t... indexes> class EntryReference {
+  VectorT<n, T> &parent;
+
+public:
+  inline static constexpr uint8_t numEntries = static_cast<uint8_t>(sizeof...(indexes));
+  EntryReference(VectorT<n, T> &v) : parent(v) {}
+
+  // Access
+  inline constexpr operator VectorT<numEntries, T>() const {
+    return VectorT<numEntries, T>(Access<n, T, indexes>(parent)...);
+  }
+  inline constexpr operator T&() const requires(numEntries == 1){
+    return Access<n, T, 0>(parent);
+  }
+  inline constexpr T operator[](uint8_t entry) const {
+    VectorT<numEntries, T> ref = *this;
+    return ref[entry];
+  }
+  inline constexpr VectorT<numEntries, T> operator-() const {
+    return VectorT<numEntries, T>(-Access<n, T, indexes>(parent)...);
+  }
+
+  // Assignment
+  template <std::convertible_to<T> T2>
+  inline constexpr EntryReference<n, T, indexes...> & operator=(VectorT<numEntries, T2> const &newValues) {
+    uint8_t i = 0;
+    ((Access<n, T, indexes>(parent) = newValues[i++]), ...);
+    return *this;
+  }
+  template <std::convertible_to<T> T2>
+  inline constexpr EntryReference<n, T, indexes...> & operator=(T2 const &newValue) {
+    uint8_t i = 0;
+    ((Access<n, T, indexes>(parent) = newValue), ...);
+    return *this;
+  }
+  template <std::convertible_to<T> T2, uint8_t other_n, uint8_t... other_indexes>
+  inline constexpr EntryReference<n, T, indexes...> & operator=(EntryReference<other_n, T2, other_indexes...> const &newValues) 
+    requires (EntryReference<other_n, T2, other_indexes...>::numEntries == numEntries)
+  {
+    VectorT<numEntries, T2> newVals = newValues;
+    return (*this = newVals);
+  }
+  template <std::convertible_to<T> T2, uint8_t other_n, uint8_t other_index>
+  inline constexpr EntryReference<n, T, indexes...> & operator=(EntryReference<other_n, T2, other_index> const &newValue) {
+    T2 newVal = newValue;
+    return (*this = newVal);
+  }
+
+  // Special case in addition
+  template <AdditiveAutoCasting<T> T2, uint8_t other_n>
+  inline friend constexpr VectorT<other_n, T> operator+(VectorT<other_n, T2> const &other,
+                                                        EntryReference<n, T, indexes...> const &entries)
+    requires(numEntries == 1)
+  {
+    return other + entries[0];
+  }
+  template <AdditiveAutoCasting<T> T2, uint8_t other_n>
+  inline friend constexpr VectorT<other_n, T> operator-(VectorT<other_n, T2> const &other,
+                                                        EntryReference<n, T, indexes...> const &entries)
+    requires(numEntries == 1)
+  {
+    return other - entries[0];
+  }
+
+  // Adding values
+  template <AdditiveAutoCasting<T> T2> inline constexpr VectorT<numEntries, T> operator+(T2 const &value) const {
+    return VectorT<numEntries, T>((Access<n, T, indexes>(parent) + value)...);
+  }
+  template <AdditiveAutoCasting<T> T2>
+  inline friend constexpr VectorT<numEntries, T> operator+(T2 const &value,
+                                                           EntryReference<n, T, indexes...> const &entries) {
+    return entries + value;
+  }
+  template <AdditiveAutoCasting<T> T2> inline constexpr VectorT<numEntries, T> operator-(T2 const &value) const {
+    return VectorT<numEntries, T>((Access<n, T, indexes>(parent) - value)...);
+  }
+  template <AdditiveAutoCasting<T> T2>
+  inline friend constexpr VectorT<numEntries, T> operator-(T2 const &value,
+                                                           EntryReference<n, T, indexes...> const &entries) {
+    return -entries + value;
+  }
+  template <AdditiveAutoCasting<T> T2> inline constexpr EntryReference<n, T, indexes...> &operator+=(T2 const &value) {
+    ((Access<n, T, indexes>(parent) += value), ...);
+    return *this;
+  }
+  template <AdditiveAutoCasting<T> T2> inline constexpr EntryReference<n, T, indexes...> &operator-=(T2 const &value) {
+    ((Access<n, T, indexes>(parent) -= value), ...);
+    return *this;
+  }
+
+  template <AdditiveAutoCasting<T> T2, uint8_t other_n, uint8_t other_index>
+  inline constexpr VectorT<numEntries, T> operator+(EntryReference<other_n, T2, other_index> const &value) const {
+    return VectorT<numEntries, T>((Access<n, T, indexes>(parent) + value[0])...);
+  }
+  template <AdditiveAutoCasting<T> T2, uint8_t other_n, uint8_t other_index>
+  inline friend constexpr VectorT<numEntries, T> operator+(EntryReference<other_n, T2, other_index> const &value,
+                                                           EntryReference<n, T, indexes...> const &entries) {
+    return entries + value;
+  }
+  template <AdditiveAutoCasting<T> T2, uint8_t other_n, uint8_t other_index>
+  inline constexpr VectorT<numEntries, T> operator-(EntryReference<other_n, T2, other_index> const &value) const {
+    return VectorT<numEntries, T>((Access<n, T, indexes>(parent) - value[0])...);
+  }
+  template <AdditiveAutoCasting<T> T2, uint8_t other_n, uint8_t other_index>
+  inline friend constexpr VectorT<numEntries, T> operator-(EntryReference<other_n, T2, other_index> const &value,
+                                                           EntryReference<n, T, indexes...> const &entries) {
+    return -entries + value;
+  }
+  template <AdditiveAutoCasting<T> T2, uint8_t other_n, uint8_t other_index>
+  inline constexpr EntryReference<n, T, indexes...> &operator+=(EntryReference<other_n, T2, other_index> const &value) {
+    ((Access<n, T, indexes>(parent) += value[0]), ...);
+    return *this;
+  }
+  template <AdditiveAutoCasting<T> T2, uint8_t other_n, uint8_t other_index>
+  inline constexpr EntryReference<n, T, indexes...> &operator-=(EntryReference<other_n, T2, other_index> const &value) {
+    ((Access<n, T, indexes>(parent) -= value[0]), ...);
+    return *this;
+  }
+
+  // Adding vectors
+  template <AdditiveAutoCasting<T> T2>
+  inline constexpr VectorT<numEntries, T> operator+(VectorT<numEntries, T2> const &other) const {
+    return VectorT<numEntries, T>((Access<n, T, indexes>(parent))...) + other;
+  }
+  template <AdditiveAutoCasting<T> T2>
+  inline friend constexpr VectorT<numEntries, T> operator+(VectorT<numEntries, T2> const &other,
+                                                           EntryReference<n, T, indexes...> const &entries) {
+    return entries + other;
+  }
+  template <AdditiveAutoCasting<T> T2>
+  inline constexpr VectorT<numEntries, T> operator-(VectorT<numEntries, T2> const &other) const {
+    return VectorT<numEntries, T>((Access<n, T, indexes>(parent))...) - other;
+  }
+  template <AdditiveAutoCasting<T> T2>
+  inline friend constexpr VectorT<numEntries, T> operator-(VectorT<numEntries, T2> const &other,
+                                                           EntryReference<n, T, indexes...> const &entries) {
+    return -entries + other;
+  }
+  template <AdditiveAutoCasting<T> T2>
+  inline constexpr EntryReference<n, T, indexes...> &operator+=(VectorT<numEntries, T2> const &other) {
+    uint8_t i = 0;
+    ((Access<n, T, indexes>(parent) += other[i++]), ...);
+    return *this;
+  }
+  template <AdditiveAutoCasting<T> T2>
+  inline constexpr EntryReference<n, T, indexes...> &operator-=(VectorT<numEntries, T2> const &other) {
+    uint8_t i = 0;
+    ((Access<n, T, indexes>(parent) -= other[i++]), ...);
+    return *this;
+  }
+
+  template <AdditiveAutoCasting<T> T2, uint8_t other_n, uint8_t... other_indexes>
+  inline constexpr VectorT<numEntries, T> operator+(EntryReference<other_n, T2, other_indexes...> const &other) const
+    requires(EntryReference<other_n, T2, other_indexes...>::numEntries == numEntries)
+  {
+    return VectorT<numEntries, T>((Access<n, T, indexes>(parent))...) + other;
+  }
+  template <AdditiveAutoCasting<T> T2, uint8_t other_n, uint8_t... other_indexes>
+  inline constexpr VectorT<numEntries, T> operator-(EntryReference<other_n, T2, other_indexes...> const &other) const
+    requires(EntryReference<other_n, T2, other_indexes...>::numEntries == numEntries)
+  {
+    return VectorT<numEntries, T>((Access<n, T, indexes>(parent))...) - other;
+  }
+  template <AdditiveAutoCasting<T> T2, uint8_t other_n, uint8_t... other_indexes>
+  inline constexpr EntryReference<n, T, indexes...> &
+  operator+=(EntryReference<other_n, T2, other_indexes...> const &other)
+    requires(EntryReference<other_n, T2, other_indexes...>::numEntries == numEntries)
+  {
+    uint8_t i = 0;
+    ((Access<n, T, indexes>(parent) += other[i++]), ...);
+    return *this;
+  }
+  template <AdditiveAutoCasting<T> T2, uint8_t other_n, uint8_t... other_indexes>
+  inline constexpr EntryReference<n, T, indexes...> &
+  operator-=(EntryReference<other_n, T2, other_indexes...> const &other)
+    requires(EntryReference<other_n, T2, other_indexes...>::numEntries == numEntries)
+  {
+    uint8_t i = 0;
+    ((Access<n, T, indexes>(parent) -= other[i++]), ...);
+    return *this;
+  }
+
+  // Special case in multiplication
+  template <MultiplicativeAutoCasting<T> T2, uint8_t other_n>
+  inline friend constexpr VectorT<other_n, T> operator*(VectorT<other_n, T2> const &other,
+                                                        EntryReference<n, T, indexes...> const &entries)
+    requires(numEntries == 1)
+  {
+    return other * entries[0];
+  }
+  template <MultiplicativeAutoCasting<T> T2, uint8_t other_n>
+  inline friend constexpr VectorT<other_n, T> operator/(VectorT<other_n, T2> const &other,
+                                                        EntryReference<n, T, indexes...> const &entries)
+    requires(numEntries == 1)
+  {
+    return other / entries[0];
+  }
+
+  // Multiplying by values (outer product)
+  template <MultiplicativeAutoCasting<T> T2> inline constexpr VectorT<numEntries, T> operator*(T2 const &value) const {
+    return VectorT<numEntries, T>((Access<n, T, indexes>(parent) * value)...);
+  }
+  template <MultiplicativeAutoCasting<T> T2>
+  inline friend constexpr VectorT<numEntries, T> operator*(T2 const &value,
+                                                           EntryReference<n, T, indexes...> const &entries) {
+    return entries * value;
+  }
+  template <MultiplicativeAutoCasting<T> T2> inline constexpr VectorT<numEntries, T> operator/(T2 const &value) const {
+    return VectorT<numEntries, T>((Access<n, T, indexes>(parent) - value)...);
+  }
+  template <MultiplicativeAutoCasting<T> T2>
+  inline constexpr EntryReference<n, T, indexes...> &operator*=(T2 const &value) {
+    ((Access<n, T, indexes>(parent) *= value), ...);
+    return *this;
+  }
+  template <MultiplicativeAutoCasting<T> T2>
+  inline constexpr EntryReference<n, T, indexes...> &operator/=(T2 const &value) {
+    ((Access<n, T, indexes>(parent) /= value), ...);
+    return *this;
+  }
+
+  template <MultiplicativeAutoCasting<T> T2, uint8_t other_n, uint8_t other_index>
+  inline constexpr VectorT<numEntries, T> operator*(EntryReference<other_n, T2, other_index> const &value) const {
+    return VectorT<numEntries, T>((Access<n, T, indexes>(parent) * value[0])...);
+  }
+  template <MultiplicativeAutoCasting<T> T2, uint8_t other_n, uint8_t other_index>
+  inline friend constexpr VectorT<numEntries, T> operator*(EntryReference<other_n, T2, other_index> const &value,
+                                                           EntryReference<n, T, indexes...> const &entries) {
+    return entries * value;
+  }
+  template <MultiplicativeAutoCasting<T> T2, uint8_t other_n, uint8_t other_index>
+  inline constexpr VectorT<numEntries, T> operator/(EntryReference<other_n, T2, other_index> const &value) const {
+    return VectorT<numEntries, T>((Access<n, T, indexes>(parent) / value[0])...);
+  }
+  template <MultiplicativeAutoCasting<T> T2, uint8_t other_n, uint8_t other_index>
+  inline constexpr EntryReference<n, T, indexes...> &operator*=(EntryReference<other_n, T2, other_index> const &value) {
+    ((Access<n, T, indexes>(parent) *= value[0]), ...);
+    return *this;
+  }
+  template <MultiplicativeAutoCasting<T> T2, uint8_t other_n, uint8_t other_index>
+  inline constexpr EntryReference<n, T, indexes...> &operator/=(EntryReference<other_n, T2, other_index> const &value) {
+    ((Access<n, T, indexes>(parent) /= value[0]), ...);
+    return *this;
+  }
+
+  // Multiplying by vectors (inner product)
+  template <MultiplicativeAutoCasting<T> T2> inline constexpr T operator*(VectorT<numEntries, T2> const &other) const {
+    return VectorT<numEntries, T>((Access<n, T, indexes>(parent))...) * other;
+  }
+  template <MultiplicativeAutoCasting<T> T2>
+  inline friend constexpr T operator*(VectorT<numEntries, T2> const &other,
+                                      EntryReference<n, T, indexes...> const &entries) {
+    return entries * other;
+  }
+
+  template <MultiplicativeAutoCasting<T> T2, uint8_t other_n, uint8_t... other_indexes>
+  inline constexpr T operator*(EntryReference<other_n, T2, other_indexes...> const &other) const
+    requires(EntryReference<other_n, T2, other_indexes...>::numEntries == numEntries)
+  {
+    return VectorT<numEntries, T>((Access<n, T, indexes>(parent))...) * other;
+  }
+};
+
 // Saved in column form (n x m means m columns, n rows)
 template <uint8_t n, uint8_t m, typename T> struct alignas(alignment<T>(n, m)) MatrixT {
 private:
@@ -77,44 +357,32 @@ public:
   MatrixT(_T... values) : MatrixT(true, values...) {}
   MatrixT() : data() {}
 
-  inline bool operator==(MatrixT<n, m, T> const &other) const;
-  inline bool operator!=(MatrixT<n, m, T> const &other) const { return !(*this == other); };
+  inline constexpr bool operator==(MatrixT<n, m, T> const &other) const;
+  inline constexpr bool operator!=(MatrixT<n, m, T> const &other) const { return !(*this == other); };
 
-  inline MatrixT<n, m, T> operator-() const;
-  inline MatrixT<n, m, T> operator+(MatrixT<n, m, T> const &other) const;
-  inline MatrixT<n, m, T> operator-(MatrixT<n, m, T> const &other) const;
-  template <typename T2>
-  inline MatrixT<n, m, T> operator+(T2 const &value) const
-    requires(std::is_arithmetic<T2>::value);
-  template <typename T2>
-  inline MatrixT<n, m, T> operator-(T2 const &value) const
-    requires(std::is_arithmetic<T2>::value);
-  template <typename T2> inline friend MatrixT<n, m, T> operator+(T2 const &value, MatrixT<n, m, T> const &matrix) {
+  inline constexpr MatrixT<n, m, T> operator-() const;
+  inline constexpr MatrixT<n, m, T> operator+(MatrixT<n, m, T> const &other) const;
+  inline constexpr MatrixT<n, m, T> operator-(MatrixT<n, m, T> const &other) const;
+  template <AdditiveAutoCasting<T> T2> inline constexpr MatrixT<n, m, T> operator+(T2 const &value) const;
+  template <AdditiveAutoCasting<T> T2> inline constexpr MatrixT<n, m, T> operator-(T2 const &value) const;
+  template <AdditiveAutoCasting<T> T2>
+  inline constexpr friend MatrixT<n, m, T> operator+(T2 const &value, MatrixT<n, m, T> const &matrix) {
     return matrix + value;
   }
   inline MatrixT<n, m, T> &operator+=(MatrixT<n, m, T> const &other);
-  template <typename T2>
-  inline MatrixT<n, m, T> &operator+=(T2 const &value)
-    requires(std::is_arithmetic<T2>::value);
+  template <AdditiveAutoCasting<T> T2> inline MatrixT<n, m, T> &operator+=(T2 const &value);
   inline MatrixT<n, m, T> &operator-=(MatrixT<n, m, T> const &other);
-  template <typename T2> inline MatrixT<n, m, T> &operator-=(T2 const &value);
-  template <uint8_t l> inline MatrixT<n, l, T> operator*(MatrixT<m, l, T> const &other) const;
-  template <typename T2>
-  inline MatrixT<n, m, T> operator*(T2 const &value) const
-    requires(std::is_arithmetic<T2>::value);
-  template <typename T2>
-  inline MatrixT<n, m, T> operator/(T2 const &value) const
-    requires(std::is_arithmetic<T2>::value);
-  template <typename T2> inline friend MatrixT<n, m, T> operator*(T2 const &value, MatrixT<n, m, T> const &matrix) {
+  template <AdditiveAutoCasting<T> T2> inline MatrixT<n, m, T> &operator-=(T2 const &value);
+  template <uint8_t l> inline constexpr MatrixT<n, l, T> operator*(MatrixT<m, l, T> const &other) const;
+  template <MultiplicativeAutoCasting<T> T2> inline constexpr MatrixT<n, m, T> operator*(T2 const &value) const;
+  template <MultiplicativeAutoCasting<T> T2> inline constexpr MatrixT<n, m, T> operator/(T2 const &value) const;
+  template <MultiplicativeAutoCasting<T> T2>
+  inline constexpr friend MatrixT<n, m, T> operator*(T2 const &value, MatrixT<n, m, T> const &matrix) {
     return matrix * value;
   }
   inline MatrixT<n, m, T> &operator*=(MatrixT<n, m, T> const &other);
-  template <typename T2>
-  inline MatrixT<n, m, T> &operator*=(T2 const &value)
-    requires(std::is_arithmetic<T2>::value);
-  template <typename T2>
-  inline MatrixT<n, m, T> &operator/=(T2 const &value)
-    requires(std::is_arithmetic<T2>::value);
+  template <MultiplicativeAutoCasting<T> T2> inline MatrixT<n, m, T> &operator*=(T2 const &value);
+  template <MultiplicativeAutoCasting<T> T2> inline MatrixT<n, m, T> &operator/=(T2 const &value);
   inline MatrixT<m, n, T> Transposed() const;
   inline MatrixT<n, n, T> Inverse() const
     requires(m == n)
@@ -222,224 +490,86 @@ private:
     inline T const &operator[](uint8_t column) const { return parent.data[row * m + column]; }
   };
 
-  class Entry {
-    MatrixT<n, 1, T> &parent;
-    uint8_t index;
-
-  public:
-    Entry(MatrixT<n, 1, T> &v, uint8_t i) : parent(v), index(i) {}
-    inline T &operator=(T const &value) { return parent.data[index] = value; }
-    template <typename T2> inline T &operator+=(T2 const &value) { return parent.data[index] += value; }
-    template <typename T2> inline T &operator-=(T2 const &value) { return parent.data[index] -= value; }
-    template <typename T2> inline T &operator*=(T2 const &value) { return parent.data[index] *= value; }
-    template <typename T2> inline T &operator/=(T2 const &value) { return parent.data[index] /= value; }
-    inline operator T() const { return parent.data[index]; }
-    template <typename T2> inline T operator+(T2 const &value) const { return parent.data[index] + value; }
-    template <typename T2> inline T operator-(T2 const &value) const { return parent.data[index] - value; }
-    template <typename T2> inline T operator*(T2 const &value) const { return parent.data[index] * value; }
-    template <typename T2> inline T operator/(T2 const &value) const { return parent.data[index] / value; }
-  };
-
-  class EntryPair {
-    MatrixT<n, 1, T> &parent;
-    uint8_t index1;
-    uint8_t index2;
-
-  public:
-    EntryPair(MatrixT<n, 1, T> &v, uint8_t i1, uint8_t i2) : parent(v), index1(i1), index2(i2) {}
-    inline void operator=(MatrixT<2, 1, T> const &values) {
-      parent.data[index1] = values[X];
-      parent.data[index2] = values[Y];
-    }
-    inline void operator+=(MatrixT<2, 1, T> const &values) {
-      parent.data[index1] += values[X];
-      parent.data[index2] += values[Y];
-    }
-    template <typename T2> inline void operator+=(T2 const &value) {
-      parent.data[index1] += value;
-      parent.data[index2] += value;
-    }
-    inline void operator-=(MatrixT<2, 1, T> const &values) {
-      parent.data[index1] -= values[X];
-      parent.data[index2] -= values[Y];
-    }
-    template <typename T2> inline void operator-=(T2 const &value) {
-      parent.data[index1] += value;
-      parent.data[index2] -= value;
-    }
-    template <typename T2> inline void operator*=(T2 const &value) {
-      parent.data[index1] *= value;
-      parent.data[index2] *= value;
-    }
-    template <typename T2> inline void operator/=(T2 const &value) {
-      parent.data[index1] /= value;
-      parent.data[index2] /= value;
-    }
-    inline operator MatrixT<2, 1, T>() const { return MatrixT<2, 1, T>({parent.data[index1], parent.data[index2]}); }
-  };
-
-  class EntryTriplet {
-    MatrixT<n, 1, T> &parent;
-    uint8_t index1;
-    uint8_t index2;
-    uint8_t index3;
-
-  public:
-    EntryTriplet(MatrixT<n, 1, T> &v, uint8_t i1, uint8_t i2, uint8_t i3)
-        : parent(v), index1(i1), index2(i2), index3(i3) {}
-    inline void operator=(MatrixT<3, 1, T> const &values) {
-      parent.data[index1] = values[X];
-      parent.data[index2] = values[Y];
-      parent.data[index3] = values[Z];
-    }
-    inline void operator+=(MatrixT<3, 1, T> const &values) {
-      parent.data[index1] += values[X];
-      parent.data[index2] += values[Y];
-      parent.data[index3] += values[Z];
-    }
-    template <typename T2> inline void operator+=(T2 const &value) {
-      parent.data[index1] += value;
-      parent.data[index2] += value;
-      parent.data[index3] += value;
-    }
-    inline void operator-=(MatrixT<3, 1, T> const &values) {
-      parent.data[index1] -= values[X];
-      parent.data[index2] -= values[Y];
-      parent.data[index3] -= values[Z];
-    }
-    template <typename T2> inline void operator-=(T2 const &value) {
-      parent.data[index1] += value;
-      parent.data[index2] -= value;
-      parent.data[index3] -= value;
-    }
-    template <typename T2> inline void operator*=(T2 const &value) {
-      parent.data[index1] *= value;
-      parent.data[index2] *= value;
-      parent.data[index3] *= value;
-    }
-    template <typename T2> inline void operator/=(T2 const &value) {
-      parent.data[index1] /= value;
-      parent.data[index2] /= value;
-      parent.data[index3] /= value;
-    }
-    inline operator MatrixT<3, 1, T>() const {
-      return MatrixT<3, 1, T>{parent.data[index1], parent.data[index2], parent.data[index3]};
-    }
-  };
-
-  class EntryQuadruple {
-    MatrixT<n, 1, T> &parent;
-    uint8_t index1;
-    uint8_t index2;
-    uint8_t index3;
-    uint8_t index4;
-
-  public:
-    EntryQuadruple(MatrixT<n, 1, T> &v, uint8_t i1, uint8_t i2, uint8_t i3, uint8_t i4)
-        : parent(v), index1(i1), index2(i2), index3(i3), index4(i4) {}
-    inline void operator=(MatrixT<4, 1, T> const &values) {
-      parent.data[index1] = values[X];
-      parent.data[index2] = values[Y];
-      parent.data[index3] = values[Z];
-      parent.data[index4] = values[W];
-    }
-    inline void operator+=(MatrixT<4, 1, T> const &values) {
-      parent.data[index1] += values[X];
-      parent.data[index2] += values[Y];
-      parent.data[index3] += values[Z];
-      parent.data[index4] += values[W];
-    }
-    template <typename T2> inline void operator+=(T2 const &value) {
-      parent.data[index1] += value;
-      parent.data[index2] += value;
-      parent.data[index3] += value;
-      parent.data[index4] += value;
-    }
-    inline void operator-=(MatrixT<4, 1, T> const &values) {
-      parent.data[index1] -= values[X];
-      parent.data[index2] -= values[Y];
-      parent.data[index3] -= values[Z];
-      parent.data[index4] -= values[W];
-    }
-    template <typename T2> inline void operator-=(T2 const &value) {
-      parent.data[index1] += value;
-      parent.data[index2] -= value;
-      parent.data[index3] -= value;
-      parent.data[index4] -= value;
-    }
-    template <typename T2> inline void operator*=(T2 const &value) {
-      parent.data[index1] *= value;
-      parent.data[index2] *= value;
-      parent.data[index3] *= value;
-      parent.data[index4] *= value;
-    }
-    template <typename T2> inline void operator/=(T2 const &value) {
-      parent.data[index1] /= value;
-      parent.data[index2] /= value;
-      parent.data[index3] /= value;
-      parent.data[index4] /= value;
-    }
-    inline operator MatrixT<4, 1, T>() const {
-      return MatrixT<4, 1, T>(parent.data[index1], parent.data[index2], parent.data[index3], parent.data[index4]);
-    }
-  };
-
 public:
   inline Row operator[](uint8_t row) { return Row(*this, row); };
   inline ConstRow operator[](uint8_t row) const { return ConstRow(*this, row); };
 
-  // TODO: Allow value retrieval on const vectors?
-  inline T x() const { return data[X]; }
-  inline T y() const { return data[Y]; }
-  inline T z() const { return data[Z]; }
-  Entry x()
+  template <uint8_t... indexes>
+  EntryReference<n, T, indexes...> Entries()
     requires(m == 1)
   {
-    return Entry(*this, X);
-  }
-  Entry y()
-    requires(m == 1 && n >= 2)
-  {
-    return Entry(*this, Y);
-  }
-  Entry z()
-    requires(m == 1 && n >= 3)
-  {
-    return Entry(*this, Z);
-  }
-  Entry w()
-    requires(m == 1 && n >= 4)
-  {
-    return Entry(*this, W);
+    return {*this};
   }
 
-  EntryPair xy()
-    requires(m == 1 && n >= 2)
-  {
-    return EntryPair(*this, X, Y);
-  }
-  EntryPair xz()
-    requires(m == 1 && n >= 3)
-  {
-    return EntryPair(*this, X, Z);
-  }
-  EntryPair yz()
-    requires(m == 1 && n >= 3)
-  {
-    return EntryPair(*this, Y, Z);
-  }
-
-  EntryTriplet xyz()
-    requires(m == 1 && n >= 3)
-  {
-    return EntryTriplet(*this, X, Y, Z);
-  }
-
-  EntryQuadruple xyzw()
-    requires(m == 1 && n >= 4)
-  {
-    return EntryQuadruple(*this, X, Y, Z, W);
-  }
+  // TODO: Allow value retrieval on const vectors?
+  inline T x() const requires(m == 1){ return data[X]; }
+  inline T y() const requires(m == 1 && n >= 2) { return data[Y]; }
+  inline T z() const requires(m == 1 && n >= 3) { return data[Z]; }
+  inline T w() const requires(m == 1 && n >= 4) { return data[W]; }
+  inline EntryReference<n, T, X> x() requires(m == 1) { return {*this}; }
+  inline EntryReference<n, T, Y> y() requires(m == 1 && n >= 2) { return {*this}; }
+  inline EntryReference<n, T, Z> z() requires(m == 1 && n >= 3) { return {*this}; }
+  inline EntryReference<n, T, W> w() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, X, Y> xy() requires(m == 1 && n >= 2) { return {*this}; }
+  inline EntryReference<n, T, X, Z> xz() requires(m == 1 && n >= 3) { return {*this}; }
+  inline EntryReference<n, T, X, W> xw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, Y, X> yx() requires(m == 1 && n >= 2) { return {*this}; }
+  inline EntryReference<n, T, Y, Z> yz() requires(m == 1 && n >= 3) { return {*this}; }
+  inline EntryReference<n, T, Y, W> yw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, Z, X> zx() requires(m == 1 && n >= 3) { return {*this}; }
+  inline EntryReference<n, T, Z, Y> zy() requires(m == 1 && n >= 3) { return {*this}; }
+  inline EntryReference<n, T, Z, W> zw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, W, X> wx() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, W, Y> wy() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, W, Z> wz() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, X, Y, Z> xyz() requires(m == 1 && n >= 3) { return {*this}; }
+  inline EntryReference<n, T, X, Y, W> xyw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, X, Z, Y> xzy() requires(m == 1 && n >= 3) { return {*this}; }
+  inline EntryReference<n, T, X, Z, W> xzw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, X, W, Y> xwy() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, X, W, Z> xwz() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, Y, X, Z> yxz() requires(m == 1 && n >= 3) { return {*this}; }
+  inline EntryReference<n, T, Y, X, W> yxw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, Y, Z, X> yzx() requires(m == 1 && n >= 3) { return {*this}; }
+  inline EntryReference<n, T, Y, Z, W> yzw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, Y, W, X> ywx() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, Y, W, Z> ywz() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, Z, X, Y> zxy() requires(m == 1 && n >= 3) { return {*this}; }
+  inline EntryReference<n, T, Z, X, W> zxw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, Z, Y, X> zyx() requires(m == 1 && n >= 3) { return {*this}; }
+  inline EntryReference<n, T, Z, Y, W> zyw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, Z, W, X> zwx() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, Z, W, Y> zwy() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, W, X, Y> wxy() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, W, X, Z> wxz() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, W, Y, X> wyx() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, W, Y, Z> wyz() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, W, Z, X> wzx() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, W, Z, Y> wzy() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, X, Y, Z, W> xyzw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, X, Y, W, Z> xywz() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, X, Z, Y, W> xzyw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, X, Z, W, Y> xzwy() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, X, W, Y, Z> xwyz() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, X, W, Z, Y> xwzy() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, Y, X, Z, W> yxzw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, Y, X, W, Z> yxwz() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, Y, Z, X, W> yzxw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, Y, Z, W, X> yzwx() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, Y, W, X, Z> ywxz() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, Y, W, Z, X> ywzx() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, Z, X, Y, W> zxyw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, Z, X, W, Y> zxwy() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, Z, Y, X, W> zyxw() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, Z, Y, W, X> zywx() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, Z, W, X, Y> zwxy() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, Z, W, Y, X> zwyx() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, W, X, Y, Z> wxyz() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, W, X, Z, Y> wxzy() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, W, Y, X, Z> wyxz() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, W, Y, Z, X> wyzx() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, W, Z, X, Y> wzxy() requires(m == 1 && n >= 4) { return {*this}; }
+  inline EntryReference<n, T, W, Z, Y, X> wzyx() requires(m == 1 && n >= 4) { return {*this}; }
 
 private:
   // Adds factor * row1 to row2
@@ -576,7 +706,7 @@ template <uint8_t n, uint8_t m, typename T> inline void MatrixT<n, m, T>::RowSwa
 
 template <uint8_t n, uint8_t m, typename T>
 template <uint8_t l>
-inline MatrixT<n, l, T> MatrixT<n, m, T>::operator*(MatrixT<m, l, T> const &other) const {
+inline constexpr MatrixT<n, l, T> MatrixT<n, m, T>::operator*(MatrixT<m, l, T> const &other) const {
   std::array<T, n * l> newVals{};
   for (int resCol = 0; resCol < l; resCol++) {
     for (int resRow = 0; resRow < n; resRow++) {
@@ -592,7 +722,7 @@ inline MatrixT<n, l, T> MatrixT<n, m, T>::operator*(MatrixT<m, l, T> const &othe
 }
 
 template <uint8_t n, uint8_t m, typename T>
-inline bool MatrixT<n, m, T>::operator==(MatrixT<n, m, T> const &other) const {
+inline constexpr bool MatrixT<n, m, T>::operator==(MatrixT<n, m, T> const &other) const {
   for (int row = 0; row < n; row++) {
     for (int col = 0; col < m; col++) {
       if constexpr (std::is_integral<T>::value) {
@@ -607,7 +737,7 @@ inline bool MatrixT<n, m, T>::operator==(MatrixT<n, m, T> const &other) const {
   return true;
 }
 
-template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> MatrixT<n, m, T>::operator-() const {
+template <uint8_t n, uint8_t m, typename T> inline constexpr MatrixT<n, m, T> MatrixT<n, m, T>::operator-() const {
   std::array<T, n * m> newVals;
   for (int i = 0; i < n * m; i++) {
     newVals[i] = -data[i];
@@ -616,7 +746,7 @@ template <uint8_t n, uint8_t m, typename T> inline MatrixT<n, m, T> MatrixT<n, m
 }
 
 template <uint8_t n, uint8_t m, typename T>
-inline MatrixT<n, m, T> MatrixT<n, m, T>::operator+(MatrixT<n, m, T> const &other) const {
+inline constexpr MatrixT<n, m, T> MatrixT<n, m, T>::operator+(MatrixT<n, m, T> const &other) const {
   std::array<T, n * m> newVals;
   for (int i = 0; i < n * m; i++) {
     newVals[i] = data[i] + other[i];
@@ -625,7 +755,7 @@ inline MatrixT<n, m, T> MatrixT<n, m, T>::operator+(MatrixT<n, m, T> const &othe
 }
 
 template <uint8_t n, uint8_t m, typename T>
-inline MatrixT<n, m, T> MatrixT<n, m, T>::operator-(MatrixT<n, m, T> const &other) const {
+inline constexpr MatrixT<n, m, T> MatrixT<n, m, T>::operator-(MatrixT<n, m, T> const &other) const {
   std::array<T, n * m> newVals;
   for (int i = 0; i < n * m; i++) {
     newVals[i] = data[i] - other[i];
@@ -634,10 +764,8 @@ inline MatrixT<n, m, T> MatrixT<n, m, T>::operator-(MatrixT<n, m, T> const &othe
 }
 
 template <uint8_t n, uint8_t m, typename T>
-template <typename T2>
-inline MatrixT<n, m, T> MatrixT<n, m, T>::operator+(T2 const &value) const
-  requires(std::is_arithmetic<T2>::value)
-{
+template <AdditiveAutoCasting<T> T2>
+inline constexpr MatrixT<n, m, T> MatrixT<n, m, T>::operator+(T2 const &value) const {
   std::array<T, n * m> newVals;
   for (int i = 0; i < n * m; i++) {
     newVals[i] = data[i] + value;
@@ -646,10 +774,8 @@ inline MatrixT<n, m, T> MatrixT<n, m, T>::operator+(T2 const &value) const
 }
 
 template <uint8_t n, uint8_t m, typename T>
-template <typename T2>
-inline MatrixT<n, m, T> MatrixT<n, m, T>::operator-(T2 const &value) const
-  requires(std::is_arithmetic<T2>::value)
-{
+template <AdditiveAutoCasting<T> T2>
+inline constexpr MatrixT<n, m, T> MatrixT<n, m, T>::operator-(T2 const &value) const {
   std::array<T, n * m> newVals;
   for (int i = 0; i < n * m; i++) {
     newVals[i] = data[i] - value;
@@ -666,10 +792,8 @@ inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator+=(MatrixT<n, m, T> const &ot
 }
 
 template <uint8_t n, uint8_t m, typename T>
-template <typename T2>
-inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator+=(T2 const &value)
-  requires(std::is_arithmetic<T2>::value)
-{
+template <AdditiveAutoCasting<T> T2>
+inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator+=(T2 const &value) {
   for (int i = 0; i < n * m; i++) {
     data[i] += value;
   }
@@ -685,7 +809,7 @@ inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator-=(MatrixT<n, m, T> const &ot
 }
 
 template <uint8_t n, uint8_t m, typename T>
-template <typename T2>
+template <AdditiveAutoCasting<T> T2>
 inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator-=(T2 const &value) {
   for (int i = 0; i < n * m; i++) {
     data[i] -= value;
@@ -702,10 +826,8 @@ inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator*=(MatrixT<n, m, T> const &ot
 }
 
 template <uint8_t n, uint8_t m, typename T>
-template <typename T2>
-inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator*=(T2 const &value)
-  requires(std::is_arithmetic<T2>::value)
-{
+template <MultiplicativeAutoCasting<T> T2>
+inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator*=(T2 const &value) {
   for (int i = 0; i < n * m; i++) {
     data[i] *= value;
   }
@@ -713,10 +835,8 @@ inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator*=(T2 const &value)
 }
 
 template <uint8_t n, uint8_t m, typename T>
-template <typename T2>
-inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator/=(T2 const &value)
-  requires(std::is_arithmetic<T2>::value)
-{
+template <MultiplicativeAutoCasting<T> T2>
+inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator/=(T2 const &value) {
   for (int i = 0; i < n * m; i++) {
     data[i] /= value;
   }
@@ -724,10 +844,8 @@ inline MatrixT<n, m, T> &MatrixT<n, m, T>::operator/=(T2 const &value)
 }
 
 template <uint8_t n, uint8_t m, typename T>
-template <typename T2>
-inline MatrixT<n, m, T> MatrixT<n, m, T>::operator*(T2 const &value) const
-  requires(std::is_arithmetic<T2>::value)
-{
+template <MultiplicativeAutoCasting<T> T2>
+inline constexpr MatrixT<n, m, T> MatrixT<n, m, T>::operator*(T2 const &value) const {
   std::array<T, n * m> newVals;
   for (int i = 0; i < n * m; i++) {
     newVals[i] = data[i] * value;
@@ -736,10 +854,8 @@ inline MatrixT<n, m, T> MatrixT<n, m, T>::operator*(T2 const &value) const
 }
 
 template <uint8_t n, uint8_t m, typename T>
-template <typename T2>
-inline MatrixT<n, m, T> MatrixT<n, m, T>::operator/(T2 const &value) const
-  requires(std::is_arithmetic<T2>::value)
-{
+template <MultiplicativeAutoCasting<T> T2>
+inline constexpr MatrixT<n, m, T> MatrixT<n, m, T>::operator/(T2 const &value) const {
   std::array<T, n * m> newVals;
   for (int i = 0; i < n * m; i++) {
     newVals[i] = data[i] / value;
@@ -823,5 +939,6 @@ template <uint8_t n, typename T> struct formatter<Engine::Maths::VectorT<n, T>> 
 
 } // namespace std
 
+template <uint8_t n, uint8_t m, typename T> PARTIALLY_SPECIALIZED_JSON(Engine::Maths::MatrixT<n COMMA m COMMA T>);
 TEMPLATED_JSON(TEMPLATE_ARGS(uint8_t n, uint8_t m, typename T), Engine::Maths::MatrixT<TEMPLATE_ARGS(n, m, T)>,
                FIELDS(data));

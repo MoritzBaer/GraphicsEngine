@@ -94,4 +94,11 @@ endmacro()
 if(${BUILD_DEMO_APPS})
     make_app(TestApp test)
     make_app(DebugApp main)
+
+    add_executable(MinimalTestApp "src/test.cpp")
+    target_include_directories(MinimalTestApp PRIVATE "src/Engine")
+    target_include_directories(MinimalTestApp PRIVATE "src/external/json-parsing")
+
+    target_include_directories(MinimalTestApp PRIVATE ${Vulkan_INCLUDE_DIR})
+    target_compile_options(MinimalTestApp PRIVATE /Zc:preprocessor)
 endif()

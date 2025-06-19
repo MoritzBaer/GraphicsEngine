@@ -11,15 +11,42 @@ using namespace Engine;
 
 namespace Test {
 
-BEGIN_TEST_CASE(vector)
+BEGIN_TEST_CASE(entryAccessors)
 
 Vector<10> v1{20, 34, 95, 35, 98, 84, 20, 85, 18, 70};
 Vector4 v2 = v1.xyzw();
 TEST_ASSERT_EQUAL(float, v1, "vector with ten entries", v2, "first four entries",
                   "Accessor for first four entries did not give the correct values!")
+Vector4 test = (v1.Entries<0>() - v1.Entries<0, 2, 7, 4>());
+Vector4 intendedResult = {0, -75, -65, -78};
+TEST_ASSERT_EQUAL(float, test, "subtraction result", intendedResult, "real values",
+                  "Accessor subtraction did not give the correct values!")
+Vector2 testXY = (test.Entries<0, 1>() += v1.Entries<0>());
+TEST_ASSERT_EQUAL(float, test, "modified vector", testXY, "first two entries", "Accessor assignment did not work!")
+Vector2 accumulatedTest = (test.Entries<0, 2>() += test.Entries<1, 3>());
+Vector2 accumulatedControl = test.Entries<0, 2>();
+TEST_ASSERT_EQUAL(float, accumulatedTest, "modified vector", accumulatedControl, "first two entries",
+                  "Accessor assignment did not work!")
 
+v2 = Vector4(1, 2, 3, 4);
+Vector3 homogenizedV2 = v2.xyz() / v2.w();
+v1.xyzw() = v2;
+TEST_ASSERT_EQUAL(float, v1, "Vector10", v2, "Vector4", "Setting entries does not give correct result!")
+
+//const Vector4 constVec = {1,2,3,4};
+//auto constEntries = constVec.xy();
+//TEST_ASSERT_EQUAL(float, constVec, "constant vector", constEntries, "entries", "Failed to retrieve values from const vector!")
+
+END_TEST_CASE()
+
+BEGIN_TEST_CASE(vector)
+
+Vector4 v2 = {20, 34, 95, 35};
 float explicit_v2[] = {20, 34, 95, 35};
 TEST_ASSERT_EQUAL(float, v2, "actual", explicit_v2, "wanted", "Internal representation is not as desired!")
+
+RUN_SUB_CASE(entryAccessors)
+
 float v2l = v2.Length();
 float expected_length = 108.655418641f;
 TEST_ASSERT_EQUAL(float, v2l, "actual", expected_length, "wanted", "Length calculation gives wrong result!")
@@ -28,9 +55,6 @@ v2.Normalize();
 TEST_ASSERT(abs(v2.Length() - 1) < EQUALITY_EPS, "Normalization results in incorrect length of {}!", v2.Length())
 float correct_v2[] = {explicit_v2[0] / v2l, explicit_v2[1] / v2l, explicit_v2[2] / v2l, explicit_v2[3] / v2l};
 TEST_ASSERT_EQUAL(float, v2, "actual", correct_v2, "correct", "Normalization gives incorrect result!")
-
-v1.xyzw() = v2;
-TEST_ASSERT_EQUAL(float, v1, "Vector10", v2, "Vector4", "Setting entries does not give correct result!")
 
 Vector3 a{1, 2, 3};
 Vector3 b{3, 4, 5};
@@ -112,8 +136,7 @@ auto P = Transformations::Perspective(0.01f, 100.0f, 60.0f, 16.0f / 9.0f);
 
 Vector4 v1 = {1, 10, 0, 1};
 Vector4 v1p = P * v1;
-Vector3 v1h = v1p.xyz();
-v1h /= v1p[W];
+Vector3 v1h = v1p.xyz() / v1p.w();
 
 TEST_ASSERT(v1h[X] > 0 && v1h[X] < 1 && v1h[Y] == 0 && v1h[Z] > 0 && v1h[Z] < 1,
             "Perspective matrix does not transform point in front and right of camera correctly! (homogenized x: {})",
@@ -121,16 +144,14 @@ TEST_ASSERT(v1h[X] > 0 && v1h[X] < 1 && v1h[Y] == 0 && v1h[Z] > 0 && v1h[Z] < 1,
 
 Vector4 v2 = {0, 11, 0, 1};
 Vector4 v2p = P * v2;
-Vector3 v2h = v2p.xyz();
-v2h /= v2p[W];
+Vector3 v2h = v2p.xyz() / v2p.w();
 
 TEST_ASSERT(v2h[X] == 0 && v2h[Y] == 0 && v2h[Z] > 0 && v2h[Z] < 1,
             "Perspective matrix does not transform point in front of camera correctly! (homogenized z: {})", v2h[Z])
 
 Vector4 v3 = {0, 10, 1, 1};
 Vector4 v3p = P * v3;
-Vector3 v3h = v3p.xyz();
-v3h /= v3p[W];
+Vector3 v3h = v3p.xyz() / v3p.w();
 
 TEST_ASSERT(v3h[X] == 0 && v3h[Y] < 0 && v3h[Y] > -1 && v3h[Z] > 0 && v3h[Z] < 1,
             "Perspective matrix does not transform point in front and above of camera correctly! (homogenized y: {})",
@@ -138,8 +159,7 @@ TEST_ASSERT(v3h[X] == 0 && v3h[Y] < 0 && v3h[Y] > -1 && v3h[Z] > 0 && v3h[Z] < 1
 
 Vector4 v4 = {0.01, 1.99, 0.01, 1};
 Vector4 v4p = P * v4;
-Vector3 v4h = v4p.xyz();
-v4h /= v4p[W];
+Vector3 v4h = v4p.xyz() / v4p.w();
 
 TEST_ASSERT(
     v4h[X] > 0 && v4h[X] < 1 && v4h[Y] < 0 && v4h[Y] > -1 && v4h[Z] > 0 && v4h[Z] < 1,

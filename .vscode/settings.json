@@ -97,6 +97,6 @@
         "editor.semanticHighlighting.enabled": true,
         "editor.defaultFormatter": "ms-vscode.cpptools"
     },
-    "editor.formatOnSave": true,
+    "editor.formatOnSave": false,
     "json.format.keepLines": true
 }
