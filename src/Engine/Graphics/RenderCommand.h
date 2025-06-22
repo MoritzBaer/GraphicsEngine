@@ -14,20 +14,22 @@ protected:
   DescriptorWriter &descriptorWriter;
   UniformBinding const uniformBinding;
   T_Object const bufferedObject;
+  VkAttachmentLoadOp depthBufferLoadOp;
 
   virtual void DoRender(VkCommandBuffer const &) const;
 
 public:
   RenderCommand(Image<2> const &drawImage, Image<2> const &depthImage, DescriptorAllocator &descriptorAllocator,
                 DescriptorWriter &descriptorWriter, Maths::Dimension2 const &renderAreaSize,
-                UniformBinding const & uniformBinding, T_Object const &object)
+                UniformBinding const &uniformBinding, T_Object const &object,
+                VkAttachmentLoadOp const &depthBufferLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR)
       : drawImage(drawImage), depthImage(depthImage), bufferedObject(object), uniformBinding(uniformBinding),
-        renderAreaSize(renderAreaSize), descriptorAllocator(descriptorAllocator), descriptorWriter(descriptorWriter) {}
+        renderAreaSize(renderAreaSize), descriptorAllocator(descriptorAllocator), descriptorWriter(descriptorWriter),
+        depthBufferLoadOp(depthBufferLoadOp) {}
   void QueueExecution(VkCommandBuffer const &) const override;
 };
 
-template <typename T_Object>
-class MultiRenderCommand : public RenderCommand<std::vector<T_Object>> {
+template <typename T_Object> class MultiRenderCommand : public RenderCommand<std::vector<T_Object>> {
 
   void DoSingleRender(VkCommandBuffer const &, T_Object const &, UniformBinding const &) const;
   virtual void DoRender(VkCommandBuffer const &queue) const override {
@@ -39,19 +41,18 @@ class MultiRenderCommand : public RenderCommand<std::vector<T_Object>> {
 public:
   MultiRenderCommand(Image<2> const &drawImage, Image<2> const &depthImage, DescriptorAllocator &descriptorAllocator,
                      DescriptorWriter &descriptorWriter, Maths::Dimension2 const &renderAreaSize,
-                     UniformBinding const & uniformBinding, std::vector<T_Object> const &objects)
+                     UniformBinding const &uniformBinding, std::vector<T_Object> const &objects)
       : RenderCommand<std::vector<T_Object>>(drawImage, depthImage, descriptorAllocator, descriptorWriter,
-                                                        renderAreaSize, uniformBinding, objects) {}
+                                             renderAreaSize, uniformBinding, objects) {}
 };
 
 // +-----------------+
 // | IMPLEMENTATIONS |
 // +-----------------+
 
-template <typename T_Object>
-void RenderCommand<T_Object>::QueueExecution(VkCommandBuffer const &queue) const {
+template <typename T_Object> void RenderCommand<T_Object>::QueueExecution(VkCommandBuffer const &queue) const {
   VkRenderingAttachmentInfo colourAttachmentInfo = drawImage.BindAsColourAttachment();
-  VkRenderingAttachmentInfo depthAttachmentInfo = depthImage.BindAsDepthAttachment();
+  VkRenderingAttachmentInfo depthAttachmentInfo = depthImage.BindAsDepthAttachment(depthBufferLoadOp);
 
   VkExtent2D drawExtent{renderAreaSize.x(), renderAreaSize.y()};
   VkOffset2D drawOffset{static_cast<int32_t>(renderAreaOffset.x()), static_cast<int32_t>(renderAreaOffset.y())};
@@ -77,18 +78,16 @@ void RenderCommand<T_Object>::QueueExecution(VkCommandBuffer const &queue) const
   vkCmdEndRendering(queue);
 }
 
-template <typename T_Object>
-struct PartiallySpecializedRender {
-  void operator()(VkCommandBuffer const &queue, Image<2> const &drawImage,
-                  Image<2> const &depthImage, Maths::Dimension2 renderAreaSize, Maths::Dimension2 renderAreaOffset,
+template <typename T_Object> struct PartiallySpecializedRender {
+  void operator()(VkCommandBuffer const &queue, Image<2> const &drawImage, Image<2> const &depthImage,
+                  Maths::Dimension2 renderAreaSize, Maths::Dimension2 renderAreaOffset,
                   DescriptorAllocator &descriptorAllocator, DescriptorWriter &descriptorWriter,
-                  UniformBinding const & uniformBinding, T_Object const &bufferedObject) const {};
+                  UniformBinding const &uniformBinding, T_Object const &bufferedObject) const {};
 };
 
-template <typename T_Object>
-void RenderCommand<T_Object>::DoRender(VkCommandBuffer const &queue) const {
+template <typename T_Object> void RenderCommand<T_Object>::DoRender(VkCommandBuffer const &queue) const {
   PartiallySpecializedRender<T_Object>{}(queue, drawImage, depthImage, renderAreaSize, renderAreaOffset,
-                               descriptorAllocator, descriptorWriter, uniformBinding, bufferedObject);
+                                         descriptorAllocator, descriptorWriter, uniformBinding, bufferedObject);
 }
 
 } // namespace Engine::Graphics

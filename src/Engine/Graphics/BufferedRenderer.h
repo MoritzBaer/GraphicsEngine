@@ -24,10 +24,10 @@ protected:
 public:
   RenderTargetProvider(GPUObjectManager RELEASE_CONST *gpuObjectManager)
       : depthBuffer(), discardedDepthBuffers(), gpuObjectManager(gpuObjectManager) {}
-  virtual std::tuple<Image2, Image2> GetRenderTarget(Image2 &givenRenderTarget, std::optional<Image2> &givenDepthTarget,
+  virtual std::tuple<Image2, Image2, VkAttachmentLoadOp> GetRenderTarget(Image2 &givenRenderTarget, std::optional<Image2> &givenDepthTarget,
                                                      std::vector<Command const *> &previousCommands) {
     if (givenDepthTarget.has_value()) {
-      return {givenRenderTarget, *givenDepthTarget};
+      return {givenRenderTarget, *givenDepthTarget, VK_ATTACHMENT_LOAD_OP_LOAD};
     }
 
     for (auto const &discardedBuffer : discardedDepthBuffers) {
@@ -42,7 +42,7 @@ public:
           VK_IMAGE_ASPECT_DEPTH_BIT, 1, 1, VK_SAMPLE_COUNT_1_BIT, "BufferedStrategy depth buffer");
     }
 
-    return {givenRenderTarget, depthBuffer};
+    return {givenRenderTarget, depthBuffer, VK_ATTACHMENT_LOAD_OP_CLEAR};
   }
 
   virtual std::vector<Command *> GetTargetSwapCommands(Image2 &givenRenderTarget,
@@ -97,7 +97,7 @@ public:
       : instanceManager(instanceManager), gpuObjectManager(gpuObjectManager), renderObjectBuffer(material),
         renderTargetProvider(renderTargetProvider) {
     renderObjectBuffer.gpuBuffer = gpuObjectManager->CreateBuffer<T_Object>(
-        INITIAL_BUFFER_SIZE, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        INITIAL_BUFFER_SIZE, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
     if (!renderTargetProvider)
       this->renderTargetProvider = new RenderTargetProvider(gpuObjectManager);
   }
@@ -168,12 +168,12 @@ std::vector<Command const *> BufferedRenderer<T_Object, T_Uniform>::BufferedStra
     auto uniformBinding = uniformBufferProvider.GetBinding(ExtractUniformData(request));
 
     // Get render targets to use for buffered rendering call
-    auto [usedRenderTarget, usedDepthTarget] =
+    auto [usedRenderTarget, usedDepthTarget, usedLoadOp] =
         renderTargetProvider->GetRenderTarget(renderTarget, depthTarget, subRendering);
 
     subRendering.push_back(new RenderCommand<RenderObjectBuffer<T_Object>>(
         usedRenderTarget, usedDepthTarget, descriptorAllocator, descriptorWriter, usedRenderTarget.GetExtent(),
-        uniformBinding, buffer));
+        uniformBinding, buffer, usedLoadOp));
 
     // Copy contents to given buffers
     auto targetSwap = renderTargetProvider->GetTargetSwapCommands(renderTarget, depthTarget);

@@ -16,7 +16,7 @@ layout (set = 0, binding = 0) uniform Matrices {
 
 void main() {
     outPosCameraSpace = (matrices.view * vec4(vertexPosition, 1.0)).xyz;
-    outColour = vec3(vertexColour);
+    outColour = vertexColour;
         
     gl_Position = matrices.projection * vec4(outPosCameraSpace,1.0);
 }
