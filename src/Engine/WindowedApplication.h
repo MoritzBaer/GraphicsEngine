@@ -5,7 +5,7 @@
 #include "Game.h"
 #include "Graphics/CommandQueue.h"
 #include "Graphics/DescriptorHandling.h"
-#include "Graphics/RenderTargetProvider.h"
+#include "Graphics/RenderResourceProvider.h"
 #include "WindowManager.h"
 
 using namespace Engine::Graphics;
@@ -71,11 +71,7 @@ public:
   ~WindowedApplication() { Engine::WindowManager::DestroyWindow(mainWindow); };
 
   inline Engine::Window *GetWindow() { return mainWindow; }
-  inline Engine::Graphics::VulkanSuite
-#ifdef NDEBUG
-      const
-#endif
-          *
+  inline Engine::Graphics::VulkanSuite RELEASE_CONST         *
           GetVulkan()
 #ifdef NDEBUG
               const

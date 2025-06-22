@@ -12,10 +12,12 @@ namespace Engine::Graphics {
 template <uint8_t Dimension> class Image {
 protected:
   VkImage image;
+  VmaAllocation allocation;
   VkImageView imageView;
   Maths::Dimension<Dimension> imageDimension;
   VkFormat imageFormat;
   VkImageLayout currentLayout;
+  VkImageAspectFlags aspect;
 
   friend class GPUMemoryManager;
   friend class GPUObjectManager;
@@ -24,18 +26,22 @@ public:
   static const VkImageType IMAGE_TYPE;
   static const VkImageViewType VIEW_TYPE;
 
-  inline Image()
-      : image(VK_NULL_HANDLE), imageView(VK_NULL_HANDLE), imageDimension(Maths::Dimension<Dimension>::Zero()),
-        imageFormat(VK_FORMAT_UNDEFINED), currentLayout(VK_IMAGE_LAYOUT_UNDEFINED) {}
-  inline Image(VkImage image, VkImageView imageView, Maths::Dimension<Dimension> imageExtent, VkFormat imageFormat,
-               VkImageLayout currentLayout)
+  inline Image(VkImage image, VmaAllocation allocation, VkImageView imageView, Maths::Dimension<Dimension> imageExtent,
+               VkFormat imageFormat, VkImageLayout currentLayout, VkImageAspectFlags aspect)
       : image(image), imageView(imageView), imageDimension(imageExtent), imageFormat(imageFormat),
-        currentLayout(currentLayout) {}
+        currentLayout(currentLayout), aspect(aspect), allocation(allocation) {}
+  inline Image()
+      : Image(VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, Maths::Dimension<Dimension>::Zero(), VK_FORMAT_UNDEFINED,
+              VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_ASPECT_NONE) {}
+  inline Image(VkImage image, VkImageView imageView, Maths::Dimension<Dimension> imageExtent, VkFormat imageFormat,
+               VkImageLayout currentLayout, VkImageAspectFlags aspect)
+      : Image(image, VK_NULL_HANDLE, imageView, imageExtent, imageFormat, currentLayout, aspect) {}
   inline Image(Image<Dimension> const &other)
-      : Image(other.image, other.imageView, other.imageDimension, other.imageFormat, other.currentLayout) {}
+      : Image(other.image, other.allocation, other.imageView, other.imageDimension, other.imageFormat,
+              other.currentLayout, other.aspect) {}
 
   inline vkutil::PipelineBarrierCommand *Transition(VkImageLayout const &newLayout);
-  inline vkutil::BlitImageCommand *BlitTo(Image<Dimension> const &target) const;
+  inline vkutil::BlitImageCommand *BlitTo(Image<Dimension> const &target, VkFilter filter = VK_FILTER_LINEAR) const;
   inline VkRenderingAttachmentInfo BindAsColourAttachment(VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
                                                           VkClearColorValue const &clearColour = {0, 0, 0, 0}) const;
   inline VkRenderingAttachmentInfo BindAsDepthAttachment(VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
@@ -46,26 +52,9 @@ public:
   inline Maths::Dimension<Dimension> GetExtent() const { return imageDimension; }
 };
 
-template <uint8_t Dimension> class AllocatedImage : public Image<Dimension> {
-private:
-  VmaAllocation allocation;
-
-  friend class GPUObjectManager;
-
-public:
-  inline AllocatedImage() : Image<Dimension>(), allocation(VK_NULL_HANDLE) {}
-  inline AllocatedImage(Image<Dimension> const &image, VmaAllocation allocation)
-      : Image<Dimension>(image), allocation(allocation) {}
-  inline AllocatedImage(AllocatedImage<Dimension> const &other) : AllocatedImage(other, other.allocation) {}
-};
-
 using Image1 = Image<1>;
 using Image2 = Image<2>;
 using Image3 = Image<3>;
-
-using AllocatedImage1 = AllocatedImage<1>;
-using AllocatedImage2 = AllocatedImage<2>;
-using AllocatedImage3 = AllocatedImage<3>;
 
 // IMPLEMENTATIONS
 
@@ -79,32 +68,33 @@ template <> const VkImageViewType Engine::Graphics::Image<3>::VIEW_TYPE = VK_IMA
 
 template <uint8_t Dimension>
 inline vkutil::PipelineBarrierCommand *Image<Dimension>::Transition(VkImageLayout const &newLayout) {
-  auto result = new vkutil::PipelineBarrierCommand({vkinit::ImageMemoryBarrier(image, currentLayout, newLayout)});
+  auto result =
+      new vkutil::PipelineBarrierCommand({vkinit::ImageMemoryBarrier(image, currentLayout, newLayout, aspect)});
   currentLayout = newLayout;
   return result;
 }
 
 template <uint8_t Dimension>
-inline vkutil::BlitImageCommand *Image<Dimension>::BlitTo(Image<Dimension> const &target) const {
+inline vkutil::BlitImageCommand *Image<Dimension>::BlitTo(Image<Dimension> const &target, VkFilter filter) const {
   auto imageExtent = vkutil::DimensionToExtent(imageDimension);
   auto targetExtent = vkutil::DimensionToExtent(target.imageDimension);
   VkImageBlit2 blitRegion{
       .sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2,
-      .srcSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1},
+      .srcSubresource = {.aspectMask = aspect, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1},
       .srcOffsets =
           {
               {0, 0, 0},
               {static_cast<int32_t>(imageExtent.width), static_cast<int32_t>(imageExtent.height),
                static_cast<int32_t>(imageExtent.depth)},
           },
-      .dstSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1},
+      .dstSubresource = {.aspectMask = target.aspect, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1},
       .dstOffsets = {
           {0, 0, 0},
           {static_cast<int32_t>(targetExtent.width), static_cast<int32_t>(targetExtent.height),
            static_cast<int32_t>(targetExtent.depth)},
       }};
 
-  return new vkutil::BlitImageCommand(image, target.image, {blitRegion});
+  return new vkutil::BlitImageCommand(image, target.image, {blitRegion}, filter);
 }
 
 template <uint8_t Dimension>

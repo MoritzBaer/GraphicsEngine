@@ -45,11 +45,10 @@ void Renderer::DrawFrame(RenderingRequest const &request) {
 
     commands.insert(commands.end(), prepareTarget.begin(), prepareTarget.end());
 
-    Image2 *depthResult = nullptr;
+    std::optional<Image2> depthResult {};
     auto strategyCommands = renderingStrategy->GetRenderingCommands(
         request, frameResources.uniformBinder, frameResources.descriptorAllocator, frameResources.descriptorWriter,
         renderTarget, depthResult);
-    if (depthResult) { delete depthResult; }
 
     commands.insert(commands.end(), strategyCommands.begin(), strategyCommands.end());
 

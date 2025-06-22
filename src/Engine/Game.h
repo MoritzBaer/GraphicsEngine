@@ -17,11 +17,7 @@
 
 struct Game {
   Engine::DeletionQueue mainDeletionQueue;
-  Engine::Graphics::VulkanSuite
-#ifdef NDEBUG
-      const
-#endif
-          *vulkan;
+  Engine::Graphics::VulkanSuite RELEASE_CONST         *vulkan;
   Engine::Graphics::ShaderCompiler shaderCompiler;
   Engine::Core::Scene *activeScene;
   Engine::AssetManager assetManager;

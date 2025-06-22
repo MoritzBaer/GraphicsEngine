@@ -64,21 +64,21 @@ VkFormat ForwardRendering::ChooseRenderBufferFormat() {
 }
 
 void ForwardRendering::CreateRenderBuffer(Maths::Dimension2 const &renderDimension) {
-  renderBuffer = {.colourImage = objectManager->CreateAllocatedImage(ChooseRenderBufferFormat(), renderDimension,
+  renderBuffer = {.colourImage = objectManager->AllocateImage(ChooseRenderBufferFormat(), renderDimension,
                                                                      renderBufferUsage, VK_IMAGE_ASPECT_COLOR_BIT),
                   .depthImage = objectManager->CreateDepthBuffer(renderDimension)};
 }
 
 void ForwardRendering::DestroyRenderBuffer() {
-  objectManager->DestroyAllocatedImage(renderBuffer.colourImage);
-  objectManager->DestroyAllocatedImage(renderBuffer.depthImage);
+  objectManager->DestroyImage(renderBuffer.colourImage);
+  objectManager->DestroyImage(renderBuffer.depthImage);
 }
 
-std::vector<Command *> ForwardRendering::GetRenderingCommands(RenderingRequest const &request,
+std::vector<Command const *> ForwardRendering::GetRenderingCommands(RenderingRequest const &request,
                                                               UniformBinder &uniformBufferProvider,
                                                               DescriptorAllocator &descriptorAllocator,
                                                               DescriptorWriter &descriptorWriter,
-                                                              Image<2> &renderTarget, Image<2> *depthTarget) {
+                                                              Image<2> &renderTarget, std::optional<Image<2>> &depthTarget) {
 
   auto commands = backgroundStrategy->GetRenderingCommands(renderBuffer.colourImage);
 
@@ -131,6 +131,8 @@ std::vector<Command *> ForwardRendering::GetRenderingCommands(RenderingRequest c
     commands.push_back(transitionDepthToTransferSrc);
     commands.push_back(transitionDepthPresenterToTransferDst);
     commands.push_back(copyDepthToTarget);
+  } else {
+    depthTarget.emplace(renderBuffer.depthImage);
   }
 
   return commands;

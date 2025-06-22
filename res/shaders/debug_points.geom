@@ -12,16 +12,16 @@ layout (set = 0, binding = 0) uniform Matrices {
     mat4 view;
     mat4 projection;
 } matrices;
-
-vec3 offset_in_cam_space(vec3 pos, vec2 offset) {
-    return pos + 10 * vec3(offset, 0.0);// * pos.z;
-}
+layout (set = 1, binding = 0) uniform sampler2D sceneDepth;
 
 #define CLIP_SPACE_POSITION_FROM_CAM_SPACE_AND_OFFSET matrices.projection * vec4(inPosCameraSpace[0] + vec3(0.01 * inPosCameraSpace[0].y * offset, 0.0).xzy, 1.0);
-//#define CLIP_SPACE_POSITION_FROM_CAM_SPACE_AND_OFFSET gl_in[0].gl_Position + vec4(offset * 0.1, 0.0, 0.0) // For testing purposes, use a fixed centre;
+#define EPS 0.0001
 
 void main() {
-    // TODO: Test against depth buffer to avoid drawing if not visible
+    vec4 homogenizedInPosition = gl_in[0].gl_Position / gl_in[0].gl_Position.w;
+    vec2 depthRead = (vec2(homogenizedInPosition.x, homogenizedInPosition.y) + 1) / 2;
+    float depth = texture(sceneDepth, depthRead).r;
+    if (depth < homogenizedInPosition.z - EPS) return;
     
     outColour = inColour[0];
     offset = vec2(-1.0,-1.0);

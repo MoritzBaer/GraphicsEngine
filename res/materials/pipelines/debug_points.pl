@@ -1,11 +1,11 @@
 {
     "vertexStage": {
         "shaderName": "debug_points",
-        "boundDescriptorSets": [0]
+        "boundDescriptorSets": [ 0 ]
     },
     "geometryStage": {
         "shaderName": "debug_points",
-        "boundDescriptorSets": [0]
+        "boundDescriptorSets": [ 0, 1 ]
     },
     "fragmentStage": {
         "shaderName": "debug_points"
@@ -46,6 +46,11 @@
             "set": 0,
             "binding": 0,
             "descriptorType": "VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER"
+        },
+        {
+            "set": 1,
+            "binding": 0,
+            "descriptorType": "VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER"
         }
     ]
 }

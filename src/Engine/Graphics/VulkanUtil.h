@@ -27,7 +27,7 @@ inline VkFenceCreateInfo FenceCreateInfo(VkFenceCreateFlags flags = VK_FENCE_CRE
 }
 
 inline VkImageMemoryBarrier2 ImageMemoryBarrier(VkImage image, VkImageLayout currentLayout,
-                                                VkImageLayout targetLayout) {
+                                                VkImageLayout targetLayout, VkImageAspectFlags aspect) {
   return {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
           .srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
           .srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
@@ -36,9 +36,7 @@ inline VkImageMemoryBarrier2 ImageMemoryBarrier(VkImage image, VkImageLayout cur
           .oldLayout = currentLayout,
           .newLayout = targetLayout,
           .image = image,
-          .subresourceRange = ImageSubresourceRange((targetLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-                                                        ? VK_IMAGE_ASPECT_DEPTH_BIT
-                                                        : VK_IMAGE_ASPECT_COLOR_BIT)};
+          .subresourceRange = ImageSubresourceRange(aspect)};
 }
 
 inline VkDependencyInfo DependencyInfo(std::vector<VkImageMemoryBarrier2> const &imageMemoryBarriers) {
@@ -165,11 +163,12 @@ public:
 
 class BlitImageCommand : public Command {
   std::vector<VkImageBlit2> blitRegions;
+  VkFilter filter;
   VkImage source, destination;
 
 public:
-  BlitImageCommand(VkImage const &source, VkImage const &destination, std::vector<VkImageBlit2> const &blitRegions)
-      : blitRegions(blitRegions), source(source), destination(destination) {}
+  BlitImageCommand(VkImage const &source, VkImage const &destination, std::vector<VkImageBlit2> const &blitRegions, VkFilter filter)
+      : blitRegions(blitRegions), source(source), destination(destination), filter(filter) {}
   void QueueExecution(VkCommandBuffer const &queue) const;
 };
 
@@ -223,11 +222,11 @@ public:
 };
 
 inline PipelineBarrierCommand TransitionImageCommand(VkImage image, VkImageLayout currentLayout,
-                                                     VkImageLayout targetLayout) {
-  return PipelineBarrierCommand({vkinit::ImageMemoryBarrier(image, currentLayout, targetLayout)});
+                                                     VkImageLayout targetLayout, VkImageAspectFlags aspect) {
+  return PipelineBarrierCommand({vkinit::ImageMemoryBarrier(image, currentLayout, targetLayout, aspect)});
 }
 
-inline BlitImageCommand CopyFullImage(VkImage source, VkImage destination, VkExtent3D srcExtent, VkExtent3D dstExtent) {
+inline BlitImageCommand CopyFullImage(VkImage source, VkImage destination, VkExtent3D srcExtent, VkExtent3D dstExtent, VkFilter filter) {
   VkImageBlit2 blitRegion{
       .sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2,
       .srcSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1},
@@ -244,7 +243,7 @@ inline BlitImageCommand CopyFullImage(VkImage source, VkImage destination, VkExt
            static_cast<int32_t>(dstExtent.depth)},
       }};
 
-  return BlitImageCommand(source, destination, {blitRegion});
+  return BlitImageCommand(source, destination, {blitRegion}, filter);
 }
 
 } // namespace Engine::Graphics::vkutil

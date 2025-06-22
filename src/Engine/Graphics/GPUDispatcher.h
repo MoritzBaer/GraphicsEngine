@@ -3,8 +3,12 @@
 #include "CommandQueue.h"
 #include "InstanceManager.h"
 #include "VulkanUtil.h"
+#include <type_traits>
 
 namespace Engine::Graphics {
+
+template <typename T_Command>
+concept CommandType = std::is_base_of<Command, T_Command>::value;
 
 class GPUObjectManager;
 class GPUDispatcher {
@@ -32,5 +36,6 @@ public:
     std::vector<Command const *> commandSpan = {command};
     Dispatch(commandSpan);
   }
+  template <CommandType T> inline void Dispatch(T const &command) const { Dispatch(new T(command)); }
 };
 } // namespace Engine::Graphics

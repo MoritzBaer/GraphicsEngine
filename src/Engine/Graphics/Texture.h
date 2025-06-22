@@ -6,14 +6,14 @@
 #include "VulkanUtil.h"
 
 namespace Engine::Graphics {
-template <uint8_t D> class Texture : public AllocatedImage<D> {
+template <uint8_t D> class Texture : public Image<D> {
   VkSampler sampler;
   friend class GPUObjectManager;
 
 public:
-  inline Texture() : AllocatedImage<D>(), sampler(VK_NULL_HANDLE) {}
-  inline Texture(AllocatedImage<D> const &allocatedImage, VkSampler sampler)
-      : AllocatedImage<D>(allocatedImage), sampler(sampler) {};
+  inline Texture() : Image<D>(), sampler(VK_NULL_HANDLE) {}
+  inline Texture(Image<D> const &image, VkSampler sampler)
+      : Image<D>(image), sampler(sampler) {};
 
   inline VkDescriptorImageInfo BindInDescriptor(VkImageLayout layout) const override;
 
@@ -28,7 +28,7 @@ using Texture2D = Texture<2>;
 using Texture3D = Texture<3>;
 
 template <uint8_t D> inline VkDescriptorImageInfo Texture<D>::BindInDescriptor(VkImageLayout layout) const {
-  auto res = AllocatedImage<D>::BindInDescriptor(layout);
+  auto res = Image<D>::BindInDescriptor(layout);
   res.sampler = sampler;
   return res;
 }

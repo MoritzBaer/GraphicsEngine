@@ -26,11 +26,7 @@ inline typeId_t nextFreeType = 0;
 
 class UniformBinder {
   std::array<BufferProducer *, std::numeric_limits<typeId_t>::max()> bufferProducers;
-  GPUObjectManager
-#ifdef NDEBUG
-      const
-#endif
-          *gpuObjectManager;
+  GPUObjectManager RELEASE_CONST         *gpuObjectManager;
   GPUDispatcher gpuDispatcher;
 
 public:
@@ -53,11 +49,7 @@ public:
 template <typename T_Uniform> class UniformBufferProducer : public BufferProducer {
   std::stack<Buffer<T_Uniform>> availableBuffers;
   std::stack<Buffer<T_Uniform>> usedBuffers;
-  GPUObjectManager
-#ifdef NDEBUG
-      const
-#endif
-          *gpuObjectManager;
+  GPUObjectManager RELEASE_CONST         *gpuObjectManager;
   GPUDispatcher const *gpuDispatcher;
 
   inline static constexpr bool STAGING_REQUIRED = sizeof(T_Uniform) > MIN_UNIFORM_SIZE_FOR_STAGING_IN_UPLOAD;

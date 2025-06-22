@@ -49,7 +49,7 @@ ComputeBackground::ComputeBackground(InstanceManager const *instanceManager, Com
   descriptorSetLayout = descriptorLayoutBuilder.Build(VK_SHADER_STAGE_COMPUTE_BIT);
 }
 
-std::vector<Command *> ComputeBackground::GetRenderingCommands(Image<2> &renderTarget) {
+std::vector<Command const *> ComputeBackground::GetRenderingCommands(Image<2> &renderTarget) {
 
   auto targetDescriptor = descriptorAllocator.Allocate(descriptorSetLayout);
 
@@ -57,7 +57,7 @@ std::vector<Command *> ComputeBackground::GetRenderingCommands(Image<2> &renderT
   descriptorWriter.UpdateSet(targetDescriptor);
   descriptorWriter.Clear();
 
-  std::vector<Command *> commands{};
+  std::vector<Command const *> commands{};
 
   auto transitionBufferToWriteable = renderTarget.Transition(VK_IMAGE_LAYOUT_GENERAL);
   auto computeRun = new ExecuteComputePipelineCommand(effect, data, VK_PIPELINE_BIND_POINT_COMPUTE, targetDescriptor,

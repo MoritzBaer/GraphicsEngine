@@ -6,8 +6,8 @@
 namespace Engine::Graphics {
 template <typename T_Object> class RenderCommand : public Command {
 protected:
-  Image<2> const &drawImage;
-  Image<2> const &depthImage;
+  Image<2> const drawImage;
+  Image<2> const depthImage;
   Maths::Dimension2 const renderAreaSize;
   Maths::Dimension2 const renderAreaOffset;
   DescriptorAllocator &descriptorAllocator;

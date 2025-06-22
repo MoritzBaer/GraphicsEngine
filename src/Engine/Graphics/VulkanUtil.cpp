@@ -32,7 +32,7 @@ void Engine::Graphics::vkutil::BlitImageCommand::QueueExecution(VkCommandBuffer 
       .dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
       .regionCount = static_cast<uint32_t>(blitRegions.size()),
       .pRegions = blitRegions.data(),
-      .filter = VK_FILTER_LINEAR,
+      .filter = filter,
   };
 
   vkCmdBlitImage2(queue, &blitInfo);

@@ -11,8 +11,8 @@ class ForwardRendering : public RenderingStrategy {
   InstanceManager const *instanceManager;
 
   struct {
-    AllocatedImage2 colourImage;
-    AllocatedImage2 depthImage;
+    Image2 colourImage;
+    Image2 depthImage;
   } renderBuffer;
 
   VkFormat ChooseRenderBufferFormat();
@@ -20,9 +20,11 @@ class ForwardRendering : public RenderingStrategy {
   void DestroyRenderBuffer();
 
 public:
-  std::vector<Command *> GetRenderingCommands(RenderingRequest const &request, UniformBinder &uniformBufferProvider,
-                                              DescriptorAllocator &descriptorAllocator,
-                                              DescriptorWriter &descriptorWriter, Image<2> &renderTarget, Image<2> *depthTarget) override;
+  std::vector<Command const *> GetRenderingCommands(RenderingRequest const &request,
+                                                    UniformBinder &uniformBufferProvider,
+                                                    DescriptorAllocator &descriptorAllocator,
+                                                    DescriptorWriter &descriptorWriter, Image<2> &renderTarget,
+                                                    std::optional<Image<2>> &depthTarget) override;
 
   ForwardRendering(InstanceManager const *instanceManager, GPUObjectManager *objectManager,
                    BackgroundStrategy *backgroundStrategy)

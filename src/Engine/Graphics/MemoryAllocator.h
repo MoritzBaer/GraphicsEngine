@@ -2,6 +2,20 @@
 #include "vk_mem_alloc.h"
 #include <vector>
 
+#ifdef NDEBUG
+#define RELEASE_CONST const
+#define DEBUG_LABEL
+#define DEBUG_LABEL_REFERENCE
+#define DEBUG_LABEL_VALUE(Value)
+#else
+#define RELEASE_CONST
+#define DEBUG_LABEL , const char * label
+#define DEBUG_LABEL_DEFAULT DEBUG_LABEL = nullptr
+#define DEBUG_LABEL_REFERENCE , label
+#define DEBUG_LABEL_VALUE(Value) , Value
+
+#endif
+
 namespace Engine::Graphics {
 class InstanceManager;
 
@@ -56,24 +70,20 @@ public:
 #endif
 
   // Free memory objects
-  void DestroyImage(VkImage const &image, VmaAllocation const &allocation)
-#ifdef NDEBUG
-      const
-#endif
-  {
+  void DestroyImage(VkImage const &image, VmaAllocation const &allocation) RELEASE_CONST {
+#ifndef NDEBUG
     allocatedImages.erase(std::remove_if(
         allocatedImages.begin(), allocatedImages.end(),
         [image](std::tuple<VkImage, uint16_t, const char *> &tuple) { return std::get<0>(tuple) == image; }));
+#endif
     vmaDestroyImage(allocator, image, allocation);
   }
-  void DestroyBuffer(VkBuffer const &buffer, VmaAllocation const &allocation)
-#ifdef NDEBUG
-      const
-#endif
-  {
+  void DestroyBuffer(VkBuffer const &buffer, VmaAllocation const &allocation) RELEASE_CONST {
+#ifndef NDEBUG
     allocatedBuffers.erase(std::remove_if(
         allocatedBuffers.begin(), allocatedBuffers.end(),
         [buffer](std::tuple<VkBuffer, uint16_t, const char *> const &tuple) { return std::get<0>(tuple) == buffer; }));
+#endif
     vmaDestroyBuffer(allocator, buffer, allocation);
   }
 };

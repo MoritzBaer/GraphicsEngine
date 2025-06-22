@@ -1,6 +1,7 @@
 #pragma once
 
 #include "GPUObjectManager.h"
+#include "MemoryAllocator.h"
 #include "RenderCommand.h"
 #include "RenderingStrategy.h"
 
@@ -11,6 +12,45 @@ template <typename T_Object> struct RenderObjectBuffer {
   Material *material;
 
   RenderObjectBuffer(Material *material) : material(material) {}
+};
+
+class RenderTargetProvider {
+  Image2 depthBuffer;
+  std::vector<Image2> discardedDepthBuffers;
+
+protected:
+  GPUObjectManager RELEASE_CONST *gpuObjectManager;
+
+public:
+  RenderTargetProvider(GPUObjectManager RELEASE_CONST *gpuObjectManager)
+      : depthBuffer(), discardedDepthBuffers(), gpuObjectManager(gpuObjectManager) {}
+  virtual std::tuple<Image2, Image2> GetRenderTarget(Image2 &givenRenderTarget, std::optional<Image2> &givenDepthTarget,
+                                                     std::vector<Command const *> &previousCommands) {
+    if (givenDepthTarget.has_value()) {
+      return {givenRenderTarget, *givenDepthTarget};
+    }
+
+    for (auto const &discardedBuffer : discardedDepthBuffers) {
+      gpuObjectManager->DestroyImage(discardedBuffer);
+    }
+    discardedDepthBuffers.clear();
+
+    if (depthBuffer.GetExtent() != givenRenderTarget.GetExtent()) {
+      discardedDepthBuffers.push_back(depthBuffer);
+      depthBuffer = gpuObjectManager->AllocateImage(
+          VK_FORMAT_D32_SFLOAT, Maths::Dimension2(1600, 900), VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+          VK_IMAGE_ASPECT_DEPTH_BIT, 1, 1, VK_SAMPLE_COUNT_1_BIT, "BufferedStrategy depth buffer");
+    }
+
+    return {givenRenderTarget, depthBuffer};
+  }
+
+  virtual std::vector<Command *> GetTargetSwapCommands(Image2 &givenRenderTarget,
+                                                       std::optional<Image2> &givenDepthTarget) {
+    if (!givenDepthTarget.has_value())
+      givenDepthTarget.emplace(depthBuffer);
+    return {};
+  }
 };
 
 template <typename T_Object, typename T_Uniform> class BufferedRenderer {
@@ -27,39 +67,46 @@ template <typename T_Object, typename T_Uniform> class BufferedRenderer {
     std::vector<Buffer<T_Object>> bufferDump;
 
     GPUObjectManager *gpuObjectManager;
+    GPUDispatcher gpuDispatcher;
     RenderingStrategy *wrappedStrategy;
 
-    Image2 depthBuffer;
+    RenderTargetProvider *renderTargetProvider;
 
-    T_Uniform ExtractUniformData(RenderingRequest const &request, Image<2> const &renderTarget,
-                                 Image<2> const *depthTarget) const;
+    T_Uniform ExtractUniformData(RenderingRequest const &request) const;
 
   public:
     BufferedStrategy(InstanceManager const *instanceManager, GPUObjectManager *gpuObjectManager,
-                     RenderingStrategy *subStrategy, RenderObjectBuffer<T_Object> &buffer)
+                     RenderingStrategy *subStrategy, RenderObjectBuffer<T_Object> &buffer,
+                     RenderTargetProvider *renderTargetProvider)
         : buffer(buffer), gpuObjectManager(gpuObjectManager), wrappedStrategy(subStrategy),
-          depthBuffer(gpuObjectManager->CreateAllocatedImage(
-              VK_FORMAT_D32_SFLOAT, Maths::Dimension2(1600, 900), VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-              VK_IMAGE_ASPECT_DEPTH_BIT, 1, 1, VK_SAMPLE_COUNT_1_BIT, "BufferedStrategy depth buffer")) {}
+          gpuDispatcher(instanceManager, gpuObjectManager->CreateCommandQueue()),
+          renderTargetProvider(renderTargetProvider) {}
 
-    std::vector<Command *> GetRenderingCommands(RenderingRequest const &request, UniformBinder &uniformBufferProvider,
-                                                DescriptorAllocator &descriptorAllocator,
-                                                DescriptorWriter &descriptorWriter, Image<2> &renderTarget,
-                                                Image<2> *depthTarget) override;
+    std::vector<Command const *> GetRenderingCommands(RenderingRequest const &request,
+                                                      UniformBinder &uniformBufferProvider,
+                                                      DescriptorAllocator &descriptorAllocator,
+                                                      DescriptorWriter &descriptorWriter, Image<2> &renderTarget,
+                                                      std::optional<Image<2>> &depthTarget) override;
   };
+
+  RenderTargetProvider *renderTargetProvider;
 
 public:
   BufferedRenderer(InstanceManager const *instanceManager, GPUObjectManager *gpuObjectManager,
-                   Material *material = nullptr)
-      : instanceManager(instanceManager), gpuObjectManager(gpuObjectManager), renderObjectBuffer(material) {
+                   RenderTargetProvider *renderTargetProvider = nullptr, Material *material = nullptr)
+      : instanceManager(instanceManager), gpuObjectManager(gpuObjectManager), renderObjectBuffer(material),
+        renderTargetProvider(renderTargetProvider) {
     renderObjectBuffer.gpuBuffer = gpuObjectManager->CreateBuffer<T_Object>(
         INITIAL_BUFFER_SIZE, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+    if (!renderTargetProvider)
+      this->renderTargetProvider = new RenderTargetProvider(gpuObjectManager);
   }
 
   void SetMaterial(Material *material) { renderObjectBuffer.material = material; }
 
   RenderingStrategy *WrapWithBufferedStrategy(RenderingStrategy *subStrategy) {
-    return new BufferedStrategy(instanceManager, gpuObjectManager, subStrategy, renderObjectBuffer);
+    return new BufferedStrategy(instanceManager, gpuObjectManager, subStrategy, renderObjectBuffer,
+                                renderTargetProvider);
   }
 
   void AddToBuffer(T_Object const &object) { renderObjectBuffer.objects.push_back(object); }
@@ -86,12 +133,15 @@ template <typename T_Object> struct PartiallySpecializedRender<RenderObjectBuffe
 };
 
 template <typename T_Object, typename T_Uniform>
-std::vector<Command *> BufferedRenderer<T_Object, T_Uniform>::BufferedStrategy::GetRenderingCommands(
+std::vector<Command const *> BufferedRenderer<T_Object, T_Uniform>::BufferedStrategy::GetRenderingCommands(
     RenderingRequest const &request, UniformBinder &uniformBufferProvider, DescriptorAllocator &descriptorAllocator,
-    DescriptorWriter &descriptorWriter, Image<2> &renderTarget, Image<2> *depthTarget) {
-  auto subRendering = wrappedStrategy->GetRenderingCommands(request, uniformBufferProvider, descriptorAllocator,
-                                                            descriptorWriter, renderTarget);
+    DescriptorWriter &descriptorWriter, Image<2> &renderTarget, std::optional<Image<2>> &depthTarget) {
 
+  // Execute wrapped strategy
+  auto subRendering = wrappedStrategy->GetRenderingCommands(request, uniformBufferProvider, descriptorAllocator,
+                                                            descriptorWriter, renderTarget, depthTarget);
+
+  // Cleanup buffers used in previous frames
   if (!bufferDump.empty()) {
     for (auto &buffer : bufferDump) {
       gpuObjectManager->DestroyBuffer(buffer);
@@ -100,22 +150,34 @@ std::vector<Command *> BufferedRenderer<T_Object, T_Uniform>::BufferedStrategy::
   }
 
   if (!buffer.objects.empty()) {
-    // TODO: Increase GPU buffer size if necessary
     if (buffer.objects.size() > buffer.gpuBuffer.Size()) {
+      // Allocate new buffer of fitting size
       bufferDump.push_back(buffer.gpuBuffer);
-      buffer.gpuBuffer =
-          gpuObjectManager->CreateBuffer<T_Object>(std::max(buffer.objects.size(), buffer.gpuBuffer.Size() * 2),
-                                                   VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+      buffer.gpuBuffer = gpuObjectManager->CreateBuffer<T_Object>(
+          std::max(buffer.objects.size(), buffer.gpuBuffer.Size() * 2),
+          VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
     }
-    // TODO: Use staging buffer
-    buffer.gpuBuffer.SetData(buffer.objects);
 
-    auto uniformBinding = uniformBufferProvider.GetBinding(ExtractUniformData(request, renderTarget, depthTarget));
+    // Upload data to GPU
+    auto stagingBuffer = gpuObjectManager->CreateBuffer<T_Object>(
+        buffer.objects.size(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+    stagingBuffer.SetData(buffer.objects);
+    gpuDispatcher.Dispatch(
+        GPUMemoryManager::CopyBufferToBuffer(stagingBuffer, buffer.gpuBuffer, stagingBuffer.PhysicalSize()));
+
+    auto uniformBinding = uniformBufferProvider.GetBinding(ExtractUniformData(request));
+
+    // Get render targets to use for buffered rendering call
+    auto [usedRenderTarget, usedDepthTarget] =
+        renderTargetProvider->GetRenderTarget(renderTarget, depthTarget, subRendering);
 
     subRendering.push_back(new RenderCommand<RenderObjectBuffer<T_Object>>(
-        renderTarget, depthBuffer, descriptorAllocator, descriptorWriter, renderTarget.GetExtent(), uniformBinding,
-        buffer));
-    // TODO: Add depth buffer to depth target?
+        usedRenderTarget, usedDepthTarget, descriptorAllocator, descriptorWriter, usedRenderTarget.GetExtent(),
+        uniformBinding, buffer));
+
+    // Copy contents to given buffers
+    auto targetSwap = renderTargetProvider->GetTargetSwapCommands(renderTarget, depthTarget);
+    std::copy(std::begin(targetSwap), std::end(targetSwap), std::back_inserter(subRendering));
   }
   return subRendering;
 }

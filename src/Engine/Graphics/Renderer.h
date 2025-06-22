@@ -7,7 +7,7 @@
 #include "Graphics/GPUObjectManager.h"
 #include "Graphics/InstanceManager.h"
 #include "Graphics/MeshRenderer.h"
-#include "Graphics/RenderTargetProvider.h"
+#include "Graphics/RenderResourceProvider.h"
 #include "Graphics/RenderingStrategy.h"
 #include "vulkan/vulkan.h"
 #include <array>
