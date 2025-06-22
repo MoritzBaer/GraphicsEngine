@@ -20,7 +20,15 @@ layout (set = 1, binding = 0) uniform sampler2D sceneDepth;
 void main() {
     vec4 homogenizedInPosition = gl_in[0].gl_Position / gl_in[0].gl_Position.w;
     vec2 depthRead = (vec2(homogenizedInPosition.x, homogenizedInPosition.y) + 1) / 2;
-    float depth = texture(sceneDepth, depthRead).r;
+
+    // Take multiple samples to reduce flickering
+    float depth = 0;
+    for (int i = -1; i < 2; i++) {
+        for (int j = -1; j < 2; j++) {
+            depth = max(depth, texture(sceneDepth, depthRead + vec2(i, j) * 0.0005).r);
+        }
+    }
+
     if (depth < homogenizedInPosition.z - EPS) return;
     
     outColour = inColour[0];
