@@ -14,7 +14,7 @@ struct TestProject : public Game {
   void Init() override {
     Game::Init();
     activeScene = assetManager.LoadAsset<Core::Scene *>("testscene");
-    activeScene->mainCamera.GetComponent<Engine::Graphics::Transform>()->LookAt({0, 0, 0});
+    //activeScene->mainCamera.GetComponent<Engine::Graphics::Transform>()->LookAt({0, 0, 0});
   }
 };
 
