@@ -5,6 +5,7 @@
 #ifdef NDEBUG
 #define RELEASE_CONST const
 #define DEBUG_LABEL
+#define DEBUG_LABEL_DEFAULT
 #define DEBUG_LABEL_REFERENCE
 #define DEBUG_LABEL_VALUE(Value)
 #else
@@ -13,7 +14,6 @@
 #define DEBUG_LABEL_DEFAULT DEBUG_LABEL = nullptr
 #define DEBUG_LABEL_REFERENCE , label
 #define DEBUG_LABEL_VALUE(Value) , Value
-
 #endif
 
 namespace Engine::Graphics {

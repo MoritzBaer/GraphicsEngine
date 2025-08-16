@@ -24,9 +24,10 @@ protected:
 public:
   RenderTargetProvider(GPUObjectManager RELEASE_CONST *gpuObjectManager)
       : depthBuffer(), discardedDepthBuffers(), gpuObjectManager(gpuObjectManager) {}
-  virtual std::tuple<Image2, Image2, VkAttachmentLoadOp> GetRenderTarget(Image2 &givenRenderTarget, std::optional<Image2> &givenDepthTarget,
-                                                     std::vector<Command const *> &previousCommands) {
-    if (givenDepthTarget.has_value()) {
+  virtual std::tuple<Image2, Image2, VkAttachmentLoadOp>
+  GetRenderTarget(Image2 &givenRenderTarget, std::optional<Image2> &givenDepthTarget,
+                  std::vector<Command const *> &previousCommands) {
+    if (givenDepthTarget) {
       return {givenRenderTarget, *givenDepthTarget, VK_ATTACHMENT_LOAD_OP_LOAD};
     }
 
@@ -39,7 +40,7 @@ public:
       discardedDepthBuffers.push_back(depthBuffer);
       depthBuffer = gpuObjectManager->AllocateImage(
           VK_FORMAT_D32_SFLOAT, Maths::Dimension2(1600, 900), VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-          VK_IMAGE_ASPECT_DEPTH_BIT, 1, 1, VK_SAMPLE_COUNT_1_BIT, "BufferedStrategy depth buffer");
+          VK_IMAGE_ASPECT_DEPTH_BIT, 1, 1, VK_SAMPLE_COUNT_1_BIT DEBUG_LABEL_VALUE("BufferedStrategy depth buffer"));
     }
 
     return {givenRenderTarget, depthBuffer, VK_ATTACHMENT_LOAD_OP_CLEAR};
@@ -47,7 +48,7 @@ public:
 
   virtual std::vector<Command *> GetTargetSwapCommands(Image2 &givenRenderTarget,
                                                        std::optional<Image2> &givenDepthTarget) {
-    if (!givenDepthTarget.has_value())
+    if (!givenDepthTarget)
       givenDepthTarget.emplace(depthBuffer);
     return {};
   }
@@ -57,7 +58,7 @@ template <typename T_Object, typename T_Uniform> class BufferedRenderer {
   inline static const size_t INITIAL_BUFFER_SIZE = 16;
 
   InstanceManager const *instanceManager;
-  GPUObjectManager *gpuObjectManager;
+  GPUObjectManager RELEASE_CONST *gpuObjectManager;
 
   RenderObjectBuffer<T_Object> renderObjectBuffer;
 
@@ -66,7 +67,7 @@ template <typename T_Object, typename T_Uniform> class BufferedRenderer {
 
     std::vector<Buffer<T_Object>> bufferDump;
 
-    GPUObjectManager *gpuObjectManager;
+    GPUObjectManager RELEASE_CONST *gpuObjectManager;
     GPUDispatcher gpuDispatcher;
     RenderingStrategy *wrappedStrategy;
 
@@ -75,7 +76,7 @@ template <typename T_Object, typename T_Uniform> class BufferedRenderer {
     T_Uniform ExtractUniformData(RenderingRequest const &request) const;
 
   public:
-    BufferedStrategy(InstanceManager const *instanceManager, GPUObjectManager *gpuObjectManager,
+    BufferedStrategy(InstanceManager const *instanceManager, GPUObjectManager RELEASE_CONST *gpuObjectManager,
                      RenderingStrategy *subStrategy, RenderObjectBuffer<T_Object> &buffer,
                      RenderTargetProvider *renderTargetProvider)
         : buffer(buffer), gpuObjectManager(gpuObjectManager), wrappedStrategy(subStrategy),
@@ -92,12 +93,13 @@ template <typename T_Object, typename T_Uniform> class BufferedRenderer {
   RenderTargetProvider *renderTargetProvider;
 
 public:
-  BufferedRenderer(InstanceManager const *instanceManager, GPUObjectManager *gpuObjectManager,
+  BufferedRenderer(InstanceManager const *instanceManager, GPUObjectManager RELEASE_CONST *gpuObjectManager,
                    RenderTargetProvider *renderTargetProvider = nullptr, Material *material = nullptr)
       : instanceManager(instanceManager), gpuObjectManager(gpuObjectManager), renderObjectBuffer(material),
         renderTargetProvider(renderTargetProvider) {
     renderObjectBuffer.gpuBuffer = gpuObjectManager->CreateBuffer<T_Object>(
-        INITIAL_BUFFER_SIZE, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+        INITIAL_BUFFER_SIZE, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VMA_MEMORY_USAGE_GPU_ONLY);
     if (!renderTargetProvider)
       this->renderTargetProvider = new RenderTargetProvider(gpuObjectManager);
   }
@@ -164,6 +166,7 @@ std::vector<Command const *> BufferedRenderer<T_Object, T_Uniform>::BufferedStra
     stagingBuffer.SetData(buffer.objects);
     gpuDispatcher.Dispatch(
         GPUMemoryManager::CopyBufferToBuffer(stagingBuffer, buffer.gpuBuffer, stagingBuffer.PhysicalSize()));
+    gpuObjectManager->DestroyBuffer(stagingBuffer);
 
     auto uniformBinding = uniformBufferProvider.GetBinding(ExtractUniformData(request));
 

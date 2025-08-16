@@ -3,6 +3,7 @@
 #include "Buffer.h"
 #include "Debug/Logging.h"
 #include "GPUObjectManager.h"
+#include "Graphics/MemoryAllocator.h"
 #include <array>
 #include <stack>
 
@@ -18,15 +19,14 @@ public:
 
 typedef uint8_t typeId_t;
 
-template <typename T_Uniform>
-struct TypeID {
+template <typename T_Uniform> struct TypeID {
   inline static typeId_t value = -1;
 };
 inline typeId_t nextFreeType = 0;
 
 class UniformBinder {
   std::array<BufferProducer *, std::numeric_limits<typeId_t>::max()> bufferProducers;
-  GPUObjectManager RELEASE_CONST         *gpuObjectManager;
+  GPUObjectManager RELEASE_CONST *gpuObjectManager;
   GPUDispatcher gpuDispatcher;
 
 public:
@@ -49,11 +49,11 @@ public:
 template <typename T_Uniform> class UniformBufferProducer : public BufferProducer {
   std::stack<Buffer<T_Uniform>> availableBuffers;
   std::stack<Buffer<T_Uniform>> usedBuffers;
-  GPUObjectManager RELEASE_CONST         *gpuObjectManager;
+  GPUObjectManager RELEASE_CONST *gpuObjectManager;
   GPUDispatcher const *gpuDispatcher;
 
   inline static constexpr bool STAGING_REQUIRED = sizeof(T_Uniform) > MIN_UNIFORM_SIZE_FOR_STAGING_IN_UPLOAD;
-  Buffer<T_Uniform> stagingBuffer;
+  Buffer<T_Uniform> stagingBuffer;// TODO: Destroy staging buffer when binder is destroyed
 
   inline constexpr void UploadUniform(Buffer<T_Uniform> &buffer, T_Uniform const &data) {
     if constexpr (STAGING_REQUIRED) {
@@ -76,12 +76,7 @@ template <typename T_Uniform> class UniformBufferProducer : public BufferProduce
   }
 
 public:
-  UniformBufferProducer(GPUObjectManager
-#ifdef NDEBUG
-                        const
-#endif
-                            *gpuObjectManager,
-                        GPUDispatcher const *gpuDispatcher)
+  UniformBufferProducer(GPUObjectManager RELEASE_CONST *gpuObjectManager, GPUDispatcher const *gpuDispatcher)
       : gpuObjectManager(gpuObjectManager), gpuDispatcher(gpuDispatcher), availableBuffers(), usedBuffers() {
     if constexpr (STAGING_REQUIRED) {
       stagingBuffer =

@@ -5,6 +5,7 @@
 #include "Util/Macros.h"
 
 Engine::Graphics::MemoryAllocator::~MemoryAllocator() {
+  #ifndef NDEBUG
   for (auto undestroyed : allocatedImages) {
     auto label = std::get<2>(undestroyed);
     if (label) {
@@ -21,6 +22,7 @@ Engine::Graphics::MemoryAllocator::~MemoryAllocator() {
       ENGINE_ERROR("Buffer was not destroyed: UNNAMED");
     }
   }
+  #endif
   vmaDestroyAllocator(allocator);
 }
 

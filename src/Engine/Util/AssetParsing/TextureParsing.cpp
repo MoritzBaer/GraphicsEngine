@@ -10,7 +10,7 @@ template <> std::string AssetPath<Graphics::Texture2D>::FromName(char const *ass
   return std::string("textures/") + assetName;
 }
 
-TextureCache::TextureCache(Graphics::GPUObjectManager *gpuObjectManager)
+TextureCache::TextureCache(Graphics::GPUObjectManager RELEASE_CONST *gpuObjectManager)
     : baseCache(TextureDestroyer(gpuObjectManager)) {
   uint32_t white = 0xFFFFFFFF;
   uint32_t normalUp = 0xFFFF8080;

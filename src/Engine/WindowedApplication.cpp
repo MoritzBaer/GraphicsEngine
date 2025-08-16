@@ -118,7 +118,7 @@ std::vector<Command const *> SwapChainProvider::PrepareTargetForDisplaying() {
   return {swapchainImages[swapchainImageIndex].Transition(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)};
 }
 
-SwapChainProvider::SwapChainProvider(InstanceManager const *instanceManager, GPUObjectManager *gpuObjectManager,
+SwapChainProvider::SwapChainProvider(InstanceManager const *instanceManager, GPUObjectManager RELEASE_CONST *gpuObjectManager,
                                      Maths::Dimension2 const &windowSize)
     : instanceManager(instanceManager), gpuObjectManager(gpuObjectManager), windowDimension(windowSize),
       currentFrame(0), swapchainImageIndex(0) {

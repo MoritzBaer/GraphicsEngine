@@ -51,10 +51,13 @@ public:
                                                             VK_IMAGE_USAGE_SAMPLED_BIT,
                                   VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT) RELEASE_CONST;
   template <uint8_t D, typename T>
-  inline Texture<D> CreateTexture(Maths::Dimension<D> const &imageSize, T const *data,
-                                  VkFilter magFilter = VK_FILTER_LINEAR, VkFilter minFilter = VK_FILTER_LINEAR,
-                                  VkFormat format = VK_FORMAT_R8G8B8A8_UNORM, bool mipped = true,
-                                  VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT) RELEASE_CONST;
+  inline Texture<D>
+  CreateTexture(Maths::Dimension<D> const &imageSize, T const *data, VkFilter magFilter = VK_FILTER_LINEAR,
+                VkFilter minFilter = VK_FILTER_LINEAR, VkFormat format = VK_FORMAT_R8G8B8A8_UNORM, bool mipped = true,
+                VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT,
+                VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                                          VK_IMAGE_USAGE_SAMPLED_BIT,
+                VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT) RELEASE_CONST;
 
   template <uint8_t D, typename T>
   inline void SetPixels(Texture<D> &target, T const *data, Maths::Dimension<D> dimension) RELEASE_CONST;
@@ -245,8 +248,9 @@ inline Texture<D> GPUObjectManager::CreateTexture(Maths::Dimension<D> const &ima
 template <uint8_t D, typename T>
 inline Texture<D> GPUObjectManager::CreateTexture(Maths::Dimension<D> const &imageSize, T const *data,
                                                   VkFilter magFilter, VkFilter minFilter, VkFormat format, bool mipped,
-                                                  VkSampleCountFlagBits msaaSamples) RELEASE_CONST {
-  auto texture = CreateTexture(imageSize, magFilter, minFilter, format, mipped, msaaSamples);
+                                                  VkSampleCountFlagBits msaaSamples, VkImageUsageFlags usage,
+                                                  VkImageAspectFlags aspectMask) RELEASE_CONST {
+  auto texture = CreateTexture(imageSize, magFilter, minFilter, format, mipped, msaaSamples, usage, aspectMask);
   SetPixels(texture, data, imageSize);
   return texture;
 }

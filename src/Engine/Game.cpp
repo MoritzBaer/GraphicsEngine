@@ -2,7 +2,6 @@
 
 #include "Core/Script.h"
 #include "Core/Time.h"
-#include "Debug/Logging.h"
 #include "Debug/Profiling.h"
 #include "Graphics/Camera.h"
 #include "Graphics/MeshRenderer.h"
@@ -10,10 +9,10 @@
 #include "Graphics/Transform.h"
 #include "Util/AssetParsing/MaterialParsing.h"
 #include "Util/AssetParsing/MeshParsing.h"
-#include "Util/AssetParsing/MultiUseImplementations.h"
 #include "Util/AssetParsing/PrefabParsing.h"
 #include "Util/AssetParsing/ShaderParsing.h"
 #include "Util/AssetParsing/TextureParsing.h"
+#include "WindowManager.h"
 #include <thread>
 
 using Engine::Graphics::Shader;
@@ -118,7 +117,9 @@ void Game::CalculateFrame() {
     identifierStorage.Rebuild(activeScene->ecs);
 
     Engine::WindowManager::HandleEventsOnAllWindows();
-    debugRenderer.Clear();
+#ifndef NDEBUG
+    debugRenderer.BeginFrame();
+#endif
 
     auto scripts = activeScene->ecs.FilterEntities<Engine::Core::ScriptComponent>();
     for (auto &[scriptComponent] : scripts) {

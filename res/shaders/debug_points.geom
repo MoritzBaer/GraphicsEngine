@@ -14,7 +14,8 @@ layout (set = 0, binding = 0) uniform Matrices {
 } matrices;
 layout (set = 1, binding = 0) uniform sampler2D sceneDepth;
 
-#define CLIP_SPACE_POSITION_FROM_CAM_SPACE_AND_OFFSET matrices.projection * vec4(inPosCameraSpace[0] + vec3(0.01 * inPosCameraSpace[0].y * offset, 0).xzy, 1.0) + vec4(0,0,-0.002,0);
+#define POINT_RADIUS 0.01
+#define CLIP_SPACE_POSITION_FROM_CAM_SPACE_AND_OFFSET matrices.projection * vec4(inPosCameraSpace[0] + vec3(POINT_RADIUS * inPosCameraSpace[0].y * offset, 0).xzy, 1.0) + vec4(0,0,-0.002,0);
 #define EPS 0.0001
 
 void main() {

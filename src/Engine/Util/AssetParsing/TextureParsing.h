@@ -13,10 +13,10 @@ struct TextureDSO {
 };
 
 class TextureDestroyer {
-  Graphics::GPUObjectManager *gpuObjectManager;
+  Graphics::GPUObjectManager RELEASE_CONST *gpuObjectManager;
 
 public:
-  TextureDestroyer(Graphics::GPUObjectManager *gpuObjectManager) : gpuObjectManager(gpuObjectManager) {}
+  TextureDestroyer(Graphics::GPUObjectManager RELEASE_CONST *gpuObjectManager) : gpuObjectManager(gpuObjectManager) {}
   inline void DestroyAsset(Graphics::Texture2D &asset) const { gpuObjectManager->DestroyTexture(asset); }
 };
 
@@ -24,7 +24,7 @@ class TextureCache {
   AssetCacheImpl<Graphics::Texture2D, TextureDestroyer> baseCache;
 
 public:
-  TextureCache(Graphics::GPUObjectManager *gpuObjectManager);
+  TextureCache(Graphics::GPUObjectManager RELEASE_CONST *gpuObjectManager);
   inline bool HasAsset(char const *assetName) const { return baseCache.HasAsset(assetName); }
   inline void InsertAsset(char const *assetName, Graphics::Texture2D const &asset) {
     baseCache.InsertAsset(assetName, asset);
@@ -39,11 +39,11 @@ public:
 };
 
 class TextureConverter {
-  Graphics::GPUObjectManager *gpuObjectManager;
+  Graphics::GPUObjectManager RELEASE_CONST *gpuObjectManager;
   AssetManager *assetManager;
 
 public:
-  TextureConverter(Graphics::GPUObjectManager *gpuObjectManager, AssetManager *assetManager)
+  TextureConverter(Graphics::GPUObjectManager RELEASE_CONST *gpuObjectManager, AssetManager *assetManager)
       : gpuObjectManager(gpuObjectManager), assetManager(assetManager) {}
   Graphics::Texture2D ConvertDSO(TextureDSO const &dso) const;
 };

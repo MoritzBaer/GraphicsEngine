@@ -1,19 +1,15 @@
 #pragma once
 
 #include "AssetManager.h"
-#include "Core/ECS.h"
 #include "Core/EntityIdentifier.h"
 #include "Core/Scene.h"
 #include "Core/Time.h"
 #include "Debug/DebugRenderer.h"
-#include "Graphics/InstanceManager.h"
 #include "Graphics/MemoryAllocator.h"
 #include "Graphics/Renderer.h"
-#include "Graphics/RenderingStrategies/ComputeBackground.h"
 #include "Graphics/RenderingStrategy.h"
 #include "Graphics/VulkanSuite.h"
 #include "Util/DeletionQueue.h"
-#include "WindowManager.h"
 
 struct Game {
   Engine::DeletionQueue mainDeletionQueue;

@@ -25,14 +25,15 @@ class BufferToImageCopyCommand : public Command {
   size_t srcOffset;     // In bytes
   VkOffset3D dstOffset; // In bytes
   VkExtent3D dstExtent; // In bytes
+  VkImageAspectFlags aspect;
   vkutil::PipelineBarrierCommand const *imageTransition;
 
 public:
   BufferToImageCopyCommand(VkBuffer source, VkImage destination, VkExtent3D destinationExtent,
                            vkutil::PipelineBarrierCommand const *imageTransition, size_t sourceOffset = 0,
-                           VkOffset3D destinationOffset = {0, 0, 0})
+                           VkOffset3D destinationOffset = {0, 0, 0}, VkImageAspectFlags aspect = VK_IMAGE_ASPECT_COLOR_BIT)
       : src(source), dst(destination), srcOffset(sourceOffset), dstOffset(destinationOffset),
-        dstExtent(destinationExtent), imageTransition(imageTransition) {}
+        dstExtent(destinationExtent), imageTransition(imageTransition), aspect(aspect) {}
   void QueueExecution(VkCommandBuffer const &queue) const;
 };
 
@@ -66,7 +67,7 @@ public:
                     size_t sourceOffset = 0, Maths::Dimension<D> destinationOffset = Maths::Dimension<D>::Zero()) {
     return new BufferToImageCopyCommand(source.buffer, destination.image, vkutil::DimensionToExtent(destinationExtent),
                                         destination.Transition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL), sourceOffset,
-                                        vkutil::DimensionToOffset(destinationOffset));
+                                        vkutil::DimensionToOffset(destinationOffset), destination.aspect);
   }
 };
 
@@ -83,7 +84,7 @@ inline void BufferToImageCopyCommand::QueueExecution(VkCommandBuffer const &queu
   VkBufferImageCopy copy{.bufferOffset = srcOffset,
                          .bufferRowLength = 0,
                          .bufferImageHeight = 0,
-                         .imageSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                         .imageSubresource = {.aspectMask = aspect,
                                               .mipLevel = 0,
                                               .baseArrayLayer = 0,
                                               .layerCount = 1},

@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.28)
 
 project(GRAPHICS_ENGINE)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(BUILD_WITH_PROFILING "Build for profiling" ON)
 option(BUILD_DEMO_APPS "Build demo apps" ON)
@@ -66,15 +65,11 @@ target_link_libraries(Engine PUBLIC Vulkan::Vulkan)
 target_link_libraries(Engine PUBLIC Vulkan::shaderc_combined)
 
 # To keep assets in the same place as the binaries
+# TODO: Figure out compiler-independent delivery
 if(DELIVER_RESOURCES)
     message("-- Delivering engine resources to binary directory")
-
-    if(CMAKE_BUILD_TYPE MATCHES Debug)
-        add_custom_command(TARGET Engine POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/res ${CMAKE_BINARY_DIR}/Debug/res)
-        add_custom_command(TARGET Engine POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/debug-symbols ${CMAKE_BINARY_DIR}/Debug)
-    else()
-        add_custom_command(TARGET Engine POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/res ${CMAKE_BINARY_DIR}/Release/res)
-    endif()
+    add_custom_command(TARGET Engine POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/res ${CMAKE_BINARY_DIR}/res)
+    add_custom_command(TARGET Engine POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/debug-symbols ${CMAKE_BINARY_DIR})
 endif()
 
 macro(make_app NAME ENTRY_POINT)

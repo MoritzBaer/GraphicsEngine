@@ -14,7 +14,7 @@ using namespace Engine;
 struct SwapChainProvider : public Engine::Graphics::RenderResourceProvider {
 private:
   InstanceManager const *instanceManager;
-  GPUObjectManager *gpuObjectManager;
+  GPUObjectManager RELEASE_CONST *gpuObjectManager;
 
   static const uint32_t MAX_FRAME_OVERLAP = 3;
 
@@ -37,7 +37,7 @@ private:
 
   FrameResources GetFrameResources() override;
   Image2 &GetRenderTarget(bool &acquisitionSuccessful) override;
-  void DisplayRenderTarget() override; // TODO: Present current swapchain image
+  void DisplayRenderTarget() override; 
   std::vector<Command const *> PrepareTargetForRendering() override { return {}; }
   std::vector<Command const *> PrepareTargetForDisplaying() override;
 
@@ -48,7 +48,7 @@ private:
   }
 
 public:
-  SwapChainProvider(InstanceManager const *instanceManager, GPUObjectManager *gpuObjectManager,
+  SwapChainProvider(InstanceManager const *instanceManager, GPUObjectManager RELEASE_CONST *gpuObjectManager,
                     Maths::Dimension2 const &windowSize);
   ~SwapChainProvider();
 
@@ -86,13 +86,12 @@ template <typename GameType> class GameApp {
 protected:
   WindowedApplication windowedApplication;
   GameType game;
-  const char *name;
 
 public:
   template <typename... GameArgs>
   GameApp(const char *name, Engine::Maths::Dimension2 const &windowSize, GameArgs &&...gameArgs)
       : game(windowedApplication.GetVulkan(), std::forward<GameArgs>(gameArgs)...),
-        windowedApplication(name, windowSize), name(name) {
+        windowedApplication(name, windowSize) {
     game.renderer.SetRenderResourceProvider(windowedApplication.GetSwapChainProvider());
     windowedApplication.GetWindow()->SetCloseCallback([this]() { game.running = false; });
     windowedApplication.GetWindow()->SetMinimizeCallback([this]() { game.rendering = false; });
@@ -114,6 +113,6 @@ template <typename GameType> inline void GameApp<GameType>::Run() {
       game.CalculateFrame();
     WRITE_PROFILE_SESSION("Game Loop")
   } catch (std::exception &e) {
-    Engine::Debug::Logging::PrintError(name, "Exception: {}", e.what());
+    Engine::Debug::Logging::PrintError("Exception", e.what());
   }
 }

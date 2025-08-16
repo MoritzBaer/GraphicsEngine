@@ -6,7 +6,7 @@
 namespace Engine::Graphics::RenderingStrategies {
 
 class ForwardRendering : public RenderingStrategy {
-  GPUObjectManager *objectManager;
+  GPUObjectManager RELEASE_CONST *objectManager;
   BackgroundStrategy *backgroundStrategy;
   InstanceManager const *instanceManager;
 
@@ -26,7 +26,7 @@ public:
                                                     DescriptorWriter &descriptorWriter, Image<2> &renderTarget,
                                                     std::optional<Image<2>> &depthTarget) override;
 
-  ForwardRendering(InstanceManager const *instanceManager, GPUObjectManager *objectManager,
+  ForwardRendering(InstanceManager const *instanceManager, GPUObjectManager RELEASE_CONST *objectManager,
                    BackgroundStrategy *backgroundStrategy)
       : objectManager(objectManager), instanceManager(instanceManager), backgroundStrategy(backgroundStrategy) {
     CreateRenderBuffer({1600, 900});

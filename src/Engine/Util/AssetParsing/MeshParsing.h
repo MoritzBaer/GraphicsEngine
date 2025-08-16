@@ -18,14 +18,14 @@ struct MeshParser {
 };
 
 struct MeshConverter {
-  Graphics::GPUObjectManager *gpuObjectManager;
-  MeshConverter(Graphics::GPUObjectManager *gpuObjectManager) : gpuObjectManager(gpuObjectManager) {}
+  Graphics::GPUObjectManager RELEASE_CONST *gpuObjectManager;
+  MeshConverter(Graphics::GPUObjectManager RELEASE_CONST *gpuObjectManager) : gpuObjectManager(gpuObjectManager) {}
   Graphics::AllocatedMesh *ConvertDSO(MeshDSO const &dso) const;
 };
 
 struct MeshDestroyer {
-  Graphics::GPUObjectManager *gpuObjectManager;
-  MeshDestroyer(Graphics::GPUObjectManager *gpuObjectManager) : gpuObjectManager(gpuObjectManager) {}
+  Graphics::GPUObjectManager RELEASE_CONST *gpuObjectManager;
+  MeshDestroyer(Graphics::GPUObjectManager RELEASE_CONST *gpuObjectManager) : gpuObjectManager(gpuObjectManager) {}
   void DestroyAsset(Graphics::AllocatedMesh *&asset) const;
 };
 
