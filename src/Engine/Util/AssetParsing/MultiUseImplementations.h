@@ -1,6 +1,7 @@
 #pragma once
 
 #include "json-parsing.h"
+#include <vector>
 
 namespace Engine {
 template <typename T> struct JsonParser {
