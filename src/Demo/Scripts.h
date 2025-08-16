@@ -19,7 +19,7 @@ struct SpinnyScript : public Engine::Core::Script {
 
   void OnUpdate(Engine::Core::Clock const &clock) override {
     Engine::Maths::Vector3 oldRotation = transform->rotation.EulerAngles();
-    transform->rotation = (Engine::Maths::Quaternion::RotateAroundAxis(Engine::Maths::Vector3(0, 1, 0),
+    transform->rotation = (Engine::Maths::Quaternion::RotateAroundAxis(Engine::Maths::Vector3(0, 0, 1),
                                                                             rotationSpeed * clock.deltaTime * 0.2f) *
                            transform->rotation)
                               .Normalized();
@@ -39,16 +39,16 @@ struct SpinnyScriptDSO : public Engine::ScriptDSO {
 
 struct BobbyScript : public Engine::Core::Script {
   Engine::Graphics::Transform *transform;
-  float initialY;
+  float initialZ;
   float bobbingAmplitude;
 
   BobbyScript(Engine::Core::Entity entity, Game * const & game, float bobbingAmplitude)
       : Engine::Core::Script(entity, game), bobbingAmplitude(bobbingAmplitude), transform(nullptr) {}
 
-  void OnStart() override { initialY = transform->position.y(); }
+  void OnStart() override { initialZ = transform->position.z(); }
   void OnCreate() override { transform = entity.GetComponent<Engine::Graphics::Transform>(); }
   void OnUpdate(Engine::Core::Clock const &clock) override {
-    transform->position.y() = initialY + std::sin(clock.time) * bobbingAmplitude;
+    transform->position.z() = initialZ + std::sin(clock.time) * bobbingAmplitude;
   }
 
   void Clone(Engine::Core::ScriptComponent *target) override {
