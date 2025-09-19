@@ -1,101 +1,202 @@
 #pragma once
 
 #include "Engine/Debug/Logging.h"
-#include "Engine/Util/Macros.h"
-#include <cmath>
-#include <sstream>
+#include <cstdint>
+#include <vector>
 
-#define EQUALITY_EPS 0.0001
+#define __NAMED_TEST_CASE(Name, Label)                                                                                 \
+  class Name : public Test {                                                                                           \
+  protected:                                                                                                           \
+    void VerifyGroup(uint32_t group, uint32_t &numGroups, bool &pass, std::string &groupLabel) const override;         \
+                                                                                                                       \
+  public:                                                                                                              \
+    Name() : Test(Label) {}                                                                                            \
+  };                                                                                                                   \
+                                                                                                                       \
+  TestSubscription<Name> __TEST_SUB_NAME{};                                                                            \
+  void Name::VerifyGroup(uint32_t group, uint32_t &numGroups, bool &pass, std::string &groupLabel) const
 
-#define BEGIN_TEST_CASE(label)                                                                                         \
-  bool run_##label##_tests() {                                                                                         \
-    TestEnv env = TestEnv(#label);
+#define __TEST_CONCAT(a, b) a##b
+#define __TEST_CONCAT_INTERMEDIATE(a, b) __TEST_CONCAT(a, b)
+#define __TEST_CASE_NAME __TEST_CONCAT_INTERMEDIATE(Test_, __COUNTER__)
+#define __TEST_SUB_NAME __TEST_CONCAT_INTERMEDIATE(Sub_, __COUNTER__)
 
-#define END_TEST_CASE()                                                                                                \
-  return env.Passed();                                                                                                 \
+#define TEST_CASE(Label) __NAMED_TEST_CASE(__TEST_CASE_NAME, Label)
+
+#define SUB_GROUP(Label) if (group == numGroups++ && !(groupLabel = Label).empty())
+
+#define VERIFY(Expression)                                                                                             \
+  if (!(ExpressionDecomposition() <=> Expression)) {                                                                   \
+    pass = false;                                                                                                      \
   }
 
-#define RUN_SUB_CASE(label)                                                                                            \
-  if (!run_##label##_tests()) {                                                                                        \
-    env.Fail();                                                                                                        \
-  }
-
-#define TEST_ASSERT(expression, message, ...)                                                                          \
-  if (!(expression)) {                                                                                                 \
-    env.Fail();                                                                                                        \
-    Debug::Logging::PrintError("Test", message __VA_OPT__(, __VA_ARGS__));                                             \
-  }
-
-#define TEST_ASSERT_EQUAL(T, object1, label1, object2, label2, message)                                                \
-  size_t VAR_WITH_LINE(size) = std::min(sizeof(object1), sizeof(object2)) / sizeof(float);                             \
-  if (!test_T_ptr_equal<T>((T *)&object1, (T *)&object2, VAR_WITH_LINE(size))) {                                       \
-    env.Fail();                                                                                                        \
-    Debug::Logging::PrintError("Test", message);                                                                       \
-    Debug::Logging::PrintError("Test", "{}", format_single_T_ptr((T *)&object1, label1, VAR_WITH_LINE(size)));         \
-    Debug::Logging::PrintError("Test", "{}", format_single_T_ptr((T *)&object2, label2, VAR_WITH_LINE(size)));         \
-  }
-
-#define TEST_ASSERT_EQUAL_SIZE(type1, label1, type2, label2, message)                                                  \
-  if (sizeof(type1) != sizeof(type2)) {                                                                                \
-    env.Fail();                                                                                                        \
-    Debug::Logging::PrintError("Test", message);                                                                       \
-    Debug::Logging::PrintError("Test", "{}: {}", label1, sizeof(type1));                                               \
-    Debug::Logging::PrintError("Test", "{}: {}", label2, sizeof(type2));                                               \
+#define VERIFY_MEM_EQUAL(A, B, Type)                                                                                   \
+  {                                                                                                                    \
+    Type const *aPtr = reinterpret_cast<Type const *>(&A);                                                             \
+    Type const *bPtr = reinterpret_cast<Type const *>(&B);                                                             \
+    for (size_t i = 0; i < std::min(sizeof(decltype(A)), sizeof(decltype(B))) / sizeof(Type); i++) {                   \
+      if (aPtr[i] != bPtr[i]) {                                                                                        \
+        Debug::Logging::PrintError("Test",                                                                             \
+                                   " |   |  Element {} of " #A " is {} but element {} of " #B " is {}! ({}({},0))", i, \
+                                   aPtr[i], i, bPtr[i], __FILE__, __LINE__);                                           \
+        pass = false;                                                                                                  \
+      }                                                                                                                \
+    }                                                                                                                  \
   }
 
 using namespace Engine;
 
-namespace Test {
-
-class TestEnv {
+class Test {
   const char *label;
-  bool passed;
+
+protected:
+  bool pass;
+  virtual void VerifyGroup(uint32_t group, uint32_t &numGroups, bool &pass, std::string &groupLabel) const = 0;
 
 public:
-  TestEnv(const char *lbl) : label(lbl), passed(true) {
-    Debug::Logging::PrintMessage("Test", "Running {} tests...", label);
-  }
-  ~TestEnv() {
-    if (passed) {
-      Debug::Logging::PrintSuccess("Test", "Passed all {} tests!", label);
-    } else {
-      Debug::Logging::PrintError("Test", "");
-      if (strcmp(label, "all")) // TODO: Find more elegant solution
-        Debug::Logging::PrintError("Test", "Some {} tests failed!", label);
-      else
-        Debug::Logging::PrintError("Test", "Some tests failed!");
-    }
-  }
+  Test(const char *label) : label(label), pass(true) {}
+  virtual ~Test() {}
 
-  void Fail() { passed = false; }
-  bool Passed() { return passed; }
+  bool Verify() {
+
+    uint32_t group = 0;
+    uint32_t numGroups;
+    uint32_t numPassed = 0;
+    std::string groupLabel;
+
+    do {
+      numGroups = 0;
+      bool pass = true;
+      VerifyGroup(group, numGroups, pass, groupLabel);
+
+      if (pass) {
+        numPassed++;
+      } else {
+        Debug::Logging::PrintError("Test", " |   |  '{}' failed!", groupLabel);
+        this->pass = false;
+      }
+    } while (++group < numGroups);
+
+    if (pass) {
+      if (numGroups > 0) {
+        Debug::Logging::PrintSuccess("Test", " |  '{}' passed: {} out of {} sub-groups passed", label, numPassed,
+                                     numGroups);
+      } else {
+        Debug::Logging::PrintSuccess("Test", " |  '{}' passed", label);
+      }
+
+      return true;
+    }
+
+    // Fail
+    if (numGroups > 0) {
+      Debug::Logging::PrintError("Test", " |  '{}' failed: {} out of {} sub-groups failed!", label,
+                                 numGroups - numPassed, numGroups);
+    } else {
+      Debug::Logging::PrintError("Test", " |  '{}' failed!", label);
+    }
+    return false;
+  }
 };
 
-template <typename T> bool test_T_ptr_equal(T const *p1, T const *p2, uint16_t numberOfFloats) {
-  for (int i = 0; i < numberOfFloats; i++) {
-    if (abs(p1[i] - p2[i]) > 0.0001f) {
-      return false;
+inline static std::vector<Test *> allTests = {};
+
+template <typename Test_T> struct TestSubscription {
+  TestSubscription() { allTests.push_back(new Test_T()); }
+};
+
+int main() {
+  Debug::Logging::PrintMessage("Test", "Running all tests...");
+
+  uint32_t passed = 0;
+
+  for (auto &test : allTests) {
+    if (test->Verify()) {
+      passed++;
     }
+    delete test;
   }
-  return true;
+
+  if (passed == allTests.size()) { // Pass
+    if (allTests.size() > 0) {
+      Debug::Logging::PrintSuccess("Test", "All tests passed: {} out of {} tests passed", passed, allTests.size());
+    } else {
+      Debug::Logging::PrintSuccess("Test", "All tests passed");
+    }
+
+    return 0;
+  }
+
+  // Fail
+
+  Debug::Logging::PrintError("Test", "Some tests failed: {} out of {} tests failed!", allTests.size() - passed,
+                             allTests.size());
+  return 0;
 }
 
-template <typename T> std::string format_single_T_ptr(T const *ptr, const char *lbl, uint16_t numberOfT) {
-  std::stringstream builder;
+#define DECLARE_BINARY_OPERATOR_EVAL(Op, OpName) template <typename Expr_T1, typename Expr_T2> class OpName##Eval;
 
-  builder << std::fixed;
-  builder.precision(6);
+#define DEFINE_BINARY_OPERATOR_EVAL(Op, OpName, Type)                                                                  \
+  template <typename Expr_T1, typename Expr_T2> class OpName##Eval {                                                   \
+    Expr_T1 const a;                                                                                                   \
+    Expr_T2 const b;                                                                                                   \
+    Type const value;                                                                                                  \
+                                                                                                                       \
+  public:                                                                                                              \
+    OpName##Eval(Expr_T1 const &a, Expr_T2 const &b) : a(a), b(b), value(a Op b) {                                     \
+      if (!value) {                                                                                                    \
+        Debug::Logging::PrintError("Test", " |   |  Condition 'a " #Op " b' evaluated to false with a = {}, b = {}",   \
+                                   a, b);                                                                              \
+      }                                                                                                                \
+    }                                                                                                                  \
+    inline operator bool() const { return value; }                                                                     \
+                                                                                                                       \
+    CREATE_BINARY_OPERATOR_EVALS(Type)                                                                                 \
+  };
 
-  for (int i = 0; i < numberOfT; i++) {
-    float val = ptr[i];
-    if (!std::signbit(val)) {
-      builder << " ";
-    }
-    builder << val << " ";
+#define CREATE_BINARY_OPERATOR_EVAL(Op, OpName, Type)                                                                  \
+  template <typename Other_T> inline OpName##Eval<Type, Other_T> operator Op(Other_T const &other) const {             \
+    return {value, other};                                                                                             \
   }
-  builder << " (" << lbl << ")";
 
-  return builder.str();
-}
+DECLARE_BINARY_OPERATOR_EVAL(==, Equality)
+DECLARE_BINARY_OPERATOR_EVAL(&&, Conjunction)
+DECLARE_BINARY_OPERATOR_EVAL(<, LessThan)
+DECLARE_BINARY_OPERATOR_EVAL(>, GreaterThan)
+DECLARE_BINARY_OPERATOR_EVAL(+, Addition)
+DECLARE_BINARY_OPERATOR_EVAL(-, Subtraction)
+DECLARE_BINARY_OPERATOR_EVAL(*, Multiplication)
+DECLARE_BINARY_OPERATOR_EVAL(/, Division)
 
-} // namespace Engine::Test
+#define CREATE_BINARY_OPERATOR_EVALS(Type)                                                                             \
+  CREATE_BINARY_OPERATOR_EVAL(==, Equality, Type)                                                                      \
+  CREATE_BINARY_OPERATOR_EVAL(&&, Conjunction, Type)                                                                   \
+  CREATE_BINARY_OPERATOR_EVAL(<, LessThan, Type)                                                                       \
+  CREATE_BINARY_OPERATOR_EVAL(>, GreaterThan, Type)                                                                    \
+  CREATE_BINARY_OPERATOR_EVAL(+, Addition, Type)                                                                       \
+  CREATE_BINARY_OPERATOR_EVAL(-, Subtraction, Type)                                                                    \
+  CREATE_BINARY_OPERATOR_EVAL(*, Multiplication, Type)                                                                 \
+  CREATE_BINARY_OPERATOR_EVAL(/, Division, Type)
+
+DEFINE_BINARY_OPERATOR_EVAL(==, Equality, bool)
+DEFINE_BINARY_OPERATOR_EVAL(&&, Conjunction, bool)
+DEFINE_BINARY_OPERATOR_EVAL(<, LessThan, bool)
+DEFINE_BINARY_OPERATOR_EVAL(>, GreaterThan, bool)
+DEFINE_BINARY_OPERATOR_EVAL(+, Addition, Expr_T1)
+DEFINE_BINARY_OPERATOR_EVAL(-, Subtraction, Expr_T1)
+DEFINE_BINARY_OPERATOR_EVAL(*, Multiplication, Expr_T1)
+DEFINE_BINARY_OPERATOR_EVAL(/, Division, Expr_T1)
+
+template <typename T> class TypeDecomposition {
+  T const value;
+
+public:
+  TypeDecomposition(T const &value) : value(value) {}
+
+  CREATE_BINARY_OPERATOR_EVALS(T)
+};
+
+class ExpressionDecomposition {
+public:
+  template <typename T> inline TypeDecomposition<T> operator<=>(T const &value) const { return {value}; }
+};

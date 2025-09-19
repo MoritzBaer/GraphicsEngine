@@ -240,7 +240,7 @@ inline Texture<D> GPUObjectManager::CreateTexture(Maths::Dimension<D> const &ima
   }
   return CreateTexture(
       AllocateImage(format, imageSize, usage, aspectMask,
-                    (mipped ? static_cast<uint32_t>(std::floor(std::log2(imageSize.maxEntry()))) : 0) + 1, 1,
+                    (mipped ? static_cast<uint32_t>(std::floor(std::log2(imageSize.MaxEntry()))) : 0) + 1, 1,
                     msaaSamples DEBUG_LABEL_VALUE("TEXTURE")),
       magFilter, minFilter);
 }

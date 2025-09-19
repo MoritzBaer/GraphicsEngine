@@ -9,206 +9,246 @@
 using namespace Engine::Maths;
 using namespace Engine;
 
-namespace Test {
+TEST_CASE("Vectors work correctly") {
+  Maths::Vector4 v = {20, 34, 95, 35};
 
-BEGIN_TEST_CASE(entryAccessors)
+  SUB_GROUP("Internal representation is correct") {
+    float explicit_v[] = {20, 34, 95, 35};
+    VERIFY_MEM_EQUAL(v, explicit_v, float);
+  }
 
-Vector<10> v1{20, 34, 95, 35, 98, 84, 20, 85, 18, 70};
-Vector4 v2 = v1.xyzw();
-TEST_ASSERT_EQUAL(float, v1, "vector with ten entries", v2, "first four entries",
-                  "Accessor for first four entries did not give the correct values!")
-Vector4 test = (v1.Entries<0>() - v1.Entries<0, 2, 7, 4>());
-Vector4 intendedResult = {0, -75, -65, -78};
-TEST_ASSERT_EQUAL(float, test, "subtraction result", intendedResult, "real values",
-                  "Accessor subtraction did not give the correct values!")
-Vector2 testXY = (test.Entries<0, 1>() += v1.Entries<0>());
-TEST_ASSERT_EQUAL(float, test, "modified vector", testXY, "first two entries", "Accessor assignment did not work!")
-Vector2 accumulatedTest = (test.Entries<0, 2>() += test.Entries<1, 3>());
-Vector2 accumulatedControl = test.Entries<0, 2>();
-TEST_ASSERT_EQUAL(float, accumulatedTest, "modified vector", accumulatedControl, "first two entries",
-                  "Accessor assignment did not work!")
+  SUB_GROUP("Length and normalization work correctly") {
+    VERIFY(v.Length() == 108.655418641f);
 
-v2 = Vector4(1, 2, 3, 4);
-Vector3 homogenizedV2 = v2.xyz() / v2.w();
-v1.xyzw() = v2;
-TEST_ASSERT_EQUAL(float, v1, "Vector10", v2, "Vector4", "Setting entries does not give correct result!")
+    Vector4 oldV = v;
+    v.Normalize();
+    VERIFY(std::abs(v.Length() - 1) < EPS)
+    VERIFY(v == oldV / oldV.Length())
+  }
 
-//const Vector4 constVec = {1,2,3,4};
-//auto constEntries = constVec.xy();
-//TEST_ASSERT_EQUAL(float, constVec, "constant vector", constEntries, "entries", "Failed to retrieve values from const vector!")
+  SUB_GROUP("Cross product works correctly") {
+    Vector3 a{1, 2, 3};
+    Vector3 b{3, 4, 5};
+    Vector3 axb = a.Cross(b);
+    Vector3 correct_axb = {-2, 4, -2};
 
-END_TEST_CASE()
-
-BEGIN_TEST_CASE(vector)
-
-Vector4 v2 = {20, 34, 95, 35};
-float explicit_v2[] = {20, 34, 95, 35};
-TEST_ASSERT_EQUAL(float, v2, "actual", explicit_v2, "wanted", "Internal representation is not as desired!")
-
-RUN_SUB_CASE(entryAccessors)
-
-float v2l = v2.Length();
-float expected_length = 108.655418641f;
-TEST_ASSERT_EQUAL(float, v2l, "actual", expected_length, "wanted", "Length calculation gives wrong result!")
-
-v2.Normalize();
-TEST_ASSERT(abs(v2.Length() - 1) < EQUALITY_EPS, "Normalization results in incorrect length of {}!", v2.Length())
-float correct_v2[] = {explicit_v2[0] / v2l, explicit_v2[1] / v2l, explicit_v2[2] / v2l, explicit_v2[3] / v2l};
-TEST_ASSERT_EQUAL(float, v2, "actual", correct_v2, "correct", "Normalization gives incorrect result!")
-
-Vector3 a{1, 2, 3};
-Vector3 b{3, 4, 5};
-Vector3 axb = a.Cross(b);
-Vector3 correct_axb = {-2, 4, -2};
-TEST_ASSERT_EQUAL(float, axb, "actual", correct_axb, "correct", "Cross product gives incorrect result!")
-
-END_TEST_CASE() // vector
-
-BEGIN_TEST_CASE(matrix)
-
-MatrixNM<2, 3> A = MatrixNM<2, 3>(1, 2, 3, 3, 2, 1);
-Matrix3 B{4, 1, 0, 0, 3, 0, 2, 1, 2};
-
-MatrixNM<2, 3> C{10, 10, 6, 14, 10, 2};
-MatrixNM<2, 3> D = A * B;
-TEST_ASSERT_EQUAL(float, D, "actual", C, "correct", "Matrix multiplication does not give the correct result!")
-
-Matrix4 M{1, 3, 2, 4, 0, 1, 1, 3, 2, 0, 0, 2, 1, 2, 4, 1};
-Vector4 x{4, 2, 3, 0};
-Vector4 y = (M * 2.5f) * (x * 2.5f);
-Vector4 y_ = Vector4{16, 5, 8, 20} * (2.5f * 2.5f);
-TEST_ASSERT_EQUAL(float, y, "actual", y_, "correct", "Matrix-vector multiplication does not give the correct result!")
-
-{
-  Matrix2 M = Matrix2(1, 1, 2, 3);
-  Matrix2 M_Inv = M.Inverse();
-  Matrix2 M_Exp = Matrix2(3, -1, -2, 1);
-  TEST_ASSERT_EQUAL(float, M_Inv, "actual", M_Exp, "correct", "Matrix inversion does not give the correct result!")
-}
-{
-  Matrix3 M = Matrix3(1, 2, 3, 4, 5, 6, 7, 8, 9);
-  float explicit_M[] = {1, 4, 7, 2, 5, 8, 3, 6, 9};
-  TEST_ASSERT_EQUAL(float, M, "actual", explicit_M, "wanted", "Matrix representation does not match for 3x3 matrices!")
-
-  Matrix3 const &m = M;
-  float m_12 = m[1][2];
+    VERIFY(a.Cross(b) == correct_axb);
+  }
 }
 
-// The GPU expects matrices to be in column-major order, but for easier notation, constructors expect row-major
-Matrix4 m1 = Matrix4(8.96836, 2.10230, 1.89949, 4.60040, 8.39039, 5.83538, 7.79529, 6.32591, 4.75992, 5.49344, 0.39212,
-                     0.78537, 6.66451, 8.18015, 3.31983, 4.87304);
-float explicit_m1[] = {8.96836, 8.39039, 4.75992, 6.66451, 2.10230, 5.83538, 5.49344, 8.18015,
-                       1.89949, 7.79529, 0.39212, 3.31983, 4.60040, 6.32591, 0.78537, 4.87304};
-TEST_ASSERT_EQUAL(float, m1, "actual", explicit_m1, "explicit", "Matrix representation does not match!")
+TEST_CASE("Accessing vector entries works correctly") {
+  Vector<10> v{20, 34, 95, 35, 98, 84, 20, 85, 18, 70};
 
-Matrix4 m2{5.03589, 6.78238, 7.17521, 3.66256, 8.01326, 4.52237, 6.94845, 0.59203,
-           5.60207, 2.59969, 7.80068, 7.32192, 0.61612, 5.25223, 6.61894, 3.31925};
+  SUB_GROUP("Retrieving first four entries gives correct result") {
+    Vector4 v2 = v.xyzw();
+    VERIFY_MEM_EQUAL(v2, v, float);
+  }
 
-Maths::Vector4 v1{9.85868, 1.70382, 6.27017, 6.29855};
-Maths::Vector4 v2 = m1 * v1;
-Maths::Vector4 correct_v2 = {132.8841067841, 181.3824611666, 63.6917123203, 131.1497591829};
-TEST_ASSERT_EQUAL(float, v2, "actual", correct_v2, "correct",
-                  "Matrix-vector multiplication does not give the correct result!")
+  SUB_GROUP("Subtracting vector obtained through accessor gives correct result") {
+    Vector4 test = (v.x() - v.Entries<0, 2, 7, 4>());
+    Vector4 intendedResult = {0, -75, -65, -78};
+    VERIFY(test == intendedResult);
+  }
 
-Matrix4 m3 = m1 * m2;
-Matrix4 correct_m3 = {75.4854253307,  99.4346479979,  124.2246780198, 63.2695727914, 136.5807781554, 136.7870325182,
-                      203.4290379255, 112.2587933441, 70.671362396,   62.2712887803, 80.5814383006,  26.1636845213,
-                      120.7117055058, 116.4197600212, 162.8099129266, 69.7344296437};
-TEST_ASSERT_EQUAL(float, m3, "actual", correct_m3, "correct", "Matrix multiplication does not give the correct result!")
+  SUB_GROUP("Assignment gives correct value") {
+    Vector4 v2 = {1, 2, 3, 4};
+    Vector4 oldV2 = v2;
+    v.xyzw() = v2;
+    VERIFY_MEM_EQUAL(v, v2, float);
+    VERIFY(v2 == oldV2);
+  }
 
-Matrix4 m4 = Matrix4(6.01589, 0.79945, 3.03696, 7.89833, 2.89674, 6.73960, 5.22906, 1.90390, 4.23525, 3.65487, 7.92008,
-                     6.07612, 0.21322, 7.01907, 0.17421, 7.19930);
-Matrix4 m_Inverse = m4.Inverse();
-Matrix4 m_correct =
-    Matrix4(0.22590520535147221064, 0.21439106151673295909, -0.22566118257648591511, -0.11408172710246326558,
-            -0.0048146176943861615186, 0.15176869603639391364, -0.099435098775642683715, 0.0490679109584360566,
-            -0.11926301806954870517, -0.067545549318803498536, 0.21735238026807963992, -0.034736779955989534575,
-            0.00088945329587463363156, -0.15268435171168592384, 0.098369624539275549675, 0.095282166115857150355);
+  SUB_GROUP("Assignment-increment gives correct result") {
+    Vector2 test = (v.xy() += v.x());
+    Vector2 expected = {40, 54};
+    VERIFY_MEM_EQUAL(test, v, float);
+    VERIFY(test == expected);
 
-TEST_ASSERT_EQUAL(float, m_Inverse, "actual", m_correct, "correct",
-                  "Matrix inversion does not give the correct result!");
+    Vector4 test2 = v.Entries<0, 2, 7, 4>();
+    Vector2 compounded = test2.xz() += test2.yw();
+    Vector2 expectedCompund = {135, 183};
+    Vector2 xz = test2.xz();
+    VERIFY_MEM_EQUAL(xz, compounded, float);
+    VERIFY(compounded == expectedCompund);
+  }
+}
 
-END_TEST_CASE() // Matrix
+TEST_CASE("Matrices work correctly") {
+  SUB_GROUP("Internal representation is correct") {
+    Matrix3 M = Matrix3(1, 2, 3, 4, 5, 6, 7, 8, 9);
+    float explicit_M[] = {1, 4, 7, 2, 5, 8, 3, 6, 9};
+    VERIFY_MEM_EQUAL(M, explicit_M, float)
 
-BEGIN_TEST_CASE(perspective)
+    Matrix4 m1 = Matrix4(8.96836, 2.10230, 1.89949, 4.60040, 8.39039, 5.83538, 7.79529, 6.32591, 4.75992, 5.49344,
+                         0.39212, 0.78537, 6.66451, 8.18015, 3.31983, 4.87304);
+    // Matrices should be stored in column-major form but row-major constructors are more legible
+    float explicit_m1[] = {8.96836, 8.39039, 4.75992, 6.66451, 2.10230, 5.83538, 5.49344, 8.18015,
+                           1.89949, 7.79529, 0.39212, 3.31983, 4.60040, 6.32591, 0.78537, 4.87304};
+    VERIFY_MEM_EQUAL(m1, explicit_m1, float)
+  }
 
-auto P = Transformations::Perspective(0.01f, 100.0f, 60.0f, 16.0f / 9.0f);
+  SUB_GROUP("Accessing matrix entries works correctly") {
+    Matrix3 M = Matrix3(1, 2, 3, 4, 5, 6, 7, 8, 9);
 
-Vector4 v1 = {1, 10, 0, 1};
-Vector4 v1p = P * v1;
-Vector3 v1h = v1p.xyz() / v1p.w();
+    Matrix3 const &m = M;
+    float m_12 = m[1][2];
+    VERIFY(m_12 == 8)
+  }
 
-TEST_ASSERT(v1h[X] > 0 && v1h[X] < 1 && v1h[Y] == 0 && v1h[Z] > 0 && v1h[Z] < 1,
-            "Perspective matrix does not transform point in front and right of camera correctly! (homogenized x: {})",
-            v1h[X])
+  // TODO: Deconstruct multiplication in VERIFY
+  SUB_GROUP("Matrix multiplication gives correct result") {
+    MatrixNM<2, 3> A = MatrixNM<2, 3>(1, 2, 3, 3, 2, 1);
+    Matrix3 B{4, 1, 0, 0, 3, 0, 2, 1, 2};
 
-Vector4 v2 = {0, 11, 0, 1};
-Vector4 v2p = P * v2;
-Vector3 v2h = v2p.xyz() / v2p.w();
+    MatrixNM<2, 3> C = A * B;
+    MatrixNM<2, 3> expected{10, 10, 6, 14, 10, 2};
+    VERIFY(C == expected);
 
-TEST_ASSERT(v2h[X] == 0 && v2h[Y] == 0 && v2h[Z] > 0 && v2h[Z] < 1,
-            "Perspective matrix does not transform point in front of camera correctly! (homogenized z: {})", v2h[Z])
+    Matrix4 m1 = Matrix4(8.96836, 2.10230, 1.89949, 4.60040, 8.39039, 5.83538, 7.79529, 6.32591, 4.75992, 5.49344,
+                         0.39212, 0.78537, 6.66451, 8.18015, 3.31983, 4.87304);
+    Matrix4 m2{5.03589, 6.78238, 7.17521, 3.66256, 8.01326, 4.52237, 6.94845, 0.59203,
+               5.60207, 2.59969, 7.80068, 7.32192, 0.61612, 5.25223, 6.61894, 3.31925};
 
-Vector4 v3 = {0, 10, 1, 1};
-Vector4 v3p = P * v3;
-Vector3 v3h = v3p.xyz() / v3p.w();
+    Matrix4 m3 = m1 * m2;
+    Matrix4 correct_m3 = {75.4854253307,  99.4346479979,  124.2246780198, 63.2695727914, 136.5807781554, 136.7870325182,
+                          203.4290379255, 112.2587933441, 70.671362396,   62.2712887803, 80.5814383006,  26.1636845213,
+                          120.7117055058, 116.4197600212, 162.8099129266, 69.7344296437};
+    VERIFY(m3 == correct_m3)
+  }
 
-TEST_ASSERT(v3h[X] == 0 && v3h[Y] < 0 && v3h[Y] > -1 && v3h[Z] > 0 && v3h[Z] < 1,
-            "Perspective matrix does not transform point in front and above of camera correctly! (homogenized y: {})",
-            v3h[Y])
+  SUB_GROUP("Matrix-vector multiplication gives correct result") {
+    Matrix4 M{1, 3, 2, 4, 0, 1, 1, 3, 2, 0, 0, 2, 1, 2, 4, 1};
+    Vector4 x{4, 2, 3, 0};
+    Vector4 y = M * x;
+    Vector4 expected = Vector4{16, 5, 8, 20};
+    VERIFY(y == expected);
 
-Vector4 v4 = {0.01, 1.99, 0.01, 1};
-Vector4 v4p = P * v4;
-Vector3 v4h = v4p.xyz() / v4p.w();
+    Matrix4 M_{5.03589, 6.78238, 7.17521, 3.66256, 8.01326, 4.52237, 6.94845, 0.59203,
+               5.60207, 2.59969, 7.80068, 7.32192, 0.61612, 5.25223, 6.61894, 3.31925};
+    Maths::Vector4 x_{9.85868, 1.70382, 6.27017, 6.29855};
+    Maths::Vector4 y_ = M_ * x_;
+    // TODO: Verify that expected is correct, result ist different
+    Maths::Vector4 expected_ = {132.8841067841, 181.3824611666, 63.6917123203, 131.1497591829};
+    VERIFY(y_ == expected_)
+  }
 
-TEST_ASSERT(
-    v4h[X] > 0 && v4h[X] < 1 && v4h[Y] < 0 && v4h[Y] > -1 && v4h[Z] > 0 && v4h[Z] < 1,
-    "Perspective matrix does not transform point in front and right of camera correctly! (homogenized coordinates: {})",
-    v4h)
+  SUB_GROUP("Inverse matrix is correct") {
+    Matrix2 M = Matrix2(1, 1, 2, 3);
+    Matrix2 M_Inv = M.Inverse();
+    Matrix2 M_Exp = Matrix2(3, -1, -2, 1);
+    VERIFY(M_Inv == M_Exp)
 
-END_TEST_CASE()
+    Matrix4 m = Matrix4(6.01589, 0.79945, 3.03696, 7.89833, 2.89674, 6.73960, 5.22906, 1.90390, 4.23525, 3.65487,
+                        7.92008, 6.07612, 0.21322, 7.01907, 0.17421, 7.19930);
+    Matrix4 m_Inv = m.Inverse();
+    Matrix4 m_Exp =
+        Matrix4(0.22590520535147221064, 0.21439106151673295909, -0.22566118257648591511, -0.11408172710246326558,
+                -0.0048146176943861615186, 0.15176869603639391364, -0.099435098775642683715, 0.0490679109584360566,
+                -0.11926301806954870517, -0.067545549318803498536, 0.21735238026807963992, -0.034736779955989534575,
+                0.00088945329587463363156, -0.15268435171168592384, 0.098369624539275549675, 0.095282166115857150355);
+    VERIFY(m_Inv == m_Exp)
+  }
 
-BEGIN_TEST_CASE(quaternion)
+  // TODO: Add test for larger matrix
+  SUB_GROUP("Determinant is correct") {
+    float a = 2, b = 3, c = -2, d = 5;
+    Matrix2 M = Matrix2(a, b, c, d);
+    float determinant = M.Determinant();
+    float expected = a * d - b * c;
+  }
+}
 
-Vector3 axis1{0.73059, 1.19045, 0.55717};
-Vector3 axis2{0.73404, 0.95724, 0.69343};
-Vector3 point{3.71460, 12.14657, 3.76972};
-float angle = 13.0125f;
-Quaternion q = Transformations::RotateAroundAxis(axis1, angle);
-auto cq = q.RotationMatrix();
-auto mq = Transformations::RodriguesRotation(axis1, angle);
-TEST_ASSERT_EQUAL(float, cq, "quaternion", mq, "rodriguez",
-                  "Conversion from quaternion to rotation matrix gives incorrect result!")
+TEST_CASE("Perspective matrix behaves correctly") {
+  auto P = Transformations::Perspective(0.01f, 100.0f, 60.0f, 16.0f / 9.0f);
 
-Quaternion r = Transformations::RotateAroundAxis(axis2, 0.32f);
-auto mr = Transformations::RodriguesRotation(axis2, 0.32f);
-auto cr = r.RotationMatrix();
-TEST_ASSERT_EQUAL(float, cr, "quaternion", mr, "rodriguez",
-                  "Conversion from quaternion to rotation matrix gives incorrect result!")
-Quaternion p = q * r; // Quaternion multiplication and matrix multiplication have inverse orders
-auto mp = mq * mr;
-auto cp = p.RotationMatrix();
-TEST_ASSERT_EQUAL(float, cp, "quaternions", mp, "matrices",
-                  "Rotation matrix of multiplied quaternions is not the same as multiplied rotation matrices!")
+  SUB_GROUP("Point in front of camera is transformed correctly") {
+    Vector4 v = {0, 11, 0, 1};
+    Vector4 vp = P * v;
+    Vector3 vh = vp.xyz() / vp.w();
 
-auto pp = Transformations::RotateByQuaternion(point, p);
-auto pm = mp * point;
-TEST_ASSERT_EQUAL(float, pp, "quaternion", pm, "matrix",
-                  "Matrix-point rotation and quaternion-point-rotation not equivalent!")
+    VERIFY(vh[X] == 0 && vh[Y] == 0 && vh[Z] > 0 && vh[Z] < 1)
 
-auto pr = Transformations::RotateByQuaternion(point, r);
-auto prq = Transformations::RotateByQuaternion(pr, q);
-TEST_ASSERT_EQUAL(float, pp, "direct", prq, "indirect",
-                  "Quaternion rotation separation is not equivalent to in-one-go-rotation!")
+    Vector4 u = {0.01, 1.99, 0.01, 1};
+    Vector4 up = P * u;
+    Vector3 uh = up.xyz() / up.w();
 
-END_TEST_CASE() // quaternion
+    VERIFY(uh[X] > 0 && uh[X] < 1 && uh[Y] < 0 && uh[Y] > -1 && uh[Z] > 0 && uh[Z] < 1)
+  }
 
-BEGIN_TEST_CASE(maths)
+  SUB_GROUP("Point in front and right of camera is transformed correctly") {
+    Vector4 v = {1, 10, 0, 1};
+    Vector4 vp = P * v;
+    Vector3 vh = vp.xyz() / vp.w();
+    VERIFY(vh[X] > 0 && vh[X] < 1 && vh[Y] == 0 && vh[Z] > 0 && vh[Z] < 1)
+  }
 
-RUN_SUB_CASE(vector)
-RUN_SUB_CASE(matrix)
-RUN_SUB_CASE(perspective)
-RUN_SUB_CASE(quaternion)
+  SUB_GROUP("Point in front of and above camera is transformed correctly") {
+    Vector4 v = {0, 10, 1, 1};
+    Vector4 vp = P * v;
+    Vector3 vh = vp.xyz() / vp.w();
 
-END_TEST_CASE() // maths
-} // namespace Test
+    VERIFY(vh[X] == 0 && vh[Y] < 0 && vh[Y] > -1 && vh[Z] > 0 && vh[Z] < 1)
+  }
+}
+
+TEST_CASE("Permutation iterator works correctly") {
+  constexpr size_t const n = 6;
+
+  Engine::Maths::PermutationIterator<uint32_t, n> sigma{};
+  while (true) {
+    size_t numInversions = 0;
+    for (size_t i = 0; i < n - 1; i++) {
+      for (size_t j = i + 1; j < n; j++) {
+        numInversions += sigma[i] > sigma[j];
+      }
+    }
+
+    VERIFY(sigma.NumberOfInversions() == numInversions);
+    if (!sigma.HasValidSuccessor())
+      break;
+    sigma++;
+  }
+}
+
+TEST_CASE("Quaternions work correctly") {
+
+  Vector3 axis1{0.73059, 1.19045, 0.55717};
+  Vector3 axis2{0.73404, 0.95724, 0.69343};
+  Vector3 point{3.71460, 12.14657, 3.76972};
+  float angle = 13.0125f;
+  Quaternion q = Transformations::RotateAroundAxis(axis1, angle);
+  Quaternion r = Transformations::RotateAroundAxis(axis2, 0.32f);
+
+  auto mq = Transformations::RodriguesRotation(axis1, angle);
+  auto mr = Transformations::RodriguesRotation(axis2, 0.32f);
+
+  Quaternion p =
+      q *
+      r; // Quaternion multiplication and matrix multiplication have inverse orders - Then why are the orders the same??
+
+  SUB_GROUP("Conversion to rotation matrix gives correct result") {
+    auto cq = q.RotationMatrix();
+    VERIFY(mq == cq)
+    auto cr = r.RotationMatrix();
+    VERIFY(mr == cr)
+  }
+
+  SUB_GROUP("Quaternion multiplication gives multiplied rotation matrix") {
+    auto mp = mq * mr;
+    auto cp = p.RotationMatrix();
+    VERIFY(cp == mp)
+  }
+
+  SUB_GROUP("Quaternion-point rotation is equivalent to matrix-point rotation") {
+    auto pp = Transformations::RotateByQuaternion(point, p);
+    auto pm = p.RotationMatrix() * point;
+    VERIFY(pp == pm)
+  }
+
+  SUB_GROUP("Separated rotation is equivalent to in-one-go rotation") {
+    auto pp = Transformations::RotateByQuaternion(point, p);
+    auto pr = Transformations::RotateByQuaternion(point, r);
+    auto prq = Transformations::RotateByQuaternion(pr, q);
+    VERIFY(pp == prq)
+  }
+}

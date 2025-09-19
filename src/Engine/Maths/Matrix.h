@@ -1,10 +1,13 @@
 #pragma once
 
+#include "Permutations.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
 #include <initializer_list>
+#include <iterator>
+#include <numeric>
 #include <sstream>
 #include <stdint.h>
 #include <tuple>
@@ -12,7 +15,7 @@
 #include "json-parsing.h"
 
 #define PI 3.14159265359
-#define EPS 0.0000001
+#define EPS 0.0001
 
 #define MATRIX_AT_IJ(n, m, row, col) col *n + row
 #define MATRIX_NM_AT_IJ(row, col) MATRIX_AT_IJ(n, m, row, col)
@@ -189,13 +192,11 @@ public:
   }
   template <AdditiveAutoCasting<T> T2, uint8_t other_n, uint8_t other_index>
   inline constexpr EntryReference<n, T, indices...> &operator+=(EntryReference<other_n, T2, other_index> const &value) {
-    ((Access<n, T, indices>(parent) += value[0]), ...);
-    return *this;
+    return *this += value[0];
   }
   template <AdditiveAutoCasting<T> T2, uint8_t other_n, uint8_t other_index>
   inline constexpr EntryReference<n, T, indices...> &operator-=(EntryReference<other_n, T2, other_index> const &value) {
-    ((Access<n, T, indices>(parent) -= value[0]), ...);
-    return *this;
+    return *this -= value[0];
   }
 
   // Adding vectors
@@ -247,18 +248,16 @@ public:
   operator+=(EntryReference<other_n, T2, other_indices...> const &other)
     requires(EntryReference<other_n, T2, other_indices...>::numEntries == numEntries)
   {
-    uint8_t i = 0;
-    ((Access<n, T, indices>(parent) += other[i++]), ...);
-    return *this;
+    VectorT<sizeof...(other_indices), T2> otherVec = other;
+    return *this += otherVec;
   }
   template <AdditiveAutoCasting<T> T2, uint8_t other_n, uint8_t... other_indices>
   inline constexpr EntryReference<n, T, indices...> &
   operator-=(EntryReference<other_n, T2, other_indices...> const &other)
     requires(EntryReference<other_n, T2, other_indices...>::numEntries == numEntries)
   {
-    uint8_t i = 0;
-    ((Access<n, T, indices>(parent) -= other[i++]), ...);
-    return *this;
+    VectorT<sizeof...(other_indices), T2> otherVec = other;
+    return *this -= otherVec;
   }
 
   // Special case in multiplication
@@ -315,13 +314,11 @@ public:
   }
   template <MultiplicativeAutoCasting<T> T2, uint8_t other_n, uint8_t other_index>
   inline constexpr EntryReference<n, T, indices...> &operator*=(EntryReference<other_n, T2, other_index> const &value) {
-    ((Access<n, T, indices>(parent) *= value[0]), ...);
-    return *this;
+    return *this *= value[0];
   }
   template <MultiplicativeAutoCasting<T> T2, uint8_t other_n, uint8_t other_index>
   inline constexpr EntryReference<n, T, indices...> &operator/=(EntryReference<other_n, T2, other_index> const &value) {
-    ((Access<n, T, indices>(parent) /= value[0]), ...);
-    return *this;
+    return *this /= value[0];
   }
 
   // Multiplying by vectors (inner product)
@@ -397,8 +394,10 @@ public:
   }
   MatrixT<n, n, T> &Invert()
     requires(m == n);
-  inline T maxEntry() const { return *std::max_element(std::begin(data), std::end(data)); }
-  inline T minEntry() const { return *std::min_element(std::begin(data), std::end(data)); }
+  inline constexpr T MaxEntry() const { return *std::max_element(std::begin(data), std::end(data)); }
+  inline constexpr T MinEntry() const { return *std::min_element(std::begin(data), std::end(data)); }
+  inline constexpr T Determinant() const
+    requires(m == n);
 
   inline static MatrixT<n, n, T> Identity()
     requires(m == n);
@@ -891,66 +890,306 @@ public:
   }
 
   // const values
-  inline constexpr VectorT<2, T> xy() const requires(m == 1 && n >= 2){return {x(), y()};}
-  inline constexpr VectorT<2, T> xz() const requires(m == 1 && n >= 3){return {x(), z()};}
-  inline constexpr VectorT<2, T> xw() const requires(m == 1 && n >= 4){return {x(), w()};}
-  inline constexpr VectorT<2, T> yx() const requires(m == 1 && n >= 2){return {y(), x()};}
-  inline constexpr VectorT<2, T> yz() const requires(m == 1 && n >= 3){return {y(), z()};}
-  inline constexpr VectorT<2, T> yw() const requires(m == 1 && n >= 4){return {y(), w()};}
-  inline constexpr VectorT<2, T> zx() const requires(m == 1 && n >= 3){return {z(), x()};}
-  inline constexpr VectorT<2, T> zy() const requires(m == 1 && n >= 3){return {z(), y()};}
-  inline constexpr VectorT<2, T> zw() const requires(m == 1 && n >= 4){return {z(), w()};}
-  inline constexpr VectorT<2, T> wx() const requires(m == 1 && n >= 4){return {w(), x()};}
-  inline constexpr VectorT<2, T> wy() const requires(m == 1 && n >= 4){return {w(), y()};}
-  inline constexpr VectorT<2, T> wz() const requires(m == 1 && n >= 4){return {w(), z()};}
-  inline constexpr VectorT<3, T> xyz() const requires(m == 1 && n >= 3){return {x(), y(), z()};}
-  inline constexpr VectorT<3, T> xyw() const requires(m == 1 && n >= 4){return {x(), y(), w()};}
-  inline constexpr VectorT<3, T> xzy() const requires(m == 1 && n >= 3){return {x(), z(), y()};}
-  inline constexpr VectorT<3, T> xzw() const requires(m == 1 && n >= 4){return {x(), z(), w()};}
-  inline constexpr VectorT<3, T> xwy() const requires(m == 1 && n >= 4){return {x(), w(), y()};}
-  inline constexpr VectorT<3, T> xwz() const requires(m == 1 && n >= 4){return {x(), w(), z()};}
-  inline constexpr VectorT<3, T> yxz() const requires(m == 1 && n >= 3){return {y(), x(), z()};}
-  inline constexpr VectorT<3, T> yxw() const requires(m == 1 && n >= 4){return {y(), x(), w()};}
-  inline constexpr VectorT<3, T> yzx() const requires(m == 1 && n >= 3){return {y(), z(), x()};}
-  inline constexpr VectorT<3, T> yzw() const requires(m == 1 && n >= 4){return {y(), z(), w()};}
-  inline constexpr VectorT<3, T> ywx() const requires(m == 1 && n >= 4){return {y(), w(), x()};}
-  inline constexpr VectorT<3, T> ywz() const requires(m == 1 && n >= 4){return {y(), w(), z()};}
-  inline constexpr VectorT<3, T> zxy() const requires(m == 1 && n >= 3){return {z(), x(), y()};}
-  inline constexpr VectorT<3, T> zxw() const requires(m == 1 && n >= 4){return {z(), x(), w()};}
-  inline constexpr VectorT<3, T> zyx() const requires(m == 1 && n >= 3){return {z(), y(), x()};}
-  inline constexpr VectorT<3, T> zyw() const requires(m == 1 && n >= 4){return {z(), y(), w()};}
-  inline constexpr VectorT<3, T> zwx() const requires(m == 1 && n >= 4){return {z(), w(), x()};}
-  inline constexpr VectorT<3, T> zwy() const requires(m == 1 && n >= 4){return {z(), w(), y()};}
-  inline constexpr VectorT<3, T> wxy() const requires(m == 1 && n >= 4){return {w(), x(), y()};}
-  inline constexpr VectorT<3, T> wxz() const requires(m == 1 && n >= 4){return {w(), x(), z()};}
-  inline constexpr VectorT<3, T> wyx() const requires(m == 1 && n >= 4){return {w(), y(), x()};}
-  inline constexpr VectorT<3, T> wyz() const requires(m == 1 && n >= 4){return {w(), y(), z()};}
-  inline constexpr VectorT<3, T> wzx() const requires(m == 1 && n >= 4){return {w(), z(), x()};}
-  inline constexpr VectorT<3, T> wzy() const requires(m == 1 && n >= 4){return {w(), z(), y()};}
-  inline constexpr VectorT<4, T> xyzw() const requires(m == 1 && n >= 4){return {x(), y(), z(), w()};}
-  inline constexpr VectorT<4, T> xywz() const requires(m == 1 && n >= 4){return {x(), y(), w(), z()};}
-  inline constexpr VectorT<4, T> xzyw() const requires(m == 1 && n >= 4){return {x(), z(), y(), w()};}
-  inline constexpr VectorT<4, T> xzwy() const requires(m == 1 && n >= 4){return {x(), z(), w(), y()};}
-  inline constexpr VectorT<4, T> xwyz() const requires(m == 1 && n >= 4){return {x(), w(), y(), z()};}
-  inline constexpr VectorT<4, T> xwzy() const requires(m == 1 && n >= 4){return {x(), w(), z(), y()};}
-  inline constexpr VectorT<4, T> yxzw() const requires(m == 1 && n >= 4){return {y(), x(), z(), w()};}
-  inline constexpr VectorT<4, T> yxwz() const requires(m == 1 && n >= 4){return {y(), x(), w(), z()};}
-  inline constexpr VectorT<4, T> yzxw() const requires(m == 1 && n >= 4){return {y(), z(), x(), w()};}
-  inline constexpr VectorT<4, T> yzwx() const requires(m == 1 && n >= 4){return {y(), z(), w(), x()};}
-  inline constexpr VectorT<4, T> ywxz() const requires(m == 1 && n >= 4){return {y(), w(), x(), z()};}
-  inline constexpr VectorT<4, T> ywzx() const requires(m == 1 && n >= 4){return {y(), w(), z(), x()};}
-  inline constexpr VectorT<4, T> zxyw() const requires(m == 1 && n >= 4){return {z(), x(), y(), w()};}
-  inline constexpr VectorT<4, T> zxwy() const requires(m == 1 && n >= 4){return {z(), x(), w(), y()};}
-  inline constexpr VectorT<4, T> zyxw() const requires(m == 1 && n >= 4){return {z(), y(), x(), w()};}
-  inline constexpr VectorT<4, T> zywx() const requires(m == 1 && n >= 4){return {z(), y(), w(), x()};}
-  inline constexpr VectorT<4, T> zwxy() const requires(m == 1 && n >= 4){return {z(), w(), x(), y()};}
-  inline constexpr VectorT<4, T> zwyx() const requires(m == 1 && n >= 4){return {z(), w(), y(), x()};}
-  inline constexpr VectorT<4, T> wxyz() const requires(m == 1 && n >= 4){return {w(), x(), y(), z()};}
-  inline constexpr VectorT<4, T> wxzy() const requires(m == 1 && n >= 4){return {w(), x(), z(), y()};}
-  inline constexpr VectorT<4, T> wyxz() const requires(m == 1 && n >= 4){return {w(), y(), x(), z()};}
-  inline constexpr VectorT<4, T> wyzx() const requires(m == 1 && n >= 4){return {w(), y(), z(), x()};}
-  inline constexpr VectorT<4, T> wzxy() const requires(m == 1 && n >= 4){return {w(), z(), x(), y()};}
-  inline constexpr VectorT<4, T> wzyx() const requires(m == 1 && n >= 4){return {w(), z(), y(), x()};}
+  inline constexpr VectorT<2, T> xy() const
+    requires(m == 1 && n >= 2)
+  {
+    return {x(), y()};
+  }
+  inline constexpr VectorT<2, T> xz() const
+    requires(m == 1 && n >= 3)
+  {
+    return {x(), z()};
+  }
+  inline constexpr VectorT<2, T> xw() const
+    requires(m == 1 && n >= 4)
+  {
+    return {x(), w()};
+  }
+  inline constexpr VectorT<2, T> yx() const
+    requires(m == 1 && n >= 2)
+  {
+    return {y(), x()};
+  }
+  inline constexpr VectorT<2, T> yz() const
+    requires(m == 1 && n >= 3)
+  {
+    return {y(), z()};
+  }
+  inline constexpr VectorT<2, T> yw() const
+    requires(m == 1 && n >= 4)
+  {
+    return {y(), w()};
+  }
+  inline constexpr VectorT<2, T> zx() const
+    requires(m == 1 && n >= 3)
+  {
+    return {z(), x()};
+  }
+  inline constexpr VectorT<2, T> zy() const
+    requires(m == 1 && n >= 3)
+  {
+    return {z(), y()};
+  }
+  inline constexpr VectorT<2, T> zw() const
+    requires(m == 1 && n >= 4)
+  {
+    return {z(), w()};
+  }
+  inline constexpr VectorT<2, T> wx() const
+    requires(m == 1 && n >= 4)
+  {
+    return {w(), x()};
+  }
+  inline constexpr VectorT<2, T> wy() const
+    requires(m == 1 && n >= 4)
+  {
+    return {w(), y()};
+  }
+  inline constexpr VectorT<2, T> wz() const
+    requires(m == 1 && n >= 4)
+  {
+    return {w(), z()};
+  }
+  inline constexpr VectorT<3, T> xyz() const
+    requires(m == 1 && n >= 3)
+  {
+    return {x(), y(), z()};
+  }
+  inline constexpr VectorT<3, T> xyw() const
+    requires(m == 1 && n >= 4)
+  {
+    return {x(), y(), w()};
+  }
+  inline constexpr VectorT<3, T> xzy() const
+    requires(m == 1 && n >= 3)
+  {
+    return {x(), z(), y()};
+  }
+  inline constexpr VectorT<3, T> xzw() const
+    requires(m == 1 && n >= 4)
+  {
+    return {x(), z(), w()};
+  }
+  inline constexpr VectorT<3, T> xwy() const
+    requires(m == 1 && n >= 4)
+  {
+    return {x(), w(), y()};
+  }
+  inline constexpr VectorT<3, T> xwz() const
+    requires(m == 1 && n >= 4)
+  {
+    return {x(), w(), z()};
+  }
+  inline constexpr VectorT<3, T> yxz() const
+    requires(m == 1 && n >= 3)
+  {
+    return {y(), x(), z()};
+  }
+  inline constexpr VectorT<3, T> yxw() const
+    requires(m == 1 && n >= 4)
+  {
+    return {y(), x(), w()};
+  }
+  inline constexpr VectorT<3, T> yzx() const
+    requires(m == 1 && n >= 3)
+  {
+    return {y(), z(), x()};
+  }
+  inline constexpr VectorT<3, T> yzw() const
+    requires(m == 1 && n >= 4)
+  {
+    return {y(), z(), w()};
+  }
+  inline constexpr VectorT<3, T> ywx() const
+    requires(m == 1 && n >= 4)
+  {
+    return {y(), w(), x()};
+  }
+  inline constexpr VectorT<3, T> ywz() const
+    requires(m == 1 && n >= 4)
+  {
+    return {y(), w(), z()};
+  }
+  inline constexpr VectorT<3, T> zxy() const
+    requires(m == 1 && n >= 3)
+  {
+    return {z(), x(), y()};
+  }
+  inline constexpr VectorT<3, T> zxw() const
+    requires(m == 1 && n >= 4)
+  {
+    return {z(), x(), w()};
+  }
+  inline constexpr VectorT<3, T> zyx() const
+    requires(m == 1 && n >= 3)
+  {
+    return {z(), y(), x()};
+  }
+  inline constexpr VectorT<3, T> zyw() const
+    requires(m == 1 && n >= 4)
+  {
+    return {z(), y(), w()};
+  }
+  inline constexpr VectorT<3, T> zwx() const
+    requires(m == 1 && n >= 4)
+  {
+    return {z(), w(), x()};
+  }
+  inline constexpr VectorT<3, T> zwy() const
+    requires(m == 1 && n >= 4)
+  {
+    return {z(), w(), y()};
+  }
+  inline constexpr VectorT<3, T> wxy() const
+    requires(m == 1 && n >= 4)
+  {
+    return {w(), x(), y()};
+  }
+  inline constexpr VectorT<3, T> wxz() const
+    requires(m == 1 && n >= 4)
+  {
+    return {w(), x(), z()};
+  }
+  inline constexpr VectorT<3, T> wyx() const
+    requires(m == 1 && n >= 4)
+  {
+    return {w(), y(), x()};
+  }
+  inline constexpr VectorT<3, T> wyz() const
+    requires(m == 1 && n >= 4)
+  {
+    return {w(), y(), z()};
+  }
+  inline constexpr VectorT<3, T> wzx() const
+    requires(m == 1 && n >= 4)
+  {
+    return {w(), z(), x()};
+  }
+  inline constexpr VectorT<3, T> wzy() const
+    requires(m == 1 && n >= 4)
+  {
+    return {w(), z(), y()};
+  }
+  inline constexpr VectorT<4, T> xyzw() const
+    requires(m == 1 && n >= 4)
+  {
+    return {x(), y(), z(), w()};
+  }
+  inline constexpr VectorT<4, T> xywz() const
+    requires(m == 1 && n >= 4)
+  {
+    return {x(), y(), w(), z()};
+  }
+  inline constexpr VectorT<4, T> xzyw() const
+    requires(m == 1 && n >= 4)
+  {
+    return {x(), z(), y(), w()};
+  }
+  inline constexpr VectorT<4, T> xzwy() const
+    requires(m == 1 && n >= 4)
+  {
+    return {x(), z(), w(), y()};
+  }
+  inline constexpr VectorT<4, T> xwyz() const
+    requires(m == 1 && n >= 4)
+  {
+    return {x(), w(), y(), z()};
+  }
+  inline constexpr VectorT<4, T> xwzy() const
+    requires(m == 1 && n >= 4)
+  {
+    return {x(), w(), z(), y()};
+  }
+  inline constexpr VectorT<4, T> yxzw() const
+    requires(m == 1 && n >= 4)
+  {
+    return {y(), x(), z(), w()};
+  }
+  inline constexpr VectorT<4, T> yxwz() const
+    requires(m == 1 && n >= 4)
+  {
+    return {y(), x(), w(), z()};
+  }
+  inline constexpr VectorT<4, T> yzxw() const
+    requires(m == 1 && n >= 4)
+  {
+    return {y(), z(), x(), w()};
+  }
+  inline constexpr VectorT<4, T> yzwx() const
+    requires(m == 1 && n >= 4)
+  {
+    return {y(), z(), w(), x()};
+  }
+  inline constexpr VectorT<4, T> ywxz() const
+    requires(m == 1 && n >= 4)
+  {
+    return {y(), w(), x(), z()};
+  }
+  inline constexpr VectorT<4, T> ywzx() const
+    requires(m == 1 && n >= 4)
+  {
+    return {y(), w(), z(), x()};
+  }
+  inline constexpr VectorT<4, T> zxyw() const
+    requires(m == 1 && n >= 4)
+  {
+    return {z(), x(), y(), w()};
+  }
+  inline constexpr VectorT<4, T> zxwy() const
+    requires(m == 1 && n >= 4)
+  {
+    return {z(), x(), w(), y()};
+  }
+  inline constexpr VectorT<4, T> zyxw() const
+    requires(m == 1 && n >= 4)
+  {
+    return {z(), y(), x(), w()};
+  }
+  inline constexpr VectorT<4, T> zywx() const
+    requires(m == 1 && n >= 4)
+  {
+    return {z(), y(), w(), x()};
+  }
+  inline constexpr VectorT<4, T> zwxy() const
+    requires(m == 1 && n >= 4)
+  {
+    return {z(), w(), x(), y()};
+  }
+  inline constexpr VectorT<4, T> zwyx() const
+    requires(m == 1 && n >= 4)
+  {
+    return {z(), w(), y(), x()};
+  }
+  inline constexpr VectorT<4, T> wxyz() const
+    requires(m == 1 && n >= 4)
+  {
+    return {w(), x(), y(), z()};
+  }
+  inline constexpr VectorT<4, T> wxzy() const
+    requires(m == 1 && n >= 4)
+  {
+    return {w(), x(), z(), y()};
+  }
+  inline constexpr VectorT<4, T> wyxz() const
+    requires(m == 1 && n >= 4)
+  {
+    return {w(), y(), x(), z()};
+  }
+  inline constexpr VectorT<4, T> wyzx() const
+    requires(m == 1 && n >= 4)
+  {
+    return {w(), y(), z(), x()};
+  }
+  inline constexpr VectorT<4, T> wzxy() const
+    requires(m == 1 && n >= 4)
+  {
+    return {w(), z(), x(), y()};
+  }
+  inline constexpr VectorT<4, T> wzyx() const
+    requires(m == 1 && n >= 4)
+  {
+    return {w(), z(), y(), x()};
+  }
 
 private:
   // Adds factor * row1 to row2
@@ -1019,6 +1258,25 @@ inline MatrixT<n, n, T> &MatrixT<n, m, T>::Invert() // Uses the gaussean algorit
   }
 
   return *this;
+}
+
+template <uint8_t n, uint8_t m, typename T>
+inline constexpr T MatrixT<n, m, T>::Determinant() const
+  requires(m == n)
+{
+  PermutationIterator<uint8_t, n> sigma{};
+  T det = T(0);
+
+  for (uint8_t p = 0; p < Factorial(n); p++) {
+    T summand = T(1);
+    for (uint8_t i = 0; i < n; i++) {
+      summand *= data[MATRIX_NM_AT_IJ(i, sigma[i])];
+    }
+    det += sigma.Sign() * summand;
+    sigma++;
+  }
+
+  return det;
 }
 
 template <uint8_t n, uint8_t m, typename T>
@@ -1302,6 +1560,31 @@ template <uint8_t n, typename T> struct formatter<Engine::Maths::VectorT<n, T>> 
     for (uint8_t i = 0; i < n; i++) {
 
       out << v[i];
+      if (i < n - 1) {
+        out << ", ";
+      }
+    }
+    out << "}";
+
+    return ranges::copy(std::move(out).str(), ctx.out()).out;
+  }
+};
+
+template <uint8_t n, uint8_t m, typename T> struct formatter<Engine::Maths::MatrixT<n, m, T>> {
+  template <typename ParseContext> constexpr auto parse(ParseContext &ctx) const { return ctx.begin(); }
+
+  template <typename FormatContext> auto format(Engine::Maths::MatrixT<n, m, T> const &v, FormatContext &ctx) const {
+    std::ostringstream out;
+    out << "{";
+    for (uint8_t i = 0; i < n; i++) {
+      out << "{";
+      for (uint8_t j = 0; j < m; j++) {
+        out << v[i][j];
+        if (j < m - 1) {
+          out << ", ";
+        }
+      }
+      out << "}";
       if (i < n - 1) {
         out << ", ";
       }
