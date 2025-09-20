@@ -89,10 +89,11 @@ if(${BUILD_DEMO_APPS})
     make_app(TestApp test)
     make_app(DebugApp main)
 
-    add_executable(MinimalTestApp "src/test.cpp")
+    add_executable(MinimalTestApp "src/test.cpp" "src/Engine/Core/ECS.cpp")
     target_include_directories(MinimalTestApp PRIVATE "src/Engine")
     target_include_directories(MinimalTestApp PRIVATE "src/external/json-parsing")
 
     target_include_directories(MinimalTestApp PRIVATE ${Vulkan_INCLUDE_DIR})
     target_compile_options(MinimalTestApp PRIVATE /Zc:preprocessor)
+target_compile_definitions(MinimalTestApp PRIVATE SOURCE_PATH_SIZE=${SOURCE_PATH_SIZE})
 endif()
