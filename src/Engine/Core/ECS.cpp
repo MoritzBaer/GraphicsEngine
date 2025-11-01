@@ -1,7 +1,8 @@
 #include "ECS.h"
 
-#include "Core/HierarchyComponent.h"
 #include "Debug/Logging.h"
+#include "Util/Macros.h"
+#include "Core/HierarchyComponent.h"
 
 #define GIVE_LIFE(entity) aliveAndComponentFlags[entity] = ALIVE_FLAG | ACTIVE_FLAG;
 

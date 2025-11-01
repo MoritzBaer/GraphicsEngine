@@ -1,23 +1,27 @@
 #pragma once
 #include "vulkan/vk_enum_string_helper.h"
 
+#ifdef LOGGING_INCLUDED
+
 #define __FILE_NAME__ (__FILE__ + SOURCE_PATH_SIZE)
+
+inline Engine::Debug::Logging::Logger engineLogger = Engine::Debug::Logging::Logger("Engine");
 
 #define ENGINE_MESSAGE(format, ...)                                                                                    \
   {                                                                                                                    \
-    Debug::Logging::PrintMessage("Engine", format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME__, __LINE__);   \
+    engineLogger.PrintMessage(format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME__, __LINE__);   \
   }
 #define ENGINE_WARNING(format, ...)                                                                                    \
   {                                                                                                                    \
-    Debug::Logging::PrintWarning("Engine", format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME__, __LINE__);   \
+    engineLogger.PrintWarning(format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME__, __LINE__);   \
   }
 #define ENGINE_SUCCESS(format, ...)                                                                                    \
   {                                                                                                                    \
-    Debug::Logging::PrintSuccess("Engine", format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME__, __LINE__);   \
+    engineLogger.PrintSuccess(format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME__, __LINE__);   \
   }
 #define ENGINE_ERROR(format, ...)                                                                                      \
   {                                                                                                                    \
-    Debug::Logging::PrintError("Engine", format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME__, __LINE__);     \
+    engineLogger.PrintError(format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME__, __LINE__);     \
     __debugbreak();                                                                                                    \
   }
 
@@ -25,6 +29,8 @@
   if (!(condition)) {                                                                                                  \
     ENGINE_ERROR(format __VA_OPT__(, __VA_ARGS__))                                                                     \
   }
+
+#endif
 
 #define _CAT(a, b)                                                                                                     \
   a##b // I don't understand the preprocessor well enough to understand why this is necessary, but apparently it is...

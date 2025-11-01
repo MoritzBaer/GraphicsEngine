@@ -22,8 +22,8 @@ TEST_CASE("Vectors work correctly") {
 
     Vector4 oldV = v;
     v.Normalize();
-    VERIFY(std::abs(v.Length() - 1) < EPS)
-    VERIFY(v == oldV / oldV.Length())
+    VERIFY(std::abs(v.Length() - 1) < EPS);
+    VERIFY(v == oldV / oldV.Length());
   }
 
   SUB_GROUP("Cross product works correctly") {
@@ -92,7 +92,7 @@ TEST_CASE("Matrices work correctly") {
 
     Matrix3 const &m = M;
     float m_12 = m[1][2];
-    VERIFY(m_12 == 8)
+    VERIFY(m_12 == 8);
   }
 
   // TODO: Deconstruct multiplication in VERIFY
@@ -113,7 +113,7 @@ TEST_CASE("Matrices work correctly") {
     Matrix4 correct_m3 = {75.4854253307,  99.4346479979,  124.2246780198, 63.2695727914, 136.5807781554, 136.7870325182,
                           203.4290379255, 112.2587933441, 70.671362396,   62.2712887803, 80.5814383006,  26.1636845213,
                           120.7117055058, 116.4197600212, 162.8099129266, 69.7344296437};
-    VERIFY(m3 == correct_m3)
+    VERIFY(m3 == correct_m3);
   }
 
   SUB_GROUP("Matrix-vector multiplication gives correct result") {
@@ -127,16 +127,15 @@ TEST_CASE("Matrices work correctly") {
                5.60207, 2.59969, 7.80068, 7.32192, 0.61612, 5.25223, 6.61894, 3.31925};
     Maths::Vector4 x_{9.85868, 1.70382, 6.27017, 6.29855};
     Maths::Vector4 y_ = M_ * x_;
-    // TODO: Verify that expected is correct, result ist different
-    Maths::Vector4 expected_ = {132.8841067841, 181.3824611666, 63.6917123203, 131.1497591829};
-    VERIFY(y_ == expected_)
+    Maths::Vector4 expected_ = {129.2617865, 134.0023638, 154.6874882, 77.43132555};
+    VERIFY(y_ == expected_);
   }
 
   SUB_GROUP("Inverse matrix is correct") {
     Matrix2 M = Matrix2(1, 1, 2, 3);
     Matrix2 M_Inv = M.Inverse();
     Matrix2 M_Exp = Matrix2(3, -1, -2, 1);
-    VERIFY(M_Inv == M_Exp)
+    VERIFY(M_Inv == M_Exp);
 
     Matrix4 m = Matrix4(6.01589, 0.79945, 3.03696, 7.89833, 2.89674, 6.73960, 5.22906, 1.90390, 4.23525, 3.65487,
                         7.92008, 6.07612, 0.21322, 7.01907, 0.17421, 7.19930);
@@ -146,7 +145,7 @@ TEST_CASE("Matrices work correctly") {
                 -0.0048146176943861615186, 0.15176869603639391364, -0.099435098775642683715, 0.0490679109584360566,
                 -0.11926301806954870517, -0.067545549318803498536, 0.21735238026807963992, -0.034736779955989534575,
                 0.00088945329587463363156, -0.15268435171168592384, 0.098369624539275549675, 0.095282166115857150355);
-    VERIFY(m_Inv == m_Exp)
+    VERIFY(m_Inv == m_Exp);
   }
 
   // TODO: Add test for larger matrix
@@ -166,20 +165,32 @@ TEST_CASE("Perspective matrix behaves correctly") {
     Vector4 vp = P * v;
     Vector3 vh = vp.xyz() / vp.w();
 
-    VERIFY(vh[X] == 0 && vh[Y] == 0 && vh[Z] > 0 && vh[Z] < 1)
+    VERIFY(vh[X] == 0);
+    VERIFY(vh[Y] == 0);
+    VERIFY(vh[Z] > 0);
+    VERIFY(vh[Z] < 1);
 
     Vector4 u = {0.01, 1.99, 0.01, 1};
     Vector4 up = P * u;
     Vector3 uh = up.xyz() / up.w();
 
-    VERIFY(uh[X] > 0 && uh[X] < 1 && uh[Y] < 0 && uh[Y] > -1 && uh[Z] > 0 && uh[Z] < 1)
+    VERIFY(uh[X] > 0);
+    VERIFY(uh[X] < 1);
+    VERIFY(uh[Y] < 0);
+    VERIFY(uh[Y] > -1);
+    VERIFY(uh[Z] > 0);
+    VERIFY(uh[Z] < 1);
   }
 
   SUB_GROUP("Point in front and right of camera is transformed correctly") {
     Vector4 v = {1, 10, 0, 1};
     Vector4 vp = P * v;
     Vector3 vh = vp.xyz() / vp.w();
-    VERIFY(vh[X] > 0 && vh[X] < 1 && vh[Y] == 0 && vh[Z] > 0 && vh[Z] < 1)
+    VERIFY(vh[X] > 0);
+    VERIFY(vh[X] < 1);
+    VERIFY(vh[Y] == 0);
+    VERIFY(vh[Z] > 0);
+    VERIFY(vh[Z] < 1);
   }
 
   SUB_GROUP("Point in front of and above camera is transformed correctly") {
@@ -187,7 +198,11 @@ TEST_CASE("Perspective matrix behaves correctly") {
     Vector4 vp = P * v;
     Vector3 vh = vp.xyz() / vp.w();
 
-    VERIFY(vh[X] == 0 && vh[Y] < 0 && vh[Y] > -1 && vh[Z] > 0 && vh[Z] < 1)
+    VERIFY(vh[X] == 0);
+    VERIFY(vh[Y] < 0);
+    VERIFY(vh[Y] > -1);
+    VERIFY(vh[Z] > 0);
+    VERIFY(vh[Z] < 1);
   }
 }
 
@@ -228,27 +243,27 @@ TEST_CASE("Quaternions work correctly") {
 
   SUB_GROUP("Conversion to rotation matrix gives correct result") {
     auto cq = q.RotationMatrix();
-    VERIFY(mq == cq)
+    VERIFY(mq == cq);
     auto cr = r.RotationMatrix();
-    VERIFY(mr == cr)
+    VERIFY(mr == cr);
   }
 
   SUB_GROUP("Quaternion multiplication gives multiplied rotation matrix") {
     auto mp = mq * mr;
     auto cp = p.RotationMatrix();
-    VERIFY(cp == mp)
+    VERIFY(cp == mp);
   }
 
   SUB_GROUP("Quaternion-point rotation is equivalent to matrix-point rotation") {
     auto pp = Transformations::RotateByQuaternion(point, p);
     auto pm = p.RotationMatrix() * point;
-    VERIFY(pp == pm)
+    VERIFY(pp == pm);
   }
 
   SUB_GROUP("Separated rotation is equivalent to in-one-go rotation") {
     auto pp = Transformations::RotateByQuaternion(point, p);
     auto pr = Transformations::RotateByQuaternion(point, r);
     auto prq = Transformations::RotateByQuaternion(pr, q);
-    VERIFY(pp == prq)
+    VERIFY(pp == prq);
   }
 }

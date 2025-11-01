@@ -1,7 +1,8 @@
 #pragma once
 
-#include "Maths/Matrix.h"
 #include "Test.h"
+#include "Maths/Matrix.h"
+
 
 using namespace Engine::Maths;
 using namespace Engine;
@@ -20,7 +21,7 @@ TEST_CASE("Maths types are aligned correctly") {
     alignas(16) float w[3];
   };
 
-  VERIFY(sizeof(Vec3Alignment) == sizeof(Vec3AlignmentExplicit))
+  VERIFY(sizeof(Vec3Alignment) == sizeof(Vec3AlignmentExplicit));
 
   struct ExplicitVertex {
     alignas(16) float TBN[9];
@@ -34,7 +35,7 @@ TEST_CASE("Maths types are aligned correctly") {
     Vector2 uv;
   };
 
-  VERIFY(sizeof(Vertex) == sizeof(ExplicitVertex))
+  VERIFY(sizeof(Vertex) == sizeof(ExplicitVertex));
 
   Vertex v{Matrix3{1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f}, Vector3{10.0f, 11.0f, 12.0f},
            Vector2{13.0f, 14.0f}};

@@ -17761,12 +17761,12 @@ buffer-image granularity, `VMA_DEBUG_MARGIN`, `VMA_MIN_ALIGNMENT`.
 
 If you suspect a bug with memory usage, like usage of uninitialized memory or
 memory being overwritten out of bounds of an allocation,
-you can use debug features of this library to verify this.
+you can use debug features of this library to REQUIRE this.
 
 \section debugging_memory_usage_initialization Memory initialization
 
 If you experience a bug with incorrect and nondeterministic data in your program and you suspect uninitialized memory to be used,
-you can enable automatic memory initialization to verify this.
+you can enable automatic memory initialization to REQUIRE this.
 To do it, define macro `VMA_DEBUG_INITIALIZE_ALLOCATIONS` to 1.
 
 \code

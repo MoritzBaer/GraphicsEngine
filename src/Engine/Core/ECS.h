@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Util/Macros.h"
-
 #include <array>
 #include <inttypes.h>
 #include <stack>
