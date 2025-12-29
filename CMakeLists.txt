@@ -22,15 +22,15 @@ add_library(Engine STATIC ${EngineFiles})
 string(LENGTH "${PROJECT_SOURCE_DIR}/src/" SOURCE_PATH_SIZE)
 target_compile_definitions(Engine PUBLIC SOURCE_PATH_SIZE=${SOURCE_PATH_SIZE})
 
-message("-- User components source path: ${USER_COMPONENTS_SOURCE_PATH}")
+message(STATUS "User components source path: ${USER_COMPONENTS_SOURCE_PATH}")
 
 if(DEFINED USER_COMPONENTS_SOURCE_PATH)
-    message("-- USER_COMPONENTS_SOURCE_PATH defined, adding definition")
+    message(STATUS "USER_COMPONENTS_SOURCE_PATH defined, adding definition")
     target_compile_definitions(Engine PUBLIC USER_COMPONENTS_SOURCE=${USER_COMPONENTS_SOURCE_PATH})
 endif()
 
 if(DEFINED USER_SCRIPTS_SOURCE_PATH)
-    message("-- USER_SCRIPTS_SOURCE_PATH defined, adding definition")
+    message(STATUS "USER_SCRIPTS_SOURCE_PATH defined, adding definition")
     add_compile_definitions(USER_SCRIPTS_SOURCE=${USER_SCRIPTS_SOURCE_PATH})
 else()
     if(BUILD_DEMO_APPS)
@@ -40,9 +40,9 @@ endif()
 
 if(BUILD_WITH_PROFILING)
     target_compile_definitions(Engine PUBLIC "-DRUN_PROFILER")
-    message("-- BUILDING WITH PROFILER ACTIVE")
+    message(STATUS "BUILDING WITH PROFILER ACTIVE")
 else()
-    message("-- building without profiling")
+    message(STATUS "building without profiling")
 endif()
 
 find_package(Vulkan REQUIRED COMPONENTS shaderc_combined)
@@ -67,13 +67,13 @@ target_link_libraries(Engine PUBLIC Vulkan::shaderc_combined)
 # To keep assets in the same place as the binaries
 # TODO: Figure out compiler-independent delivery
 if(DELIVER_RESOURCES)
-    message("-- Delivering engine resources to binary directory")
+    message(STATUS "Delivering engine resources to binary directory")
     add_custom_command(TARGET Engine POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/res ${CMAKE_BINARY_DIR}/res)
     add_custom_command(TARGET Engine POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/debug-symbols ${CMAKE_BINARY_DIR})
 endif()
 
 macro(make_app NAME ENTRY_POINT)
-    message("-- Building demo app ${NAME}")
+    message(STATUS "Building demo app ${NAME}")
     add_executable(${NAME} "src/${ENTRY_POINT}.cpp")
 
     target_include_directories(${NAME} PRIVATE "src/Demo")
@@ -82,7 +82,7 @@ macro(make_app NAME ENTRY_POINT)
     # To store profiles
     file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/Release/profiles ${CMAKE_BINARY_DIR}/Debug/profiles)
 
-    message("-- Build type for GameEngine: ${CMAKE_BUILD_TYPE}")
+    message(STATUS "Build type for GameEngine: ${CMAKE_BUILD_TYPE}")
 endmacro()
 
 if(${BUILD_DEMO_APPS})

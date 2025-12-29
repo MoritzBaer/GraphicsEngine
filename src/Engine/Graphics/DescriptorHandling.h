@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Debug/Logging.h"
 #include "Image.h"
 #include "vulkan/vulkan.h"
 #include <algorithm>

@@ -105,6 +105,7 @@ public:
 };
 
 template <typename GameType> inline void GameApp<GameType>::Run() {
+  Engine::Debug::Logging::Logger exceptionLogger("Exception");
   try {
     game.Init();
     BEGIN_PROFILE_SESSION()
@@ -113,6 +114,6 @@ template <typename GameType> inline void GameApp<GameType>::Run() {
       game.CalculateFrame();
     WRITE_PROFILE_SESSION("Game Loop")
   } catch (std::exception &e) {
-    Engine::Debug::Logging::PrintError("Exception", e.what());
+    exceptionLogger.PrintError(e.what());
   }
 }

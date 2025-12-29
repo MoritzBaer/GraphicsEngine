@@ -6,6 +6,7 @@
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <format>
 #include <stdexcept>
@@ -34,11 +35,11 @@
 
 #define SUB_GROUP(Label) if (group == numGroups++ && !(groupLabel = Label).empty())
 
-#define __FILE_NAME__ (__FILE__ + SOURCE_PATH_SIZE)
+#define __FILE_NAME__ (&__FILE__[SOURCE_PATH_SIZE])
 
 #define VERIFY(Expression)                                                                                             \
   {                                                                                                                    \
-    auto decomposition = Decompose(#Expression, sizeof(#Expression) - 1) <=> Expression;                               \
+    auto decomposition = Decompose(#Expression, sizeof(#Expression) - 1)->*Expression;                                 \
     if (!decomposition) {                                                                                              \
       pass = false;                                                                                                    \
       testLogger.PrintError("Verification failed! ({}({},0))", __FILE_NAME__, __LINE__);                               \
@@ -86,7 +87,7 @@ public:
 
     do {
       bool pass = true;
-      
+
       if (numGroups) {
         testLogger.PushSection();
       }
@@ -95,7 +96,7 @@ public:
 
       VerifyGroup(group, numGroups, pass, groupLabel);
 
-      if (group == uint32_t(-1)) {
+      if (group == uint32_t(-1) && numGroups) {
         continue;
       }
 
@@ -159,7 +160,6 @@ int main() {
     } else {
       testLogger.PrintSuccess("All tests passed");
     }
-
     return 0;
   }
 
@@ -175,9 +175,12 @@ int main() {
 
 struct SplitExpression;
 
-typedef uint8_t skip_t;
-constexpr SplitExpression FindReferencedOperator(const char *const expression, size_t const &expressionLength,
-                                                 const char *const op, size_t const &opLength, skip_t skipOps);
+constexpr SplitExpression SplitAroundOperator(const char *const expression, size_t const &expressionLength,
+                                              const char *const op, size_t const &opLength);
+constexpr SplitExpression GenerateSplit(const char *const lhs, size_t const &lhsLength, const char *const rhs,
+                                        size_t const &rhsLength, size_t const &totalLength, const char *const op,
+                                        size_t const &opLength);
+
 enum class BinaryOperator { Eq, Neq, Lt, Leq, Gt, Geq, Add, Sub, Mul, Div };
 
 #define OP_LIST                                                                                                        \
@@ -212,7 +215,7 @@ template <BinaryOperator Op> struct OperatorString {
   inline BinaryExpression<BinaryExpression<Lhs_T, Rhs_T, Value_T, Op>, Other_Rhs_T,                                    \
                           decltype(Value_T() OpInfix Other_Rhs_T()), BinaryOperator::OpName>                           \
   operator OpInfix(Other_Rhs_T const &other) const {                                                                   \
-    return {*this, other, stringForm.lhs, stringForm.totalLength, skip_t(skippedSoFar + skip_t(1))};                   \
+    return {*this, other, stringForm};                                                                                 \
   }
 
 #define EXP_CONCATENATOR(Val) EXP_##Val
@@ -222,13 +225,17 @@ template <typename Lhs_T, typename Rhs_T, typename Value_T, BinaryOperator Op> s
   Rhs_T const rhs;
   SplitExpression const stringForm;
   Value_T const value;
-  skip_t skippedSoFar;
 
-  BinaryExpression(Lhs_T const &lhs, Rhs_T const &rhs, char const *expressionString, size_t stringLength,
-                   skip_t numOpsToSkip)
-      : lhs(lhs), rhs(rhs), stringForm(FindReferencedOperator(expressionString, stringLength, OperatorString<Op>::value,
-                                                              OperatorString<Op>::length, numOpsToSkip)),
-        value(EvaluateOperator<Lhs_T, Rhs_T, Value_T, Op>{}(lhs, rhs)), skippedSoFar(numOpsToSkip) {}
+  BinaryExpression(Lhs_T const &lhs, Rhs_T const &rhs, char const *expressionString, size_t stringLength)
+      : lhs(lhs), rhs(rhs), stringForm(SplitAroundOperator(expressionString, stringLength, OperatorString<Op>::value,
+                                                           OperatorString<Op>::length)),
+        value(EvaluateOperator<Lhs_T, Rhs_T, Value_T, Op>{}(lhs, rhs)) {}
+
+  BinaryExpression(Lhs_T const &lhs, Rhs_T const &rhs, SplitExpression const &childExpr)
+      : lhs(lhs), rhs(rhs),
+        stringForm(GenerateSplit(childExpr.lhs, childExpr.lhsLength, childExpr.rhs, childExpr.rhsLength,
+                                 childExpr.totalLength, OperatorString<Op>::value, OperatorString<Op>::length)),
+        value(EvaluateOperator<Lhs_T, Rhs_T, Value_T, Op>{}(lhs, rhs)) {}
   inline operator Value_T() const { return value; }
   inline std::string /*TODO: Find copy-free formattable alternative*/ GetFullString() const {
     return std::string(stringForm.lhs, stringForm.rhs - stringForm.lhs + stringForm.rhsLength);
@@ -248,7 +255,7 @@ template <typename Lhs_T, typename Rhs_T, typename Value_T, BinaryOperator Op> s
   template <typename Other_Rhs_T>                                                                                      \
   inline BinaryExpression<Type<T>, Other_Rhs_T, decltype(T() OpInfix Other_Rhs_T()), BinaryOperator::OpName>           \
   operator OpInfix(Other_Rhs_T const &other) const {                                                                   \
-    return {*this, other, expression, expressionLength, 0};                                                            \
+    return {*this, other, expression, expressionLength};                                                               \
   }
 
 #define TYPE_CONCATENATOR(Val) TYPE_##Val
@@ -273,7 +280,7 @@ struct Decompose {
   Decompose(const char *expression, size_t expressionLength)
       : expressionLength(expressionLength), expression(expression) {}
 
-  template <typename T> inline Type<T> operator<=>(T const &t) { return {t, expression, expressionLength}; }
+  template <typename T> inline Type<T> operator->*(T const &t) { return {t, expression, expressionLength}; }
 };
 
 // Helper to treat expressions and values the same for value retrieval
@@ -330,7 +337,13 @@ template <typename T, depth_t NumExpansions> struct ExpressionPrint {
 };
 
 template <typename T, depth_t NumExpansions> struct ExpressionPrint<Type<T>, NumExpansions> {
-  inline auto operator()(Type<T> const &expression) const { return std::format("{}", (T)expression); }
+  inline auto operator()(Type<T> const &expression) const {
+    if constexpr (NumExpansions) {
+      return std::format("{}", (T)expression);
+    } else {
+      return std::format("{}", expression.expression);
+    }
+  }
 };
 
 template <typename Lhs_T, typename Rhs_T, typename Value_T, BinaryOperator Op, depth_t NumExpansions>
@@ -370,8 +383,20 @@ template <typename Expr_T, depth_t ToDepth> struct DepthPrinter {
 
 INDIRECT_FOREACH(FILL_STRING_CONCATENATOR, OP_LIST)
 
-constexpr SplitExpression FindReferencedOperator(const char *const expression, size_t const &expressionLength,
-                                                 const char *const op, size_t const &opLength, skip_t skipOps) {
+constexpr SplitExpression GenerateSplit(const char *const lhs, size_t const &lhsLength, const char *const rhs,
+                                        size_t const &rhsLength, size_t const &totalLength, const char *const op,
+                                        size_t const &opLength) {
+  auto const splitRhs = SplitAroundOperator(rhs, rhsLength, op, opLength);
+  return {.lhs = lhs,
+          .lhsLength = static_cast<size_t>(splitRhs.lhs + splitRhs.lhsLength - lhs),
+          .op = splitRhs.op,
+          .opLength = splitRhs.opLength,
+          .rhs = splitRhs.rhs,
+          .rhsLength = splitRhs.rhsLength,
+          .totalLength = totalLength};
+}
+constexpr SplitExpression SplitAroundOperator(const char *const expression, size_t const &expressionLength,
+                                              const char *const op, size_t const &opLength) {
   uint16_t openParens = 0;
   size_t lastNonWhitespace = 0;
   for (size_t cursor = 0; cursor < expressionLength; cursor++) {
@@ -381,32 +406,30 @@ constexpr SplitExpression FindReferencedOperator(const char *const expression, s
       openParens--;
     } else if (openParens == 0 && expression[cursor] == op[0]) {
       bool match = true;
-      for (size_t opCursor = 0; opCursor < opLength; opCursor++) {
+      for (size_t opCursor = 1; opCursor < opLength; opCursor++) {
         if (expression[cursor + opCursor] != op[opCursor]) {
           match = false;
           break;
         }
       }
       if (match) {
-        if (skipOps == 0) {
-          const char *const opStart = expression + cursor;
-          cursor += opLength;
-          while (std::isspace(expression[cursor])) {
-            cursor++;
-          }
-
-          return {.lhs = expression,
-                  .lhsLength = lastNonWhitespace + 1,
-                  .op = opStart,
-                  .opLength = opLength,
-                  .rhs = expression + cursor,
-                  .rhsLength = expressionLength - cursor,
-                  .totalLength = expressionLength};
-        } else {
-          skipOps--;
+        const char *const opStart = expression + cursor;
+        cursor += opLength;
+        while (std::isspace(expression[cursor])) {
+          cursor++;
         }
+
+        return {.lhs = expression,
+                .lhsLength = lastNonWhitespace + 1,
+                .op = opStart,
+                .opLength = opLength,
+                .rhs = expression + cursor,
+                .rhsLength = expressionLength - cursor,
+                .totalLength = expressionLength};
       }
-    } else if (!std::isspace(expression[cursor])) {
+    }
+
+    if (!std::isspace(expression[cursor])) {
       lastNonWhitespace = cursor;
     }
   }

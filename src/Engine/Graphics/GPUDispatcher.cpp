@@ -1,6 +1,7 @@
 #include "GPUDispatcher.h"
 
 #include "Debug/Logging.h"
+#include "Util/Macros.h"
 
 void Engine::Graphics::GPUDispatcher::Dispatch(std::span<Command const *> const &commands) const {
   instanceManager->ResetFences(&fence);

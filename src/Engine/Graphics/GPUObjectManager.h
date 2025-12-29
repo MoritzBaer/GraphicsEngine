@@ -9,6 +9,9 @@
 #include "Texture.h"
 #include <cstdint>
 
+#include "Debug/Logging.h"
+#include "Util/Macros.h"
+
 namespace Engine::Graphics {
 
 class GPUObjectManager {

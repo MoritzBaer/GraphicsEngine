@@ -3,15 +3,20 @@
 #include "GLFW/glfw3.h"
 #include "Util/Macros.h"
 #include <algorithm>
+#include <cstring>
 #include <set>
+#include <string>
 #include <vector>
 
 #include "Debug/Logging.h"
+#include "Util/Macros.h"
 #include "WindowManager.h"
 
 #include "Debug/Profiling.h"
 
 namespace Engine::Graphics {
+
+inline Debug::Logging::Logger validationLogger{"Validation"};
 
 // Callback function for validation layers
 // TODO: Write nice formatting function for pMessage
@@ -27,14 +32,14 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityF
 
   switch (messageSeverity) {
   case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
-    Debug::Logging::PrintError("Validation", pCallbackData->pMessage);
+    validationLogger.PrintError<'|'>(pCallbackData->pMessage);
     __debugbreak();
     break;
   case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
-    Debug::Logging::PrintWarning("Validation", pCallbackData->pMessage);
+    validationLogger.PrintWarning<'|'>(pCallbackData->pMessage);
     break;
   default:
-    Debug::Logging::PrintMessage("Validation", pCallbackData->pMessage);
+    validationLogger.PrintMessage<'|'>(pCallbackData->pMessage);
     break;
   }
 
@@ -383,10 +388,9 @@ void InstanceManager::CreateLogicalDevice() {
       .pNext = &bufferDeviceAddress,
       .synchronization2 = requiredFeatures13.synchronization2};
 
-  VkPhysicalDeviceFeatures2 deviceFeatures2{
-      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, .pNext = &synchronization, .features = {
-        .geometryShader = VK_TRUE
-      }};
+  VkPhysicalDeviceFeatures2 deviceFeatures2{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+                                            .pNext = &synchronization,
+                                            .features = {.geometryShader = VK_TRUE}};
 
   VkDeviceCreateInfo deviceInfo{.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
                                 .pNext = &deviceFeatures2,

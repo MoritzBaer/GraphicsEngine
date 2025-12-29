@@ -1270,9 +1270,16 @@ inline constexpr T MatrixT<n, m, T>::Determinant() const
   for (uint8_t p = 0; p < Factorial(n); p++) {
     T summand = T(1);
     for (uint8_t i = 0; i < n; i++) {
+      auto const f = Factorial(n);
+      auto const j = sigma[i];
       summand *= data[MATRIX_NM_AT_IJ(i, sigma[i])];
     }
     det += sigma.Sign() * summand;
+
+    if (!sigma.HasValidSuccessor()) {
+      return det;
+    }
+    
     sigma++;
   }
 

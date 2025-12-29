@@ -1,4 +1,8 @@
 #include "DescriptorHandling.h"
+
+#include "Debug/Logging.h"
+#include "Util/Macros.h"
+
 namespace Engine::Graphics
 {
     

@@ -2,7 +2,6 @@
 
 #include "MemoryAllocator.h"
 #include "Util/DeletionQueue.h"
-#include "Util/Macros.h"
 #include "Window.h"
 #ifdef USING_IMGUI
 #include "backends/imgui_impl_vulkan.h"

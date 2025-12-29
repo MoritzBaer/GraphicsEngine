@@ -1,7 +1,6 @@
-#pragma once
-#include "vulkan/vk_enum_string_helper.h"
-
 #ifdef LOGGING_INCLUDED
+#ifndef _LOGGING_MACROS_INCLUDED
+#define _LOGGING_MACROS_INCLUDED
 
 #define __FILE_NAME__ (__FILE__ + SOURCE_PATH_SIZE)
 
@@ -9,19 +8,19 @@ inline Engine::Debug::Logging::Logger engineLogger = Engine::Debug::Logging::Log
 
 #define ENGINE_MESSAGE(format, ...)                                                                                    \
   {                                                                                                                    \
-    engineLogger.PrintMessage(format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME__, __LINE__);   \
+    engineLogger.PrintMessage(format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME__, __LINE__);                \
   }
 #define ENGINE_WARNING(format, ...)                                                                                    \
   {                                                                                                                    \
-    engineLogger.PrintWarning(format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME__, __LINE__);   \
+    engineLogger.PrintWarning(format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME__, __LINE__);                \
   }
 #define ENGINE_SUCCESS(format, ...)                                                                                    \
   {                                                                                                                    \
-    engineLogger.PrintSuccess(format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME__, __LINE__);   \
+    engineLogger.PrintSuccess(format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME__, __LINE__);                \
   }
 #define ENGINE_ERROR(format, ...)                                                                                      \
   {                                                                                                                    \
-    engineLogger.PrintError(format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME__, __LINE__);     \
+    engineLogger.PrintError(format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME__, __LINE__);                  \
     __debugbreak();                                                                                                    \
   }
 
@@ -30,19 +29,23 @@ inline Engine::Debug::Logging::Logger engineLogger = Engine::Debug::Logging::Log
     ENGINE_ERROR(format __VA_OPT__(, __VA_ARGS__))                                                                     \
   }
 
-#endif
-
-#define _CAT(a, b)                                                                                                     \
-  a##b // I don't understand the preprocessor well enough to understand why this is necessary, but apparently it is...
-#define CAT(a, b) _CAT(a, b)
-#define VAR_WITH_LINE(name) CAT(name, __LINE__)
-
+#include "vulkan/vk_enum_string_helper.h"
 #define VULKAN_ASSERT(call, format, ...)                                                                               \
   VkResult VAR_WITH_LINE(result) = call;                                                                               \
   if (VAR_WITH_LINE(result) != VK_SUCCESS) {                                                                           \
     ENGINE_ERROR("Vulkan error: {}, message: " format,                                                                 \
                  string_VkResult(VAR_WITH_LINE(result)) __VA_OPT__(, __VA_ARGS__))                                     \
   }
+#endif
+#endif
+
+#ifndef _MACROS_INCLUDED
+#define _MACROS_INCLUDED
+
+#define _CAT(a, b)                                                                                                     \
+  a##b // I don't understand the preprocessor well enough to understand why this is necessary, but apparently it is...
+#define CAT(a, b) _CAT(a, b)
+#define VAR_WITH_LINE(name) CAT(name, __LINE__)
 
 #define ENGINE_VERSION VK_MAKE_VERSION(0, 0, 1)
 
@@ -59,3 +62,5 @@ public:                                                                         
   void operator=(name const &) = delete;                                                                               \
                                                                                                                        \
 private:
+
+#endif

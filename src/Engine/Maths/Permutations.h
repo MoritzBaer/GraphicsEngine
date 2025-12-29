@@ -13,7 +13,7 @@ namespace Engine::Maths {
 
 template<std::integral T> inline constexpr T Factorial(T const & n) {
   T res = 1;
-  for (int i = 1; i < n; i++) {
+  for (int i = 1; i <= n; i++) {
     res *= i;
   }
   return res;

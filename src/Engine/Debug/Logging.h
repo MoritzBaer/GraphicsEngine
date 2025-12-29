@@ -16,7 +16,7 @@ class Logger {
   uint8_t numIndents;
   std::ostream &target;
 
-  template <typename... T_Args> inline void PrintWithAlignedIdentifier(const char *message, T_Args &&...args) const;
+  template <char LineDelim, typename... T_Args> inline void PrintWithAlignedIdentifier(const char *message, T_Args &&...args) const;
 
 public:
   // For proper message alignment, identifier should not have more than MAX_IDENTIFIER_LENGTH characters
@@ -24,10 +24,10 @@ public:
       : identifier(identifier), target(target), indentPattern(indentPattern), numIndents(0),
         identifierLength(strlen(identifier)) {}
 
-  template <typename... T_Args> void PrintSuccess(const char *format, T_Args &&...args) const;
-  template <typename... T_Args> void PrintMessage(const char *format, T_Args &&...args) const;
-  template <typename... T_Args> void PrintWarning(const char *format, T_Args &&...args) const;
-  template <typename... T_Args> void PrintError(const char *format, T_Args &&...args) const;
+  template <char LineDelim = '\n', typename... T_Args> void PrintSuccess(const char *format, T_Args &&...args) const;
+  template <char LineDelim = '\n', typename... T_Args> void PrintMessage(const char *format, T_Args &&...args) const;
+  template <char LineDelim = '\n', typename... T_Args> void PrintWarning(const char *format, T_Args &&...args) const;
+  template <char LineDelim = '\n', typename... T_Args> void PrintError(const char *format, T_Args &&...args) const;
 
   inline void PushSection() { numIndents++; }
   inline void PopSection() { numIndents--; }
@@ -50,7 +50,7 @@ static inline constexpr char const *SUCCESS_FORMAT = "\033[1;32m";
 static inline constexpr char const *CLEAR_FORMAT = "\033[0m";
 
 // TODO: Figure out a way to nicely wrap the message if it's longer than a console line
-template <typename... T_Args>
+template <char LineDelim, typename... T_Args>
 inline void Logger::PrintWithAlignedIdentifier(const char *message, T_Args &&...args) const {
   auto const formattedMessage = std::vformat(message, std::make_format_args(args...));
   std::stringstream messageStream(formattedMessage);
@@ -75,33 +75,33 @@ inline void Logger::PrintWithAlignedIdentifier(const char *message, T_Args &&...
       target << indentPattern;
     }
 
-    std::getline(messageStream, line, '\n');
+    std::getline(messageStream, line, LineDelim);
     // Cut line in two if it is too long?
     target << line << std::endl;
   }
 }
 
-template <typename... T_Args> void Logger::PrintMessage(const char *message, T_Args &&...args) const {
+template <char LineDelim, typename... T_Args> void Logger::PrintMessage(const char *message, T_Args &&...args) const {
   target << MESSAGE_FORMAT;
-  PrintWithAlignedIdentifier(message, args...);
+  PrintWithAlignedIdentifier<LineDelim>(message, args...);
   target << CLEAR_FORMAT;
 }
 
-template <typename... T_Args> void Logger::PrintSuccess(const char *message, T_Args &&...args) const {
+template <char LineDelim, typename... T_Args> void Logger::PrintSuccess(const char *message, T_Args &&...args) const {
   target << SUCCESS_FORMAT;
-  PrintWithAlignedIdentifier(message, args...);
+  PrintWithAlignedIdentifier<LineDelim>(message, args...);
   target << CLEAR_FORMAT;
 }
 
-template <typename... T_Args> void Logger::PrintWarning(const char *message, T_Args &&...args) const {
+template <char LineDelim, typename... T_Args> void Logger::PrintWarning(const char *message, T_Args &&...args) const {
   target << WARNING_FORMAT;
-  PrintWithAlignedIdentifier(message, args...);
+  PrintWithAlignedIdentifier<LineDelim>(message, args...);
   target << CLEAR_FORMAT;
 }
 
-template <typename... T_Args> void Logger::PrintError(const char *message, T_Args &&...args) const {
+template <char LineDelim, typename... T_Args> void Logger::PrintError(const char *message, T_Args &&...args) const {
   target << ERROR_FORMAT;
-  PrintWithAlignedIdentifier(message, args...);
+  PrintWithAlignedIdentifier<LineDelim>(message, args...);
   target << CLEAR_FORMAT;
 }
 

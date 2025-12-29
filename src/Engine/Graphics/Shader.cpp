@@ -1,5 +1,6 @@
 #include "Shader.h"
 #include "Debug/Logging.h"
+#include "Util/Macros.h"
 #include "InstanceManager.h"
 #include "Util/FileIO.h"
 #include <algorithm>

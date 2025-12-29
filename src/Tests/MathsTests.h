@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Maths/Matrix.h"
 #include "Test.h"
 
 #include "Maths/Transformations.h"
@@ -100,20 +101,18 @@ TEST_CASE("Matrices work correctly") {
     MatrixNM<2, 3> A = MatrixNM<2, 3>(1, 2, 3, 3, 2, 1);
     Matrix3 B{4, 1, 0, 0, 3, 0, 2, 1, 2};
 
-    MatrixNM<2, 3> C = A * B;
-    MatrixNM<2, 3> expected{10, 10, 6, 14, 10, 2};
-    VERIFY(C == expected);
+    MatrixNM<2, 3> correct{10, 10, 6, 14, 10, 2};
+    VERIFY(A * B == correct);
 
     Matrix4 m1 = Matrix4(8.96836, 2.10230, 1.89949, 4.60040, 8.39039, 5.83538, 7.79529, 6.32591, 4.75992, 5.49344,
                          0.39212, 0.78537, 6.66451, 8.18015, 3.31983, 4.87304);
     Matrix4 m2{5.03589, 6.78238, 7.17521, 3.66256, 8.01326, 4.52237, 6.94845, 0.59203,
                5.60207, 2.59969, 7.80068, 7.32192, 0.61612, 5.25223, 6.61894, 3.31925};
 
-    Matrix4 m3 = m1 * m2;
     Matrix4 correct_m3 = {75.4854253307,  99.4346479979,  124.2246780198, 63.2695727914, 136.5807781554, 136.7870325182,
                           203.4290379255, 112.2587933441, 70.671362396,   62.2712887803, 80.5814383006,  26.1636845213,
                           120.7117055058, 116.4197600212, 162.8099129266, 69.7344296437};
-    VERIFY(m3 == correct_m3);
+    VERIFY(m1 * m2 == correct_m3);
   }
 
   SUB_GROUP("Matrix-vector multiplication gives correct result") {
@@ -152,8 +151,19 @@ TEST_CASE("Matrices work correctly") {
   SUB_GROUP("Determinant is correct") {
     float a = 2, b = 3, c = -2, d = 5;
     Matrix2 M = Matrix2(a, b, c, d);
-    float determinant = M.Determinant();
     float expected = a * d - b * c;
+    VERIFY(M.Determinant() == expected)
+
+    Matrix4 M_ = Matrix4( //
+        9, 10, 9, 3,      //
+        9, 2, 1, 8,       //
+        5, 7, 9, 4,       //
+        7, 0, 2, 8        //
+    );
+
+    expected = 499;
+
+    VERIFY(M_.Determinant() == expected)
   }
 }
 
@@ -237,9 +247,8 @@ TEST_CASE("Quaternions work correctly") {
   auto mq = Transformations::RodriguesRotation(axis1, angle);
   auto mr = Transformations::RodriguesRotation(axis2, 0.32f);
 
-  Quaternion p =
-      q *
-      r; // Quaternion multiplication and matrix multiplication have inverse orders - Then why are the orders the same??
+  // Quaternion multiplication and matrix multiplication have inverse orders - Then why are the orders the same??
+  Quaternion p = q * r;
 
   SUB_GROUP("Conversion to rotation matrix gives correct result") {
     auto cq = q.RotationMatrix();
