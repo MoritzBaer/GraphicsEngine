@@ -1200,7 +1200,7 @@ private:
   std::array<T, n * m> data;
 
   // Needed for access of private members of other instance in matrix multiplication
-  template <uint8_t n, uint8_t l, typename T> friend struct MatrixT;
+  template <uint8_t r, uint8_t c, typename _T> friend struct MatrixT;
   friend struct json<MatrixT<n, m, T>>;
 };
 

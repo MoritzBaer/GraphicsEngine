@@ -10,7 +10,7 @@ private:
 
 public:
   PushConstantsAggregate() : data(nullptr), size(0) {}
-  ~PushConstantsAggregate() { delete data; }
+  ~PushConstantsAggregate() { free(data); }
   template <typename T> PushConstantsAggregate &PushData(T *data) {
     char *newData = reinterpret_cast<char *>(malloc(size + sizeof(T)));
     memcpy(newData, this->data, size);

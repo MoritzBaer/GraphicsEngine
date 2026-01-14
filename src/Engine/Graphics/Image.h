@@ -23,8 +23,8 @@ protected:
   friend class GPUObjectManager;
 
 public:
-  static const VkImageType IMAGE_TYPE;
-  static const VkImageViewType VIEW_TYPE;
+  inline static const VkImageType IMAGE_TYPE;
+  inline static const VkImageViewType VIEW_TYPE;
 
   inline Image(VkImage image, VmaAllocation allocation, VkImageView imageView, Maths::Dimension<Dimension> imageExtent,
                VkFormat imageFormat, VkImageLayout currentLayout, VkImageAspectFlags aspect)

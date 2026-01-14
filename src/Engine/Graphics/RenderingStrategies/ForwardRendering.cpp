@@ -15,6 +15,7 @@ struct DrawData {
   SceneData sceneData;
 };
 
+template<> 
 void MultiRenderCommand<MeshRenderer const *>::DoSingleRender(VkCommandBuffer const &commandBuffer,
                                                               MeshRenderer const *const &renderInfo,
                                                               UniformBinding const &uniformBinding) const {

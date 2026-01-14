@@ -42,7 +42,7 @@ public:
 };
 
 template <ShaderType Type> struct StageConstants {
-  inline static constexpr VkShaderStageFlagBits stageFlags = 0;
+  inline static constexpr VkShaderStageFlagBits stageFlags = static_cast<VkShaderStageFlagBits>(0);
   inline static constexpr shaderc_shader_kind kind = static_cast<shaderc_shader_kind>(-1);
 };
 

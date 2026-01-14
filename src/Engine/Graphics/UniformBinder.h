@@ -38,7 +38,7 @@ public:
 #endif
                     *gpuObjectManager)
       : gpuObjectManager(gpuObjectManager), gpuDispatcher(gpuObjectManager->CreateGPUDispatcher()),
-        bufferProducers(nullptr) {
+        bufferProducers() {
   }
 
   template <typename T_Uniform> inline UniformBinding GetBinding(T_Uniform const &data);

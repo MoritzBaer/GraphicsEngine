@@ -13,7 +13,7 @@ namespace Engine {
 
 template <WindowManager *windowManager> void Window::GLFWResizeCallback(GLFWwindow *glfwWindow, int width, int height) {
   Window comparison = Window(glfwWindow, nullptr);
-  WindowManager::CallResizeCallbackOnCorrectWindow(nullptr, &comparison, Maths::Dimension2(width, height));
+  WindowManager::CallResizeCallbackOnCorrectWindow(&comparison, Maths::Dimension2(width, height));
 }
 
 Window::Window(Maths::Dimension2 const &windowSize, const char *title)

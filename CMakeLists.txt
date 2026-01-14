@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.28)
+cmake_minimum_required(VERSION 4.2.1)
 
 project(GRAPHICS_ENGINE)
 
@@ -45,24 +45,36 @@ else()
     message(STATUS "building without profiling")
 endif()
 
-find_package(Vulkan REQUIRED COMPONENTS shaderc_combined)
+add_compile_definitions(CMAKE_EXPORT_COMPILE_COMMANDS=1)
+
+find_package(Vulkan REQUIRED COMPONENTS shaderc_combined glslang SPIRV-Tools)
+find_package(glfw3 REQUIRED)
+
+message("shaderc path: ${Vulkan_shaderc_combined_LIBRARY}")
 
 aux_source_directory(src/external EXTERNAL)
 
-target_compile_options(Engine PUBLIC /Zc:preprocessor)
+# Uncomment if building with msvc
+#target_compile_options(Engine PUBLIC /Zc:preprocessor)
 
 target_include_directories(Engine PUBLIC "dependencies/glfw-3.3.9.bin.WIN64/include")
 target_include_directories(Engine PUBLIC "dependencies/VMA")
 target_include_directories(Engine PUBLIC "dependencies/GLM/")
 target_include_directories(Engine PUBLIC ${Vulkan_INCLUDE_DIR})
+target_include_directories(Engine PUBLIC ${GLFW3_INCLUDE_DIR})
 
 target_include_directories(Engine PUBLIC "src/external/json-parsing")
 target_include_directories(Engine PUBLIC "src/external/stb")
 target_include_directories(Engine PUBLIC "src/Engine")
 
-target_link_libraries(Engine PUBLIC "${PROJECT_SOURCE_DIR}/dependencies/glfw-3.3.9.bin.WIN64/lib-vc2022/glfw3_mt.lib")
+# Uncomment if compiling for windows
+#target_link_libraries(Engine PUBLIC "${PROJECT_SOURCE_DIR}/dependencies/glfw-3.3.9.bin.WIN64/lib-vc2022/glfw3_mt.lib")
 target_link_libraries(Engine PUBLIC Vulkan::Vulkan)
 target_link_libraries(Engine PUBLIC Vulkan::shaderc_combined)
+target_link_libraries(Engine PUBLIC Vulkan::glslang)
+target_link_libraries(Engine PUBLIC Vulkan::SPIRV-Tools)
+target_link_libraries(Engine PUBLIC SPIRV-Tools-opt)
+target_link_libraries(Engine PUBLIC glfw)
 
 # To keep assets in the same place as the binaries
 # TODO: Figure out compiler-independent delivery
@@ -77,6 +89,7 @@ macro(make_app NAME ENTRY_POINT)
     add_executable(${NAME} "src/${ENTRY_POINT}.cpp")
 
     target_include_directories(${NAME} PRIVATE "src/Demo")
+    target_include_directories(${NAME} PRIVATE "src/")
     target_link_libraries(${NAME} Engine)
 
     # To store profiles
@@ -90,10 +103,9 @@ if(${BUILD_DEMO_APPS})
     make_app(DebugApp main)
 
     add_executable(MinimalTestApp "src/test.cpp" "src/Engine/Core/ECS.cpp")
+    target_include_directories(MinimalTestApp PRIVATE "src/")
     target_include_directories(MinimalTestApp PRIVATE "src/Engine")
     target_include_directories(MinimalTestApp PRIVATE "src/external/json-parsing")
 
-    target_include_directories(MinimalTestApp PRIVATE ${Vulkan_INCLUDE_DIR})
-    target_compile_options(MinimalTestApp PRIVATE /Zc:preprocessor)
-target_compile_definitions(MinimalTestApp PRIVATE SOURCE_PATH_SIZE=${SOURCE_PATH_SIZE})
+    target_compile_definitions(MinimalTestApp PRIVATE SOURCE_PATH_SIZE=${SOURCE_PATH_SIZE})
 endif()

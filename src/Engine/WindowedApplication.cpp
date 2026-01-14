@@ -1,5 +1,6 @@
 #include "WindowedApplication.h"
 
+#include "AssetManager.h"
 #include "Debug/Profiling.h"
 
 WindowedApplication::WindowedApplication(const char *name, Maths::Dimension2 const &windowSize)
@@ -48,8 +49,12 @@ void SwapChainProvider::CreateSwapchain() {
   VkPresentModeKHR presentMode = ChooseSwapchainPresentMode(details.presentModes);
   VkExtent2D extent = ChooseSwapchainExtent(details.capabilities, windowDimension);
 
-  uint32_t imageCount =
-      std::min(std::max(details.capabilities.minImageCount + 1, MAX_FRAME_OVERLAP), details.capabilities.maxImageCount);
+  ENGINE_ASSERT(details.capabilities.minImageCount <= MAX_FRAME_OVERLAP, "Swapchains must have {} images, but only {} are permitted by engine config!", details.capabilities.minImageCount, MAX_FRAME_OVERLAP)
+
+  uint32_t imageCount = std::min(details.capabilities.minImageCount + 1, MAX_FRAME_OVERLAP);
+  if (details.capabilities.maxImageCount > 0) { // There is a limit to the number of images to acquire
+    imageCount = std::min(imageCount, details.capabilities.maxImageCount);
+  }
 
   instanceManager->CreateSwapchain(surfaceFormat, presentMode, extent, imageCount, VK_NULL_HANDLE, &swapchain);
 
@@ -118,7 +123,8 @@ std::vector<Command const *> SwapChainProvider::PrepareTargetForDisplaying() {
   return {swapchainImages[swapchainImageIndex].Transition(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)};
 }
 
-SwapChainProvider::SwapChainProvider(InstanceManager const *instanceManager, GPUObjectManager RELEASE_CONST *gpuObjectManager,
+SwapChainProvider::SwapChainProvider(InstanceManager const *instanceManager,
+                                     GPUObjectManager RELEASE_CONST *gpuObjectManager,
                                      Maths::Dimension2 const &windowSize)
     : instanceManager(instanceManager), gpuObjectManager(gpuObjectManager), windowDimension(windowSize),
       currentFrame(0), swapchainImageIndex(0) {

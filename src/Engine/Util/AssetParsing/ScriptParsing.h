@@ -9,10 +9,9 @@ struct ScriptDSO {
   virtual void Attach(Core::ScriptComponent *scriptComponent, AssetManager *assetManager) = 0;
 };
 
-template <typename T, typename... T_Args> struct ScriptT : public ScriptDSO {
-  std::tuple<T_Args...> args;
+template <typename T> struct ScriptT : public ScriptDSO {
   void Attach(Core::ScriptComponent *scriptComponent, AssetManager *assetManager) override {
-    scriptComponent->InstantiateScript<T>(args...);
+    scriptComponent->InstantiateScript<T>();
   }
 };
 

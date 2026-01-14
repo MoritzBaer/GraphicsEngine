@@ -4,12 +4,20 @@
 #include <span>
 #include <vector>
 
+#if defined(__FUNCSIG__)
+#define __ENGINE_FUNCTION_SIGNATURE
+#elif defined(__PRETTY_FUNCTION__)
+#define __ENGINE_FUNCTION_SIGNATURE __PRETTY_FUNCTION__
+#else
+#define __ENGINE_FUNCTION_SIGNATURE __func__
+#endif
+
 #ifdef RUN_PROFILER
 #define PROFILE_SCOPE(name) Engine::Debug::Profiling::LifeTimer CAT(__t, __LINE__)(name);
 #else
 #define PROFILE_SCOPE(name)
 #endif
-#define PROFILE_FUNCTION() PROFILE_SCOPE(__FUNCSIG__)
+#define PROFILE_FUNCTION() PROFILE_SCOPE(__ENGINE_FUNCTION_SIGNATURE)
 
 #ifdef RUN_PROFILER
 #define BEGIN_PROFILE_SESSION() Engine::Debug::Profiling::__profiles = {};

@@ -288,8 +288,8 @@ inline Graphics::Mesh CalculateTangentSpace(Graphics::MeshT<OBJVertex> &objMesh)
   PROFILE_FUNCTION()
 
   std::vector<uint16_t> triangleParticipations(objMesh.vertices.size(), 0);
-  std::vector<Maths::Vector3> cotangents(objMesh.vertices.size(), Maths::Vector3({0, 0, 0}));
-  std::vector<Maths::Vector3> cobitangents(objMesh.vertices.size(), Maths::Vector3({0, 0, 0}));
+  std::vector<Maths::Vector3> cotangents(objMesh.vertices.size(), Maths::Vector3(0, 0, 0));
+  std::vector<Maths::Vector3> cobitangents(objMesh.vertices.size(), Maths::Vector3(0, 0, 0));
 
   for (int i = 0; i < objMesh.indices.size(); i += 3) {
 

@@ -103,6 +103,3 @@ using MaterialCache = AssetCacheImpl<Graphics::Material *, OwnedDestroyer<Graphi
 using MaterialManager = TypeManagerImpl<Graphics::Material *, MaterialLoader, MaterialCache>;
 
 } // namespace Engine
-
-template <>
-template <> void json<Engine::MaterialDSO>::parse_tokenstream<Tokenizer<class std::vector<char>::iterator>>(Tokenizer<class std::vector<char>::iterator> &, Engine::MaterialDSO &);

@@ -33,7 +33,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityF
   switch (messageSeverity) {
   case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
     validationLogger.PrintError<'|'>(pCallbackData->pMessage);
-    __debugbreak();
+    __ENGINE_BREAKPOINT
     break;
   case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
     validationLogger.PrintWarning<'|'>(pCallbackData->pMessage);

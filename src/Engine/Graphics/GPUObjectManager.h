@@ -306,9 +306,9 @@ inline AllocatedMesh GPUObjectManager::AllocateMesh(MeshT<T_CPU> const &mesh) RE
                                             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                                                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                             VMA_MEMORY_USAGE_GPU_ONLY DEBUG_LABEL_VALUE("VERTEX_BUFFER"));
-  auto vertexBufferAddress = GetDeviceAddresss(vertexBuffer);
+  auto const vertexBufferAddress = GetDeviceAddresss(vertexBuffer);
 
-  auto uploadReadyVertices(mesh.ReformattedVertices<VertexFormat>());
+  auto const uploadReadyVertices = mesh.template ReformattedVertices<VertexFormat>();
 
   Buffer<uint8_t> stagingBuffer =
       CreateBuffer<uint8_t>(vertexBuffer.PhysicalSize() + indexBuffer.PhysicalSize(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT,

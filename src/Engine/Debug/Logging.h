@@ -5,6 +5,7 @@
 
 #include <inttypes.h>
 #include <iostream>
+#include <cstring>
 
 #define MAX_IDENTIFIER_LENGTH 16
 

@@ -16,7 +16,7 @@ private:
   InstanceManager const *instanceManager;
   GPUObjectManager RELEASE_CONST *gpuObjectManager;
 
-  static const uint32_t MAX_FRAME_OVERLAP = 3;
+  inline static const uint32_t MAX_FRAME_OVERLAP = 3;
 
   VkQueue presentQueue;
 

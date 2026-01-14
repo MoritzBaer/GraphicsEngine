@@ -35,14 +35,14 @@
 
 #define SUB_GROUP(Label) if (group == numGroups++ && !(groupLabel = Label).empty())
 
-#define __FILE_NAME__ (&__FILE__[SOURCE_PATH_SIZE])
+#define __CURRENT_FILE_NAME__ (&__FILE__[SOURCE_PATH_SIZE])
 
 #define VERIFY(Expression)                                                                                             \
   {                                                                                                                    \
     auto decomposition = Decompose(#Expression, sizeof(#Expression) - 1)->*Expression;                                 \
     if (!decomposition) {                                                                                              \
       pass = false;                                                                                                    \
-      testLogger.PrintError("Verification failed! ({}({},0))", __FILE_NAME__, __LINE__);                               \
+      testLogger.PrintError("Verification failed! ({}({},0))", __CURRENT_FILE_NAME__, __LINE__);                               \
       testLogger.PushSection();                                                                                        \
       DepthPrinter<decltype(decomposition), ExpressionDepth<decltype(decomposition)>::value + 1>{}(decomposition,      \
                                                                                                    testLogger);        \

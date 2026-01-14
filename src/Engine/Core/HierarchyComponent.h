@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Core/ECS.h"
+#include <algorithm>
 
 namespace Engine {
   class SceneCache;
@@ -11,11 +12,9 @@ namespace Engine::Core {
 class HierarchyComponent;
 
 class HierarchyListener {
-protected:
-  HierarchyComponent *hierarchy;
-  friend class SceneCache;
-
 public:
+  HierarchyComponent *hierarchy;
+
   HierarchyListener(HierarchyComponent *hierarchy) : hierarchy(hierarchy) {};
   virtual void OnHierarchyChange() = 0;
 };

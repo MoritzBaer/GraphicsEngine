@@ -159,7 +159,8 @@ class AssetManager {
   std::array<ListableManager *, std::numeric_limits<typeID>::max()> typeManagers;
 
 public:
-  AssetManager() : typeManagers(nullptr) {}
+  AssetManager() : typeManagers() {}
+  
   ~AssetManager() {
     for (int c = 0; c < nextFreeType; c++) {
       if (typeManagers[c])
