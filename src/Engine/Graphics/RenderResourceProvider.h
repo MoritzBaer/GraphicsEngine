@@ -8,16 +8,20 @@ struct RenderResourceProvider {
 
   struct FrameResources {
     CommandQueue commandQueue;
-    VkSemaphore presentSemaphore;
-    VkSemaphore renderSemaphore;
+    std::optional<VkSemaphore> renderSemaphore;
     VkFence renderFence;
     DescriptorAllocator descriptorAllocator;
     DescriptorWriter descriptorWriter;
     UniformBinder uniformBinder;
   };
 
+  struct RenderTarget {
+    std::optional<VkSemaphore> presentSemaphore;
+    Image2 &target;
+  };
+
   virtual FrameResources GetFrameResources() = 0;
-  virtual Image2 &GetRenderTarget(bool &acquisitionSuccessful) = 0;
+  virtual std::optional<RenderTarget> GetRenderTarget() = 0;
   virtual std::vector<Command const *> PrepareTargetForRendering() = 0;
   virtual std::vector<Command const *> PrepareTargetForDisplaying() = 0;
   virtual void DisplayRenderTarget() = 0;
@@ -25,18 +29,15 @@ struct RenderResourceProvider {
 
 inline void CreateFrameResources(RenderResourceProvider::FrameResources &resources,
                                  InstanceManager const *instanceManager,
-                                 GPUObjectManager
-#ifdef NDEBUG
-                                 const
-#endif
-                                     *gpuObjectManager) {
+                                 GPUObjectManager RELEASE_CONST *gpuObjectManager) {
   VkFenceCreateInfo fenceInfo = vkinit::FenceCreateInfo();
 
   VkSemaphoreCreateInfo semaphoreInfo{.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
 
   instanceManager->CreateFence(&fenceInfo, &resources.renderFence);
-  instanceManager->CreateSemaphore(&semaphoreInfo, &resources.renderSemaphore);
-  instanceManager->CreateSemaphore(&semaphoreInfo, &resources.presentSemaphore);
+  VkSemaphore renderSemaphore;
+  instanceManager->CreateSemaphore(&semaphoreInfo, &renderSemaphore);
+  resources.renderSemaphore = renderSemaphore;
 
   resources.commandQueue = gpuObjectManager->CreateCommandQueue();
 
@@ -55,14 +56,11 @@ inline void CreateFrameResources(RenderResourceProvider::FrameResources &resourc
 
 inline void DestroyFrameResources(RenderResourceProvider::FrameResources &resources,
                                   InstanceManager const *instanceManager,
-                                  GPUObjectManager
-#ifdef NDEBUG
-                                  const
-#endif
-                                      *gpuObjectManager) {
+                                  GPUObjectManager RELEASE_CONST *gpuObjectManager) {
   gpuObjectManager->DestroyCommandQueue(resources.commandQueue);
-  instanceManager->DestroySemaphore(resources.presentSemaphore);
-  instanceManager->DestroySemaphore(resources.renderSemaphore);
+  if (resources.renderSemaphore.has_value()) {
+    instanceManager->DestroySemaphore(resources.renderSemaphore.value());
+  }
   instanceManager->DestroyFence(resources.renderFence);
   resources.descriptorAllocator.ClearDescriptors();
   resources.descriptorAllocator.DestroyPools();

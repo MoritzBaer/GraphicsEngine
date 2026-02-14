@@ -1,9 +1,10 @@
 #include "ForwardRendering.h"
 
 #include "Graphics/RenderCommand.h"
+#include <vulkan/vulkan_core.h>
 
-#define CALCULATE_CLIP_SPACE(name, z) \
-  auto name##CamSpace = projection * Vector4(0,0,z,1);\
+#define CALCULATE_CLIP_SPACE(name, z)                                                                                  \
+  auto name##CamSpace = projection * Vector4(0, 0, z, 1);                                                              \
   auto name = Vector3(name##CamSpace[X], name##CamSpace[Y], name##CamSpace[Z]) / name##CamSpace[W];
 
 namespace Engine::Graphics {
@@ -15,7 +16,7 @@ struct DrawData {
   SceneData sceneData;
 };
 
-template<> 
+template <>
 void MultiRenderCommand<MeshRenderer const *>::DoSingleRender(VkCommandBuffer const &commandBuffer,
                                                               MeshRenderer const *const &renderInfo,
                                                               UniformBinding const &uniformBinding) const {
@@ -43,8 +44,9 @@ void MultiRenderCommand<MeshRenderer const *>::DoSingleRender(VkCommandBuffer co
 
 namespace Engine::Graphics::RenderingStrategies {
 
-std::vector<VkFormat> formatsByPreference = {VK_FORMAT_R8G8B8A8_SRGB, VK_FORMAT_R16G16B16A16_SFLOAT,
-                                             VK_FORMAT_R8G8B8A8_SNORM};
+std::vector<VkFormat> const formatsByPreference = {VK_FORMAT_R16G16B16A16_SFLOAT, //
+                                                   VK_FORMAT_R8G8B8A8_SRGB,       //
+                                                   VK_FORMAT_R8G8B8A8_SNORM};
 
 VkImageUsageFlags renderBufferUsage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
                                       VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
@@ -57,6 +59,7 @@ VkFormat ForwardRendering::ChooseRenderBufferFormat() {
   for (auto format : formatsByPreference) {
     formatInfo.format = format;
     if (instanceManager->SupportsFormat(formatInfo)) {
+      ENGINE_MESSAGE("Chose format {} for render buffer", (uint64_t)format)
       return format;
     }
   }
@@ -65,8 +68,9 @@ VkFormat ForwardRendering::ChooseRenderBufferFormat() {
 }
 
 void ForwardRendering::CreateRenderBuffer(Maths::Dimension2 const &renderDimension) {
-  renderBuffer = {.colourImage = objectManager->AllocateImage(ChooseRenderBufferFormat(), renderDimension,
-                                                                     renderBufferUsage, VK_IMAGE_ASPECT_COLOR_BIT),
+  renderBuffer = {.colourImage = objectManager->AllocateImage(
+                      ChooseRenderBufferFormat(), renderDimension, renderBufferUsage,
+                      VK_IMAGE_ASPECT_COLOR_BIT DEBUG_LABEL_VALUE(1, 1, VK_SAMPLE_COUNT_1_BIT, "RENDER_BUFFER")),
                   .depthImage = objectManager->CreateDepthBuffer(renderDimension)};
 }
 
@@ -75,11 +79,10 @@ void ForwardRendering::DestroyRenderBuffer() {
   objectManager->DestroyImage(renderBuffer.depthImage);
 }
 
-std::vector<Command const *> ForwardRendering::GetRenderingCommands(RenderingRequest const &request,
-                                                              UniformBinder &uniformBufferProvider,
-                                                              DescriptorAllocator &descriptorAllocator,
-                                                              DescriptorWriter &descriptorWriter,
-                                                              Image<2> &renderTarget, std::optional<Image<2>> &depthTarget) {
+std::vector<Command const *>
+ForwardRendering::GetRenderingCommands(RenderingRequest const &request, UniformBinder &uniformBufferProvider,
+                                       DescriptorAllocator &descriptorAllocator, DescriptorWriter &descriptorWriter,
+                                       Image<2> &renderTarget, std::optional<Image<2>> &depthTarget) {
 
   auto commands = backgroundStrategy->GetRenderingCommands(renderBuffer.colourImage);
 
@@ -110,7 +113,7 @@ std::vector<Command const *> ForwardRendering::GetRenderingCommands(RenderingReq
   auto uniformBinding = uniformBufferProvider.GetBinding<DrawData>(uniformData);
   auto drawMeshes = new MultiRenderCommand<MeshRenderer const *>(
       renderBuffer.colourImage, renderBuffer.depthImage, descriptorAllocator, descriptorWriter,
-      renderTarget.GetExtent(), uniformBinding, request.objectsToDraw);
+      renderBuffer.colourImage.GetExtent(), uniformBinding, request.objectsToDraw);
 
   commands.push_back(drawMeshes);
 

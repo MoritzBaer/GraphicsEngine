@@ -2,6 +2,9 @@
 
 #include "AssetManager.h"
 #include "Debug/Profiling.h"
+#include <iterator>
+#include <optional>
+#include <vulkan/vulkan_core.h>
 
 WindowedApplication::WindowedApplication(const char *name, Maths::Dimension2 const &windowSize)
     : mainWindow(Engine::WindowManager::CreateWindow(windowSize, name)), vulkan(name, mainWindow),
@@ -49,8 +52,6 @@ void SwapChainProvider::CreateSwapchain() {
   VkPresentModeKHR presentMode = ChooseSwapchainPresentMode(details.presentModes);
   VkExtent2D extent = ChooseSwapchainExtent(details.capabilities, windowDimension);
 
-  ENGINE_ASSERT(details.capabilities.minImageCount <= MAX_FRAME_OVERLAP, "Swapchains must have {} images, but only {} are permitted by engine config!", details.capabilities.minImageCount, MAX_FRAME_OVERLAP)
-
   uint32_t imageCount = std::min(details.capabilities.minImageCount + 1, MAX_FRAME_OVERLAP);
   if (details.capabilities.maxImageCount > 0) { // There is a limit to the number of images to acquire
     imageCount = std::min(imageCount, details.capabilities.maxImageCount);
@@ -64,11 +65,15 @@ void SwapChainProvider::CreateSwapchain() {
   std::vector<VkImage> scImgs;
   instanceManager->GetSwapchainImages(swapchain, scImgs);
   swapchainImages.resize(scImgs.size());
+  presentSemaphores.resize(scImgs.size());
+
+  VkSemaphoreCreateInfo semaphoreInfo = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
 
   // Create image views
   for (int i = 0; i < swapchainImages.size(); i++) {
     swapchainImages[i] = gpuObjectManager->CreateImage(scImgs[i], windowDimension, surfaceFormat.format,
                                                        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_ASPECT_COLOR_BIT);
+    instanceManager->CreateSemaphore(&semaphoreInfo, &presentSemaphores[i]);
   }
 }
 
@@ -90,26 +95,26 @@ RenderResourceProvider::FrameResources SwapChainProvider::GetFrameResources() {
   return frameResources[resourceIndex];
 }
 
-Image2 &SwapChainProvider::GetRenderTarget(bool &acquisitionSuccessful) {
+std::optional<SwapChainProvider::RenderTarget> SwapChainProvider::GetRenderTarget() {
   frameResources[resourceIndex].descriptorAllocator.ClearDescriptors();
 
   VkResult swapchainImageAcqusitionResult;
-  swapchainImageIndex = instanceManager->GetNextSwapchainImageIndex(swapchainImageAcqusitionResult, swapchain,
-                                                                    frameResources[resourceIndex].presentSemaphore);
-  acquisitionSuccessful = true;
+  swapchainImageIndex = instanceManager->GetNextSwapchainImageIndex(
+      swapchainImageAcqusitionResult, swapchain, frameResources[resourceIndex].renderSemaphore.value());
   if (swapchainImageAcqusitionResult == VK_ERROR_OUT_OF_DATE_KHR ||
       swapchainImageAcqusitionResult == VK_SUBOPTIMAL_KHR) {
     RecreateSwapchain();
-    acquisitionSuccessful = false;
+    return {};
   }
-  return swapchainImages[swapchainImageIndex];
+  return {{.presentSemaphore = {presentSemaphores[swapchainImageIndex]}, //
+           .target = swapchainImages[swapchainImageIndex]}};
 }
 
 void SwapChainProvider::DisplayRenderTarget() {
 
   VkPresentInfoKHR presentInfo{.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
                                .waitSemaphoreCount = 1,
-                               .pWaitSemaphores = &frameResources[resourceIndex].renderSemaphore,
+                               .pWaitSemaphores = &presentSemaphores[swapchainImageIndex],
                                .swapchainCount = 1,
                                .pSwapchains = &swapchain,
                                .pImageIndices = &swapchainImageIndex};
@@ -131,14 +136,16 @@ SwapChainProvider::SwapChainProvider(InstanceManager const *instanceManager,
   PROFILE_FUNCTION()
   instanceManager->GetPresentQueue(&presentQueue);
   CreateSwapchain();
-  for (int i = 0; i < MAX_FRAME_OVERLAP; i++) {
-    Engine::Graphics::CreateFrameResources(frameResources[i], instanceManager, gpuObjectManager);
+
+  for (auto &resource : frameResources) {
+    Engine::Graphics::CreateFrameResources(resource, instanceManager, gpuObjectManager);
   }
 }
 
 SwapChainProvider::~SwapChainProvider() {
-  for (int i = 0; i < MAX_FRAME_OVERLAP; i++) {
-    Engine::Graphics::DestroyFrameResources(frameResources[i], instanceManager, gpuObjectManager);
+  for (auto &resource : frameResources) {
+    Engine::Graphics::DestroyFrameResources(resource, instanceManager, gpuObjectManager);
   }
+
   DestroySwapchain();
 }

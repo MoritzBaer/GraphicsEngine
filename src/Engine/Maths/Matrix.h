@@ -68,7 +68,7 @@ concept AdditiveAutoCasting = requires(T1 const &value1, T2 const &value2) {
 
 template <typename T2, typename T1>
 concept MultiplicativeAutoCasting = requires(T1 const &value1, T2 const &value2) {
-  { value1 *value2 } -> std::convertible_to<T1>;
+  { value1 * value2 } -> std::convertible_to<T1>;
   { value1 / value2 } -> std::convertible_to<T1>;
 };
 
@@ -88,13 +88,23 @@ public:
   inline constexpr operator VectorT<numEntries, T>() const {
     return VectorT<numEntries, T>(Access<n, T, indices>(parent)...);
   }
-  inline constexpr operator T &() const
+  inline constexpr operator T const &() const
     requires(numEntries == 1)
   {
     constexpr uint8_t idxs[] = {indices...};
     return Access<n, T, idxs[0]>(parent);
   }
-  inline constexpr T operator[](uint8_t entry) const {
+  inline constexpr operator T &()
+    requires(numEntries == 1)
+  {
+    constexpr uint8_t idxs[] = {indices...};
+    return Access<n, T, idxs[0]>(parent);
+  }
+  inline constexpr T const &operator[](uint8_t entry) const {
+    VectorT<numEntries, T> ref = *this;
+    return ref[entry];
+  }
+  inline constexpr T &operator[](uint8_t entry) {
     VectorT<numEntries, T> ref = *this;
     return ref[entry];
   }
@@ -1279,7 +1289,7 @@ inline constexpr T MatrixT<n, m, T>::Determinant() const
     if (!sigma.HasValidSuccessor()) {
       return det;
     }
-    
+
     sigma++;
   }
 

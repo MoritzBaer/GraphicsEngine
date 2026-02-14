@@ -4,6 +4,7 @@
 #include "Maths/Dimension.h"
 #include "vulkan/vulkan.h"
 #include <vector>
+#include <vulkan/vulkan_core.h>
 
 namespace Engine::Graphics::vkinit {
 inline VkImageSubresourceRange ImageSubresourceRange(VkImageAspectFlags aspectMask) {
@@ -140,6 +141,11 @@ template <> inline VkOffset3D DimensionToOffset(Maths::Dimension<3> dimension) {
 // +--------------+
 // |   COMMANDS   |
 // +--------------+
+
+class NoOpCommand : public Engine::Graphics::Command {
+  public: 
+  void QueueExecution(VkCommandBuffer const &) const {}
+};
 
 class PipelineBarrierCommand : public Engine::Graphics::Command {
   std::vector<VkImageMemoryBarrier2> imageMemoryBarriers;

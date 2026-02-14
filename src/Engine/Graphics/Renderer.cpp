@@ -29,16 +29,17 @@ void Renderer::DrawFrame(RenderingRequest const &request) {
     instanceManager->ResetFences(&frameResources.renderFence);
   }
 
-  bool acquisitionSuccessful = false;
-  auto &renderTarget = renderResourceProvider->GetRenderTarget(acquisitionSuccessful);
+  auto renderTargetOption = renderResourceProvider->GetRenderTarget();
 
-  if (!acquisitionSuccessful) {
+  if (!renderTargetOption) {
     return;
   }
 
+  auto renderTarget = renderTargetOption.value();
+
   {
     PROFILE_SCOPE("Generate commands")
-
+  
     std::vector<Command const *> commands;
 
     auto prepareTarget = renderResourceProvider->PrepareTargetForRendering();
@@ -48,7 +49,7 @@ void Renderer::DrawFrame(RenderingRequest const &request) {
     std::optional<Image2> depthResult {};
     auto strategyCommands = renderingStrategy->GetRenderingCommands(
         request, frameResources.uniformBinder, frameResources.descriptorAllocator, frameResources.descriptorWriter,
-        renderTarget, depthResult);
+        renderTarget.target, depthResult);
 
     commands.insert(commands.end(), strategyCommands.begin(), strategyCommands.end());
 
@@ -60,14 +61,14 @@ void Renderer::DrawFrame(RenderingRequest const &request) {
   }
 
   std::vector<VkSemaphoreSubmitInfo> semaphoreWaitInfo{};
-  if (frameResources.presentSemaphore) {
-    semaphoreWaitInfo.push_back(vkinit::SemaphoreSubmitInfo(frameResources.presentSemaphore,
+  if (frameResources.renderSemaphore) {
+    semaphoreWaitInfo.push_back(vkinit::SemaphoreSubmitInfo(frameResources.renderSemaphore.value(),
                                                             VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR));
   }
   std::vector<VkSemaphoreSubmitInfo> semaphoreSignalInfo{};
-  if (frameResources.renderSemaphore) {
+  if (renderTarget.presentSemaphore) {
     semaphoreSignalInfo.push_back(
-        vkinit::SemaphoreSubmitInfo(frameResources.renderSemaphore, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT));
+        vkinit::SemaphoreSubmitInfo(renderTarget.presentSemaphore.value(), VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT));
   }
 
   std::vector<VkCommandBufferSubmitInfo> commandBuffers = {commandBufferSubmitInfo};

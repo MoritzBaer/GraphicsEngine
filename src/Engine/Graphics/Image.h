@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Graphics/CommandQueue.h"
 #include "InstanceManager.h"
 #include "Maths/Dimension.h"
 #include "MemoryAllocator.h"
@@ -40,7 +41,7 @@ public:
       : Image(other.image, other.allocation, other.imageView, other.imageDimension, other.imageFormat,
               other.currentLayout, other.aspect) {}
 
-  inline vkutil::PipelineBarrierCommand *Transition(VkImageLayout const &newLayout);
+  inline Command *Transition(VkImageLayout const &newLayout);
   inline vkutil::BlitImageCommand *BlitTo(Image<Dimension> const &target, VkFilter filter = VK_FILTER_LINEAR) const;
   inline VkRenderingAttachmentInfo BindAsColourAttachment(VkAttachmentLoadOp loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
                                                           VkClearColorValue const &clearColour = {0, 0, 0, 0}) const;
@@ -66,8 +67,14 @@ template <> const VkImageViewType Engine::Graphics::Image<1>::VIEW_TYPE = VK_IMA
 template <> const VkImageViewType Engine::Graphics::Image<2>::VIEW_TYPE = VK_IMAGE_VIEW_TYPE_2D;
 template <> const VkImageViewType Engine::Graphics::Image<3>::VIEW_TYPE = VK_IMAGE_VIEW_TYPE_3D;
 
+
+
 template <uint8_t Dimension>
-inline vkutil::PipelineBarrierCommand *Image<Dimension>::Transition(VkImageLayout const &newLayout) {
+inline Command *Image<Dimension>::Transition(VkImageLayout const &newLayout) {
+  if (newLayout == currentLayout) {
+    return new vkutil::NoOpCommand(); // TODO: Return NOOP
+  }
+
   auto result =
       new vkutil::PipelineBarrierCommand({vkinit::ImageMemoryBarrier(image, currentLayout, newLayout, aspect)});
   currentLayout = newLayout;
@@ -103,7 +110,7 @@ inline VkRenderingAttachmentInfo Image<Dimension>::BindAsColourAttachment(VkAtta
                                                                           VkClearColorValue const &clearColour) const {
   return {.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
           .imageView = imageView,
-          .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+          .imageLayout = currentLayout,
           .loadOp = loadOp,
           .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
           .clearValue{.color = clearColour}};
@@ -115,7 +122,7 @@ inline VkRenderingAttachmentInfo
 Image<Dimension>::BindAsDepthAttachment(VkAttachmentLoadOp loadOp, VkClearDepthStencilValue const &clearValue) const {
   return {.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
           .imageView = imageView,
-          .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+          .imageLayout = currentLayout,
           .loadOp = loadOp,
           .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
           .clearValue{.depthStencil = clearValue}};

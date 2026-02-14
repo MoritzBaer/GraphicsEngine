@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Buffer.h"
+#include "Graphics/CommandQueue.h"
 #include "Image.h"
 #include "VulkanUtil.h"
 
@@ -26,11 +27,11 @@ class BufferToImageCopyCommand : public Command {
   VkOffset3D dstOffset; // In bytes
   VkExtent3D dstExtent; // In bytes
   VkImageAspectFlags aspect;
-  vkutil::PipelineBarrierCommand const *imageTransition;
+  Command const *imageTransition;
 
 public:
   BufferToImageCopyCommand(VkBuffer source, VkImage destination, VkExtent3D destinationExtent,
-                           vkutil::PipelineBarrierCommand const *imageTransition, size_t sourceOffset = 0,
+                           Command const *imageTransition, size_t sourceOffset = 0,
                            VkOffset3D destinationOffset = {0, 0, 0}, VkImageAspectFlags aspect = VK_IMAGE_ASPECT_COLOR_BIT)
       : src(source), dst(destination), srcOffset(sourceOffset), dstOffset(destinationOffset),
         dstExtent(destinationExtent), imageTransition(imageTransition), aspect(aspect) {}

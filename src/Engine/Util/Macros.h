@@ -2,12 +2,18 @@
 #ifndef _LOGGING_MACROS_INCLUDED
 #define _LOGGING_MACROS_INCLUDED
 
+#include "signal.h"
+
 #define __FILE_NAME_LOG__ (__FILE__ + SOURCE_PATH_SIZE)
 
 #if defined(__debugbreak) 
 #define __ENGINE_BREAKPOINT __debugbreak()
-#elif defined(__raise)
-#define __ENGINE_BREAKPOINT __raise(SIGTRAP)
+#elif defined(raise)
+#ifdef defined(SIGTRAP)
+#define __ENGINE_BREAKPOINT raise(SIGTRAP)
+#else 
+#define __ENGINE_BREAKPOINT raise(SIGABRT)
+#endif
 #else 
 #define __ENGINE_BREAKPOINT
 #endif 

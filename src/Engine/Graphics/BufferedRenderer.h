@@ -38,9 +38,7 @@ public:
 
     if (depthBuffer.GetExtent() != givenRenderTarget.GetExtent()) {
       discardedDepthBuffers.push_back(depthBuffer);
-      depthBuffer = gpuObjectManager->AllocateImage(
-          VK_FORMAT_D32_SFLOAT, Maths::Dimension2(1600, 900), VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-          VK_IMAGE_ASPECT_DEPTH_BIT, 1, 1, VK_SAMPLE_COUNT_1_BIT DEBUG_LABEL_VALUE("BufferedStrategy depth buffer"));
+      depthBuffer = gpuObjectManager->CreateDepthBuffer(Maths::Dimension2(1600, 900));
     }
 
     return {givenRenderTarget, depthBuffer, VK_ATTACHMENT_LOAD_OP_CLEAR};

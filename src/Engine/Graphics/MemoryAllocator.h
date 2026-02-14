@@ -14,7 +14,7 @@
 #define DEBUG_LABEL , const char * label
 #define DEBUG_LABEL_DEFAULT DEBUG_LABEL = nullptr
 #define DEBUG_LABEL_REFERENCE , label
-#define DEBUG_LABEL_VALUE(Value) , Value
+#define DEBUG_LABEL_VALUE(...) , __VA_ARGS__
 #endif
 
 namespace Engine::Graphics {
@@ -26,6 +26,8 @@ private:
 #ifndef NDEBUG
   std::vector<std::tuple<VkImage, uint16_t, const char *>> allocatedImages;
   std::vector<std::tuple<VkBuffer, uint16_t, const char *>> allocatedBuffers;
+  VkDevice device;
+  VkInstance instance;
 #endif
 
 public:
@@ -39,6 +41,11 @@ public:
         .device = logicalDevice,
         .instance = instance,
     };
+
+    #ifndef NDEBUG
+      device = logicalDevice; 
+      this->instance = instance; 
+    #endif
 
     vmaCreateAllocator(&allocatorInfo, &allocator);
   }
@@ -87,5 +94,10 @@ public:
 #endif
     vmaDestroyBuffer(allocator, buffer, allocation);
   }
+
+  #ifndef NDEBUG
+  // Set debug labels
+  VkResult SetDebugLabel(VkDevice device, VkDebugUtilsObjectNameInfoEXT const * pNameInfo) const;
+  #endif
 };
 } // namespace Engine::Graphics

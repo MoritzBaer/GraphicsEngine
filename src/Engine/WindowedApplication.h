@@ -23,7 +23,8 @@ private:
   VkSwapchainKHR swapchain;
   VkFormat swapchainFormat;
   VkExtent2D swapchainExtent;
-  std::vector<Image<2>> swapchainImages;
+  std::vector<Image2> swapchainImages;
+  std::vector<VkSemaphore> presentSemaphores;
   std::array<FrameResources, MAX_FRAME_OVERLAP> frameResources;
   uint32_t currentFrame = 0;
 
@@ -36,8 +37,8 @@ private:
   void DestroySwapchain();
 
   FrameResources GetFrameResources() override;
-  Image2 &GetRenderTarget(bool &acquisitionSuccessful) override;
-  void DisplayRenderTarget() override; 
+  std::optional<RenderTarget> GetRenderTarget() override;
+  void DisplayRenderTarget() override;
   std::vector<Command const *> PrepareTargetForRendering() override { return {}; }
   std::vector<Command const *> PrepareTargetForDisplaying() override;
 
@@ -71,10 +72,9 @@ public:
   ~WindowedApplication() { Engine::WindowManager::DestroyWindow(mainWindow); };
 
   inline Engine::Window *GetWindow() { return mainWindow; }
-  inline Engine::Graphics::VulkanSuite RELEASE_CONST         *
-          GetVulkan()
+  inline Engine::Graphics::VulkanSuite RELEASE_CONST *GetVulkan()
 #ifdef NDEBUG
-              const
+      const
 #endif
   {
     return &vulkan;

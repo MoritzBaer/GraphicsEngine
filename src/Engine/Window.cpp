@@ -1,6 +1,7 @@
 #include "Window.h"
 
 #include "Debug/Logging.h"
+#include "GLFW/glfw3.h"
 #include "Util/Macros.h"
 #include "WindowManager.h"
 #ifdef USING_IMGUI
@@ -20,6 +21,7 @@ Window::Window(Maths::Dimension2 const &windowSize, const char *title)
     : canvasSize(windowSize), minimized(false),
       glfwWindow(glfwCreateWindow(windowSize[WIDTH], windowSize[HEIGHT], title, nullptr, nullptr)) {
   glfwSetFramebufferSizeCallback(glfwWindow, &WindowManager::CallResizeCallbackOnCorrectWindow);
+  glfwGetWindowSize(glfwWindow, reinterpret_cast<int*>(&canvasSize[X]), reinterpret_cast<int *>(&canvasSize[Y]));
 }
 
 Window::~Window() { glfwDestroyWindow(glfwWindow); }

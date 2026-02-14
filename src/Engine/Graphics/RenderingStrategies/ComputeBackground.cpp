@@ -63,8 +63,9 @@ std::vector<Command const *> ComputeBackground::GetRenderingCommands(Image<2> &r
   auto computeRun = new ExecuteComputePipelineCommand(effect, data, VK_PIPELINE_BIND_POINT_COMPUTE, targetDescriptor,
                                                       std::ceil<uint32_t>(renderTarget.GetExtent()[X] / 16u),
                                                       std::ceil<uint32_t>(renderTarget.GetExtent()[Y] / 16u), 1);
-
-  commands.push_back(transitionBufferToWriteable);
+  if (transitionBufferToWriteable) {
+    commands.push_back(transitionBufferToWriteable);
+  }
   commands.push_back(computeRun);
 
   return commands;

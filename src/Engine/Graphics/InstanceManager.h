@@ -1,14 +1,19 @@
 #pragma once
 
+#include "AssetManager.h"
 #include "MemoryAllocator.h"
 #include "Util/DeletionQueue.h"
 #include "Window.h"
+#include <concepts>
+#include <type_traits>
+#include <vulkan/vulkan_core.h>
 #ifdef USING_IMGUI
 #include "backends/imgui_impl_vulkan.h"
 #endif
 #include "vulkan/vulkan.h"
 #include <optional>
 #include <vector>
+
 
 namespace Engine::Graphics {
 struct SwapchainSupportDetails {
@@ -20,7 +25,7 @@ struct SwapchainSupportDetails {
 SwapchainSupportDetails QuerySwapchainSupport(VkPhysicalDevice device, VkSurfaceKHR presentationSurface);
 
 class InstanceManager {
-
+// Test
   VkInstance vulkanInstance;
   VkDebugUtilsMessengerEXT debugMessenger;
   VkSurfaceKHR surface;
@@ -59,8 +64,10 @@ public:
   void FillImGUIInitInfo(ImGui_ImplVulkan_InitInfo &initInfo) const;
 #endif
   inline void CreateMemoryAllocator(MemoryAllocator &allocator) const {
+    const char * tmp = "test string";
     allocator.Create(gpu, graphicsHandler, vulkanInstance);
   }
+
 
   bool SupportsFormat(VkPhysicalDeviceImageFormatInfo2 const &formatInfo) const;
 
@@ -124,6 +131,7 @@ public:
                                   VkDescriptorPool const &descriptorPool, VkDescriptorSet *descriptorSets) const;
   inline VkResult AllocateDescriptorSets(VkDescriptorSetLayout const &layout, VkDescriptorPool const &descriptorPool,
                                          VkDescriptorSet *descriptorSet) const {
+                                          auto v = 1;
     return AllocateDescriptorSets(std::vector<VkDescriptorSetLayout>{layout}, descriptorPool, descriptorSet);
   }
 
@@ -163,6 +171,7 @@ public:
     UpdateDescriptorSets(std::vector<VkWriteDescriptorSet>{descriptorSet});
   }
   inline VkDeviceAddress GetBufferDeviceAddress(VkBufferDeviceAddressInfo const *bufferInfo) const {
+    auto var = 5;
     return vkGetBufferDeviceAddress(graphicsHandler, bufferInfo);
   }
 };

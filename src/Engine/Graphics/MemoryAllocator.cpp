@@ -3,6 +3,10 @@
 #include "Debug/Logging.h"
 #include "InstanceManager.h"
 #include "Util/Macros.h"
+#include <cstdint>
+#include <vulkan/vulkan_core.h>
+#include "Debug/Logging.h"
+
 
 Engine::Graphics::MemoryAllocator::~MemoryAllocator() {
   #ifndef NDEBUG
@@ -44,6 +48,15 @@ void Engine::Graphics::MemoryAllocator::_CreateImage(VkImageCreateInfo const *im
 void Engine::Graphics::MemoryAllocator::CreateImage(VkImageCreateInfo const *imageCreateInfo, VkImage *image,
                                                     VmaAllocation *allocation, char const *label) {
   _CreateImage(imageCreateInfo, image, allocation);
+  VkDebugUtilsObjectNameInfoEXT const nameInfo = {
+    .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+    .objectType = VK_OBJECT_TYPE_IMAGE,
+    .objectHandle = (uint64_t)*image,
+    .pObjectName = label
+  };
+  
+  VULKAN_ASSERT(SetDebugLabel(device, &nameInfo), "Failed to assign debug label to image")
+  
   allocatedImages.push_back({*image, static_cast<uint16_t>(allocatedImages.size()), label});
 }
 #endif
@@ -70,6 +83,26 @@ void Engine::Graphics::MemoryAllocator::CreateBuffer(VkBufferCreateInfo const *b
                                                      VkBuffer *buffer, VmaAllocation *allocation,
                                                      VmaAllocationInfo *allocationInfo, char const *label) {
   _CreateBuffer(bufferCreateInfo, allocationCreateInfo, buffer, allocation, allocationInfo);
+
+  VkDebugUtilsObjectNameInfoEXT const nameInfo = {
+    .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+    .objectType = VK_OBJECT_TYPE_BUFFER,
+    .objectHandle = (uint64_t)*buffer,
+    .pObjectName = label
+  };
+  
+  VULKAN_ASSERT(SetDebugLabel(device, &nameInfo), "Failed to assign debug label to buffer")
   allocatedBuffers.push_back({*buffer, static_cast<uint16_t>(allocatedBuffers.size()), label});
+}
+
+
+// Load function
+VkResult Engine::Graphics::MemoryAllocator::SetDebugLabel(VkDevice device, VkDebugUtilsObjectNameInfoEXT const * pNameInfo) const {
+  auto func = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(instance, "vkSetDebugUtilsObjectNameEXT");
+  if (func != nullptr) {
+    return func(device, pNameInfo);
+  } else {
+    return VK_ERROR_EXTENSION_NOT_PRESENT;
+  }
 }
 #endif

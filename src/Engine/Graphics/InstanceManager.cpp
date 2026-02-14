@@ -7,6 +7,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <vulkan/vulkan_core.h>
 
 #include "Debug/Logging.h"
 #include "Util/Macros.h"
@@ -467,6 +468,23 @@ void InstanceManager::GetSwapchainImages(VkSwapchainKHR const &swapchain, std::v
   vkGetSwapchainImagesKHR(graphicsHandler, swapchain, &imageCount, nullptr);
   images.resize(imageCount);
   vkGetSwapchainImagesKHR(graphicsHandler, swapchain, &imageCount, images.data());
+
+#ifndef NDEBUG
+  auto setLabel =
+      (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(vulkanInstance, "vkSetDebugUtilsObjectNameEXT");
+  if (setLabel != nullptr) {
+
+    for (auto const &image : images) {
+      VkDebugUtilsObjectNameInfoEXT const nameInfo = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+                                                      .objectType = VK_OBJECT_TYPE_IMAGE,
+                                                      .objectHandle = (uint64_t)image,
+                                                      .pObjectName = "swapchain image"};
+      VULKAN_ASSERT(setLabel(graphicsHandler, &nameInfo), "Failed to assign name to image")
+    }
+  } else {
+    ENGINE_ERROR("Extension method 'vkSetDebugUtilsObjectNameEXT' not present!");
+  }
+#endif
 }
 
 void InstanceManager::CreateImageView(VkImageViewCreateInfo const *createInfo, VkImageView *view) const {
