@@ -8,10 +8,12 @@ option(DELIVER_RESOURCES "Copy resources to binary directory" ON)
 
 set(CMAKE_CXX_STANDARD 23)
 
+add_subdirectory("dependencies/json-parsing")
+
 # set(CMAKE_VERBOSE_MAKEFILE ON)
 file(GLOB_RECURSE EngineFiles
-    if(DEFINED USER_COMPONENTS_SOURCE_PATH) USER_COMPONENTS_SOURCE_PATH endif()
-    if(DEFINED USER_SCRIPTS_SOURCE_PATH) USER_SCRIPTS_SOURCE_PATH endif()
+    if (DEFINED USER_COMPONENTS_SOURCE_PATH) USER_COMPONENTS_SOURCE_PATH endif ()
+    if (DEFINED USER_SCRIPTS_SOURCE_PATH) USER_SCRIPTS_SOURCE_PATH endif ()
     "src/Engine/*.h"
     "src/Engine/*.cpp"
 )
@@ -54,27 +56,30 @@ message("shaderc path: ${Vulkan_shaderc_combined_LIBRARY}")
 
 aux_source_directory(src/external EXTERNAL)
 
-# Uncomment if building with msvc
-#target_compile_options(Engine PUBLIC /Zc:preprocessor)
+target_include_directories(Engine PUBLIC
+    # Source files
+    "src/external/stb"
+    "src/Engine"
 
-target_include_directories(Engine PUBLIC "dependencies/glfw-3.3.9.bin.WIN64/include")
-target_include_directories(Engine PUBLIC "dependencies/VMA")
-target_include_directories(Engine PUBLIC "dependencies/GLM/")
-target_include_directories(Engine PUBLIC ${Vulkan_INCLUDE_DIR})
-target_include_directories(Engine PUBLIC ${GLFW3_INCLUDE_DIR})
-
-target_include_directories(Engine PUBLIC "src/external/json-parsing")
-target_include_directories(Engine PUBLIC "src/external/stb")
-target_include_directories(Engine PUBLIC "src/Engine")
+    # Dependencies
+    "dependencies/glfw-3.3.9.bin.WIN64/include"
+    "dependencies/VMA"
+    "dependencies/GLM/"
+    ${Vulkan_INCLUDE_DIR}
+    ${GLFW3_INCLUDE_DIR})
 
 # Uncomment if compiling for windows
 #target_link_libraries(Engine PUBLIC "${PROJECT_SOURCE_DIR}/dependencies/glfw-3.3.9.bin.WIN64/lib-vc2022/glfw3_mt.lib")
-target_link_libraries(Engine PUBLIC Vulkan::Vulkan)
-target_link_libraries(Engine PUBLIC Vulkan::shaderc_combined)
-target_link_libraries(Engine PUBLIC Vulkan::glslang)
-target_link_libraries(Engine PUBLIC Vulkan::SPIRV-Tools)
-target_link_libraries(Engine PUBLIC SPIRV-Tools-opt)
-target_link_libraries(Engine PUBLIC glfw)
+target_link_libraries(Engine PUBLIC
+    JsonParsing
+    Vulkan::Vulkan
+    Vulkan::shaderc_combined
+    Vulkan::glslang
+    Vulkan::SPIRV-Tools
+    SPIRV-Tools-opt
+    glfw)
+
+get_target_property(include_paths Engine CMAKE_INCLUDE_DIRECTORIES_BEFORE)
 
 # To keep assets in the same place as the binaries
 # TODO: Figure out compiler-independent delivery
@@ -99,13 +104,14 @@ macro(make_app NAME ENTRY_POINT)
 endmacro()
 
 if(${BUILD_DEMO_APPS})
-    make_app(TestApp test)
-    make_app(DebugApp main)
+    make_app(EngineTestFullBuild test)
+    make_app(EngineDemo main)
 
-    add_executable(MinimalTestApp "src/test.cpp" "src/Engine/Core/ECS.cpp")
-    target_include_directories(MinimalTestApp PRIVATE "src/")
-    target_include_directories(MinimalTestApp PRIVATE "src/Engine")
-    target_include_directories(MinimalTestApp PRIVATE "src/external/json-parsing")
+    add_executable(EngineTest "src/test.cpp" "src/Engine/Core/ECS.cpp")
+    target_include_directories(EngineTest PRIVATE
+        "src/"
+        "src/Engine")
+    target_link_libraries(EngineTest PRIVATE JsonParsing)
 
-    target_compile_definitions(MinimalTestApp PRIVATE SOURCE_PATH_SIZE=${SOURCE_PATH_SIZE})
+    target_compile_definitions(EngineTest PRIVATE SOURCE_PATH_SIZE=${SOURCE_PATH_SIZE})
 endif()
