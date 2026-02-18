@@ -1,6 +1,6 @@
 #pragma once
 
-#include "CommandQueue.h"
+#include "Command.h"
 #include "DescriptorHandling.h"
 #include "InstanceManager.h"
 #include "MemoryAllocator.h"

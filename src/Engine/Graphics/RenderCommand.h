@@ -1,6 +1,6 @@
 #pragma once
 
-#include "CommandQueue.h"
+#include "Command.h"
 #include "GPUObjectManager.h"
 
 namespace Engine::Graphics {

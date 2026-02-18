@@ -1,6 +1,6 @@
 #pragma once
 
-#include "CommandQueue.h"
+#include "Command.h"
 #include "Maths/Dimension.h"
 #include "vulkan/vulkan.h"
 #include <vector>

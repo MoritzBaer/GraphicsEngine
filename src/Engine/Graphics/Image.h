@@ -1,11 +1,12 @@
 #pragma once
 
-#include "Graphics/CommandQueue.h"
+#include "Command.h"
 #include "InstanceManager.h"
 #include "Maths/Dimension.h"
 #include "MemoryAllocator.h"
 #include "VulkanUtil.h"
 #include "vulkan/vulkan.h"
+
 
 namespace Engine::Graphics {
 
@@ -67,10 +68,7 @@ template <> const VkImageViewType Engine::Graphics::Image<1>::VIEW_TYPE = VK_IMA
 template <> const VkImageViewType Engine::Graphics::Image<2>::VIEW_TYPE = VK_IMAGE_VIEW_TYPE_2D;
 template <> const VkImageViewType Engine::Graphics::Image<3>::VIEW_TYPE = VK_IMAGE_VIEW_TYPE_3D;
 
-
-
-template <uint8_t Dimension>
-inline Command *Image<Dimension>::Transition(VkImageLayout const &newLayout) {
+template <uint8_t Dimension> inline Command *Image<Dimension>::Transition(VkImageLayout const &newLayout) {
   if (newLayout == currentLayout) {
     return new vkutil::NoOpCommand(); // TODO: Return NOOP
   }

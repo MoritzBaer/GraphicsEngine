@@ -1,6 +1,7 @@
 #pragma once
 
 #include "GPUDispatcher.h"
+#include "GPUMemoryManager.h"
 #include "InstanceManager.h"
 #include "MemoryAllocator.h"
 
@@ -169,12 +170,12 @@ inline CommandQueue GPUObjectManager::CreateCommandQueue() const {
 
   instanceManager->AllocateCommandBuffers(&commandBufferInfo, &mainBuffer);
 
-  return CommandQueue(commandPool, mainBuffer);
+  return CommandQueue(mainBuffer, commandPool);
 }
 
 inline void GPUObjectManager::DestroyCommandQueue(CommandQueue const &queue) const {
-  instanceManager->FreeCommandBuffers(queue.commandPool, &queue.mainBuffer);
-  instanceManager->DestroyCommandPool(queue.commandPool);
+  instanceManager->FreeCommandBuffers(queue.pool, &queue.mainBuffer);
+  instanceManager->DestroyCommandPool(queue.pool);
 }
 
 template <uint8_t D>

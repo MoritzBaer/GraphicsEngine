@@ -3,8 +3,7 @@
 #include "Mesh.h"
 
 #include "Buffer.h"
-#include "CommandQueue.h"
-#include "GPUMemoryManager.h"
+#include "Command.h"
 #include "UniformAggregate.h"
 #include "Util/DeletionQueue.h"
 #include <algorithm>
@@ -17,6 +16,9 @@ public:
   virtual VkBuffer GetBuffer() const = 0;
   virtual VmaAllocation GetAllocation() const = 0;
 };
+
+class GPUObjectManager;
+class GPUMemoryManager;
 
 class AllocatedMesh {
 protected:
