@@ -79,7 +79,7 @@ private:
     DepthBufferReadingMaterial(Pipeline const *pipeline) : Material(pipeline), mainPassDepthBuffer() {}
 
     inline void AppendData(PushConstantsAggregate &aggregate) const override {}
-    inline void BindDescriptors(std::vector<VkDescriptorSet> &descriptorSets, DescriptorAllocator &descriptorAllocator,
+    inline void AddDescriptors(std::vector<VkDescriptorSet> &descriptorSets, DescriptorAllocator &descriptorAllocator,
                                 DescriptorWriter &writer, UniformBinding const &uniform) const override {
       descriptorSets.push_back(pipeline->AllocateForLayout(0, descriptorAllocator));
       uniform.WriteToDescriptorSet(writer, descriptorSets.back(), 0);

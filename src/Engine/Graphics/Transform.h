@@ -18,8 +18,8 @@ struct Transform : public Core::HierarchicalComponent<Transform> {
   Transform *parent;
 
   Transform(Core::Entity entity)
-      : Core::HierarchicalComponent<Transform>(entity), position(Vector3::Zero()), rotation(Quaternion::Identity()),
-        scale(Vector3::One()), parent(nullptr) {}
+      : Core::HierarchicalComponent<Transform>(entity), position(Vector3::Zero), rotation(Quaternion::Identity()),
+        scale(Vector3::One), parent(nullptr) {}
 
   inline void SetParent(Transform *newParent, bool recalculateTransform = true);
 

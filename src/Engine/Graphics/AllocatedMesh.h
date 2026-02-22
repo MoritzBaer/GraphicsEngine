@@ -42,7 +42,8 @@ public:
 
 template <typename T_GPU> class VertexBufferT : public VertexBuffer {
   Buffer<T_GPU> buffer;
-
+  friend class GPUObjectManager;
+  
 public:
   VertexBufferT(Buffer<T_GPU> const &buffer) : buffer(buffer) {}
   inline VkBuffer GetBuffer() const override { return buffer.GetBuffer(); }

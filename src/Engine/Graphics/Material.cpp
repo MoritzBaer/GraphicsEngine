@@ -8,7 +8,7 @@ void Material::Apply(VkCommandBuffer const &commandBuffer, DescriptorAllocator &
                      DescriptorWriter &writer, UniformBinding const &uniform) const {
   pipeline->Bind(commandBuffer);
   std::vector<VkDescriptorSet> descriptorSets;
-  BindDescriptors(descriptorSets, descriptorAllocator, writer, uniform);
+  AddDescriptors(descriptorSets, descriptorAllocator, writer, uniform);
   if (!descriptorSets.empty()) {
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->Layout(), 0,
                             static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);

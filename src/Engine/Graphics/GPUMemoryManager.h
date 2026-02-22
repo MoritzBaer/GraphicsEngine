@@ -65,7 +65,7 @@ public:
   // Image can't be const because it needs to be transitioned
   static BufferToImageCopyCommand *
   CopyBufferToImage(Buffer<T1> const &source, Image<D> &destination, Maths::Dimension<D> destinationExtent,
-                    size_t sourceOffset = 0, Maths::Dimension<D> destinationOffset = Maths::Dimension<D>::Zero()) {
+                    size_t sourceOffset = 0, Maths::Dimension<D> destinationOffset = Maths::Dimension<D>::Zero) {
     return new BufferToImageCopyCommand(source.buffer, destination.image, vkutil::DimensionToExtent(destinationExtent),
                                         destination.Transition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL), sourceOffset,
                                         vkutil::DimensionToOffset(destinationOffset), destination.aspect);

@@ -13,6 +13,7 @@ namespace Engine::Graphics {
 
 class GPUMemoryManager;
 class GPUObjectManager;
+class CommandRecorder;
 
 template <uint8_t size> struct IndexTypeFromSize {
   inline static constexpr std::conditional_t<size == 2 || size == 4, VkIndexType, void> value =
@@ -20,7 +21,7 @@ template <uint8_t size> struct IndexTypeFromSize {
 };
 
 template <typename T> struct IndexType {
-  static constexpr VkIndexType value = IndexTypeFromSize<sizeof(T)>::value;
+  static constexpr VkIndexType type = IndexTypeFromSize<sizeof(T)>::value;
 };
 
 class UniformBinding {
@@ -45,6 +46,7 @@ template <typename T> class Buffer {
 
   friend class GPUMemoryManager;
   friend class GPUObjectManager;
+  friend class CommandRecorder;
 
 public:
   inline Buffer() {}
@@ -79,7 +81,7 @@ public:
   inline void BindAsIndexBuffer(VkCommandBuffer const &commandBuffer) const
     requires(std::integral<T>)
   {
-    vkCmdBindIndexBuffer(commandBuffer, buffer, 0, IndexType<T>::value);
+    vkCmdBindIndexBuffer(commandBuffer, buffer, 0, IndexType<T>::type);
   }
 };
 

@@ -33,7 +33,7 @@ public:
       : image(image), imageView(imageView), imageDimension(imageExtent), imageFormat(imageFormat),
         currentLayout(currentLayout), aspect(aspect), allocation(allocation) {}
   inline Image()
-      : Image(VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, Maths::Dimension<Dimension>::Zero(), VK_FORMAT_UNDEFINED,
+      : Image(VK_NULL_HANDLE, VK_NULL_HANDLE, VK_NULL_HANDLE, Maths::Dimension<Dimension>::Zero, VK_FORMAT_UNDEFINED,
               VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_ASPECT_NONE) {}
   inline Image(VkImage image, VkImageView imageView, Maths::Dimension<Dimension> imageExtent, VkFormat imageFormat,
                VkImageLayout currentLayout, VkImageAspectFlags aspect)
@@ -51,7 +51,7 @@ public:
                                                              .depth = 1.0f}) const;
   inline virtual VkDescriptorImageInfo BindInDescriptor(VkImageLayout layout) const;
 
-  inline Maths::Dimension<Dimension> GetExtent() const { return imageDimension; }
+  inline Maths::Dimension<Dimension> const & GetExtent() const { return imageDimension; }
 };
 
 using Image1 = Image<1>;

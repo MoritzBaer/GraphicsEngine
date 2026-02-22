@@ -2,6 +2,7 @@
 
 #include "Buffer.h"
 #include "DescriptorHandling.h"
+#include "Graphics/Command.h"
 #include "Shader.h"
 #include "UniformAggregate.h"
 #include "Util/DeletionQueue.h"
@@ -11,9 +12,11 @@
 namespace Engine::Graphics {
 
 class PipelineBuilder;
+class RenderPassRecorder;
 
 class Pipeline {
   friend class PipelineBuilder;
+  friend class RenderPassRecorder;
 
   VkPipeline pipeline;
   VkPipelineLayout layout;
@@ -43,7 +46,7 @@ public:
   virtual void AppendData(PushConstantsAggregate &aggregate) const = 0;
   void Apply(VkCommandBuffer const &commandBuffer, DescriptorAllocator &descriptorAllocator,
                     DescriptorWriter &writer, UniformBinding const &uniform) const;
-  virtual void BindDescriptors(std::vector<VkDescriptorSet> &descriptorSets,
+  virtual void AddDescriptors(std::vector<VkDescriptorSet> &descriptorSets,
                               DescriptorAllocator &descriptorAllocator, DescriptorWriter &writer,
                               UniformBinding const &uniform) const {}
   VkPipelineLayout GetPipelineLayout() const { return pipeline->Layout(); }

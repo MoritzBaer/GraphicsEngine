@@ -60,7 +60,7 @@ TEST_CASE("Transform component works correctly") {
 
     modelSpaceTarget = (transform->WorldToModelMatrix() * Vector4(target[X], target[Y], target[Z], 1)).xyz();
     VERIFY(Vector3(modelSpaceTarget[X], modelSpaceTarget[Y], abs(modelSpaceTarget[Z] - target.Length())) ==
-            Vector3::Zero());
+            Vector3::Zero);
   }
 
   SUB_GROUP("Follow moving target") {
@@ -102,7 +102,7 @@ TEST_CASE("Transform component works correctly") {
       auto const modelSpaceTarget =
           (transform->WorldToModelMatrix() * Vector4(target[X], target[Y], target[Z], 1)).xyz();
       VERIFY(Vector3(modelSpaceTarget[X], modelSpaceTarget[Y], abs(modelSpaceTarget[Z] - target.Length())) ==
-              Vector3::Zero());
+              Vector3::Zero);
     }
   }
 }

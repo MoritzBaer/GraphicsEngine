@@ -409,10 +409,12 @@ public:
   inline constexpr T Determinant() const
     requires(m == n);
 
-  inline static MatrixT<n, n, T> Identity()
+  inline static MatrixT<n, n, T> _Identity()
     requires(m == n);
-  inline static constexpr MatrixT<n, m, T> Zero() { return {}; }
-  inline static constexpr MatrixT<n, m, T> One() { return Zero() + 1; }
+
+  inline static constexpr MatrixT<n, m, T> Zero = {};
+  inline static constexpr MatrixT<n, m, T> One = Zero + 1;
+  inline static constexpr MatrixT<n, m, T> Identity = _Identity();
 
   template <class TokenIterator>
   friend TokenIterator parse_tokenstream(TokenIterator begin, TokenIterator end, MatrixT<n, m, T> &output);
@@ -466,44 +468,55 @@ public:
 
   // Vectors of the standard basis
 
-  inline static constexpr VectorT<n, T> Left() {
+  inline static constexpr VectorT<n, T> _Left() {
     auto v = Zero();
     v.x() = -1;
     return v;
   }
-  inline static constexpr VectorT<n, T> Right() {
+  inline static constexpr VectorT<n, T> Left = _Left();
+
+  inline static constexpr VectorT<n, T> _Right() {
     auto v = Zero();
     v.x() = 1;
     return v;
   }
-  inline static constexpr VectorT<n, T> Forward()
+  inline static constexpr VectorT<n, T> Right = _Right();
+
+  inline static constexpr VectorT<n, T> _Forward()
     requires(n > 1)
   {
     auto v = Zero();
     v.y() = 1;
     return v;
   }
-  inline static constexpr VectorT<n, T> Backward()
+  inline static constexpr VectorT<n, T> Forward = _Forward();
+  
+  inline static constexpr VectorT<n, T> _Backward()
     requires(n > 1)
   {
     auto v = Zero();
     v.y() = -1;
     return v;
   }
-  inline static constexpr VectorT<n, T> Up()
+  inline static constexpr VectorT<n, T> Backward = _Backward();
+
+  inline static constexpr VectorT<n, T> _Up()
     requires(n > 2)
   {
     auto v = Zero();
     v.z() = 1;
     return v;
   }
-  inline static constexpr VectorT<n, T> Down()
+  inline static constexpr VectorT<n, T> Up = _Up();
+
+  inline static constexpr VectorT<n, T> _Down()
     requires(n > 2)
   {
     auto v = Zero();
     v.z() = -1;
     return v;
   }
+  inline static constexpr VectorT<n, T> Down = _Down();
 
   // "Properties" for easier access
 private:
@@ -1222,7 +1235,7 @@ template <uint8_t n, uint8_t m, typename T>
 inline MatrixT<n, n, T> &MatrixT<n, m, T>::Invert() // Uses the gaussean algorithm
   requires(m == n)
 {
-  MatrixT<n, n, T> id = MatrixT<n, n, T>::Identity();
+  MatrixT<n, n, T> id = MatrixT<n, n, T>::_Identity();
   // Triangularize A
   for (int diag = 0; diag < n; diag++) // Pass along diagonal
   {
@@ -1297,7 +1310,7 @@ inline constexpr T MatrixT<n, m, T>::Determinant() const
 }
 
 template <uint8_t n, uint8_t m, typename T>
-inline MatrixT<n, n, T> MatrixT<n, m, T>::Identity()
+inline MatrixT<n, n, T> MatrixT<n, m, T>::_Identity()
   requires(m == n)
 {
   std::array<T, n * m> values = {0};
