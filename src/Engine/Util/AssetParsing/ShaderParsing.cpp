@@ -1,5 +1,7 @@
 #include "ShaderParsing.h"
 
+#include "Graphics/Material.h"
+#include "MaterialParsing.h"
 #include "AssetManager.h"
 #include "Graphics/RenderingStrategies/ComputeBackground.h"
 
@@ -24,8 +26,10 @@ Graphics::RenderingStrategies::CompiledEffect CompiledEffectLoader::LoadAsset(st
   auto pipelineInfoCopy = pipelineInfo;
   pipelineInfoCopy.stage = effectShader.GetStageInfo();
 
-  Graphics::RenderingStrategies::CompiledEffect effect{.pipelineLayout = computePipelineLayout,
-                                                       .pipeline = VK_NULL_HANDLE};
+  Graphics::RenderingStrategies::CompiledEffect effect{
+      .pipeline = VK_NULL_HANDLE,
+      .pipelineLayout = computePipelineLayout,
+  };
   instanceManager->CreateComputePipeline(pipelineInfoCopy, &effect.pipeline);
   return effect;
 }
@@ -36,9 +40,11 @@ void CompiledEffectDestroyer::DestroyAsset(Graphics::RenderingStrategies::Compil
 
 Graphics::RenderingStrategies::ComputeBackground *
 ComputeBackgroundConverter::ConvertDSO(ComputeBackgroundDSO const &dso) const {
-  auto effect = assetManager->LoadAsset<Graphics::RenderingStrategies::CompiledEffect>(dso.effectName);
+  //auto effect = assetManager->LoadAsset<Graphics::Pipeline>(dso.effectName);
+  Graphics::Pipeline *effect;
+  // TODO: Fix
 
-  return new Graphics::RenderingStrategies::ComputeBackground(instanceManager, effect, dso.data);
+  return new Graphics::RenderingStrategies::ComputeBackground(instanceManager, *effect, dso.data);
 }
 
 } // namespace Engine

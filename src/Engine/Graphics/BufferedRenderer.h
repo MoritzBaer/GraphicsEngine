@@ -1,8 +1,9 @@
 #pragma once
 
 #include "GPUObjectManager.h"
+#include "Graphics/CommandQueue.h"
+#include "Graphics/VulkanUtil.h"
 #include "MemoryAllocator.h"
-#include "RenderCommand.h"
 #include "RenderingStrategy.h"
 
 namespace Engine::Graphics {
@@ -25,8 +26,7 @@ public:
   RenderTargetProvider(GPUObjectManager RELEASE_CONST *gpuObjectManager)
       : depthBuffer(), discardedDepthBuffers(), gpuObjectManager(gpuObjectManager) {}
   virtual std::tuple<Image2, Image2, VkAttachmentLoadOp>
-  GetRenderTarget(Image2 &givenRenderTarget, std::optional<Image2> &givenDepthTarget,
-                  std::vector<Command const *> &previousCommands) {
+  GetRenderTarget(Image2 &givenRenderTarget, std::optional<Image2> &givenDepthTarget, CommandRecorder const &commands) {
     if (givenDepthTarget) {
       return {givenRenderTarget, *givenDepthTarget, VK_ATTACHMENT_LOAD_OP_LOAD};
     }
@@ -44,11 +44,10 @@ public:
     return {givenRenderTarget, depthBuffer, VK_ATTACHMENT_LOAD_OP_CLEAR};
   }
 
-  virtual std::vector<Command *> GetTargetSwapCommands(Image2 &givenRenderTarget,
-                                                       std::optional<Image2> &givenDepthTarget) {
+  virtual void GetTargetSwapCommands(Image2 &givenRenderTarget, std::optional<Image2> &givenDepthTarget,
+                                     CommandRecorder const &recorder) {
     if (!givenDepthTarget)
       givenDepthTarget.emplace(depthBuffer);
-    return {};
   }
 };
 
@@ -81,11 +80,10 @@ template <typename T_Object, typename T_Uniform> class BufferedRenderer {
           gpuDispatcher(instanceManager, gpuObjectManager->CreateCommandQueue()),
           renderTargetProvider(renderTargetProvider) {}
 
-    std::vector<Command const *> GetRenderingCommands(RenderingRequest const &request,
-                                                      UniformBinder &uniformBufferProvider,
-                                                      DescriptorAllocator &descriptorAllocator,
-                                                      DescriptorWriter &descriptorWriter, Image<2> &renderTarget,
-                                                      std::optional<Image<2>> &depthTarget) override;
+    void RecordRenderingCommands(RenderingRequest const &request, UniformBinder &uniformBufferProvider,
+                                 DescriptorAllocator &descriptorAllocator, DescriptorWriter &descriptorWriter,
+                                 Image<2> &renderTarget, std::optional<Image<2>> &depthTarget,
+                                 CommandRecorder const &recorder) override;
   };
 
   RenderTargetProvider *renderTargetProvider;
@@ -118,28 +116,15 @@ public:
 // | IMPLEMENTATIONS |
 // +-----------------+
 
-template <typename T_Object> struct PartiallySpecializedRender<RenderObjectBuffer<T_Object>> {
-  void operator()(VkCommandBuffer const &queue, Image<2> const &drawImage, Image<2> const &depthImage,
-                  Maths::Dimension2 renderAreaSize, Maths::Dimension2 renderAreaOffset,
-                  DescriptorAllocator &descriptorAllocator, DescriptorWriter &descriptorWriter,
-                  UniformBinding const &uniformBinding, RenderObjectBuffer<T_Object> bufferedObject) const {
-    bufferedObject.material->Apply(queue, descriptorAllocator, descriptorWriter, uniformBinding);
-
-    bufferedObject.gpuBuffer.BindAsVertexBuffer(queue);
-
-    // Draw the object
-    vkCmdDraw(queue, bufferedObject.objects.size(), 1, 0, 0);
-  }
-};
-
 template <typename T_Object, typename T_Uniform>
-std::vector<Command const *> BufferedRenderer<T_Object, T_Uniform>::BufferedStrategy::GetRenderingCommands(
+void BufferedRenderer<T_Object, T_Uniform>::BufferedStrategy::RecordRenderingCommands(
     RenderingRequest const &request, UniformBinder &uniformBufferProvider, DescriptorAllocator &descriptorAllocator,
-    DescriptorWriter &descriptorWriter, Image<2> &renderTarget, std::optional<Image<2>> &depthTarget) {
+    DescriptorWriter &descriptorWriter, Image<2> &renderTarget, std::optional<Image<2>> &depthTarget,
+    CommandRecorder const &recorder) {
 
   // Execute wrapped strategy
-  auto subRendering = wrappedStrategy->GetRenderingCommands(request, uniformBufferProvider, descriptorAllocator,
-                                                            descriptorWriter, renderTarget, depthTarget);
+  wrappedStrategy->RecordRenderingCommands(request, uniformBufferProvider, descriptorAllocator, descriptorWriter,
+                                           renderTarget, depthTarget, recorder);
 
   // Cleanup buffers used in previous frames
   if (!bufferDump.empty()) {
@@ -162,25 +147,33 @@ std::vector<Command const *> BufferedRenderer<T_Object, T_Uniform>::BufferedStra
     auto stagingBuffer = gpuObjectManager->CreateBuffer<T_Object>(
         buffer.objects.size(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
     stagingBuffer.SetData(buffer.objects);
-    gpuDispatcher.Dispatch(
-        GPUMemoryManager::CopyBufferToBuffer(stagingBuffer, buffer.gpuBuffer, stagingBuffer.PhysicalSize()));
+    gpuDispatcher.Dispatch([&](auto const &recorder) { recorder.RecordCopy(stagingBuffer, buffer.gpuBuffer); });
     gpuObjectManager->DestroyBuffer(stagingBuffer);
 
     auto uniformBinding = uniformBufferProvider.GetBinding(ExtractUniformData(request));
 
     // Get render targets to use for buffered rendering call
     auto [usedRenderTarget, usedDepthTarget, usedLoadOp] =
-        renderTargetProvider->GetRenderTarget(renderTarget, depthTarget, subRendering);
+        renderTargetProvider->GetRenderTarget(renderTarget, depthTarget, recorder);
 
-    subRendering.push_back(new RenderCommand<RenderObjectBuffer<T_Object>>(
-        usedRenderTarget, usedDepthTarget, descriptorAllocator, descriptorWriter, usedRenderTarget.GetExtent(),
-        uniformBinding, buffer, usedLoadOp));
+    recorder.RecordViewports(vkutil::MakeViewport(usedRenderTarget.GetExtent()));
+    recorder.RecordScissors(vkutil::MakeRect(usedRenderTarget.GetExtent()));
+    recorder.RecordRenderPass()
+        .WithDrawImage(usedRenderTarget)
+        .WithDepthImage(usedDepthTarget)
+        .WithDepthBufferLoadOp(usedLoadOp)
+        .As([&](RenderPassRecorder const &recorder) {
+          recorder.RecordWithBoundPipeline(
+              buffer.material->GetPipeline(), VK_PIPELINE_BIND_POINT_GRAPHICS, [&](DrawCallRecorder const &recorder) {
+                recorder.RecordDescriptorBind(
+                    {buffer.material->WriteDescriptors(descriptorAllocator, descriptorWriter, uniformBinding)});
+                recorder.RecordDraw(buffer.gpuBuffer);
+              });
+        });
 
     // Copy contents to given buffers
-    auto targetSwap = renderTargetProvider->GetTargetSwapCommands(renderTarget, depthTarget);
-    std::copy(std::begin(targetSwap), std::end(targetSwap), std::back_inserter(subRendering));
+    renderTargetProvider->GetTargetSwapCommands(renderTarget, depthTarget, recorder);
   }
-  return subRendering;
 }
 
 } // namespace Engine::Graphics

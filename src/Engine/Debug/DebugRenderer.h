@@ -2,8 +2,11 @@
 
 #include "AssetManager.h"
 #include "Graphics/BufferedRenderer.h"
+#include "Graphics/CommandQueue.h"
 #include "Maths/Matrix.h"
 #include <optional>
+#include <span>
+#include <vulkan/vulkan_core.h>
 
 namespace Engine::Graphics {
 class Pipeline;
@@ -60,7 +63,7 @@ private:
 
     inline std::tuple<Image2, Image2, VkAttachmentLoadOp>
     GetRenderTarget(Image2 &givenRenderTarget, std::optional<Image2> &givenDepthTarget,
-                    std::vector<Command const *> &previousCommands) override;
+                    CommandRecorder const &previousCommands) override;
 
     inline std::vector<Command *> GetTargetSwapCommands(Image2 &givenRenderTarget,
                                                         std::optional<Image2> &givenDepthTarget) {
@@ -79,12 +82,15 @@ private:
     DepthBufferReadingMaterial(Pipeline const *pipeline) : Material(pipeline), mainPassDepthBuffer() {}
 
     inline void AppendData(PushConstantsAggregate &aggregate) const override {}
-    inline void AddDescriptors(std::vector<VkDescriptorSet> &descriptorSets, DescriptorAllocator &descriptorAllocator,
-                                DescriptorWriter &writer, UniformBinding const &uniform) const override {
+    inline std::vector<VkDescriptorSet> WriteDescriptors(DescriptorAllocator &descriptorAllocator,
+                                                       DescriptorWriter &writer,
+                                                       UniformBinding const &uniform) const override {
+      std::vector<VkDescriptorSet> descriptorSets{};
       descriptorSets.push_back(pipeline->AllocateForLayout(0, descriptorAllocator));
       uniform.WriteToDescriptorSet(writer, descriptorSets.back(), 0);
       descriptorSets.push_back(pipeline->AllocateForLayout(1, descriptorAllocator));
       mainPassDepthBuffer.UpdateDescriptors(writer, descriptorSets.back(), 0);
+      return descriptorSets;
     }
   };
 
@@ -140,9 +146,9 @@ inline void DebugRenderer::DepthBufferExtractor::BeginFrame() {
 
 inline std::tuple<Image2, Image2, VkAttachmentLoadOp>
 DebugRenderer::DepthBufferExtractor::GetRenderTarget(Image2 &givenRenderTarget, std::optional<Image2> &givenDepthTarget,
-                                                     std::vector<Command const *> &previousCommands) {
+                                                     CommandRecorder const &recorder) {
   if (!doExtract || materials.empty()) {
-    return RenderTargetProvider::GetRenderTarget(givenRenderTarget, givenDepthTarget, previousCommands);
+    return RenderTargetProvider::GetRenderTarget(givenRenderTarget, givenDepthTarget, recorder);
   }
 
   doExtract = false;
@@ -154,7 +160,7 @@ DebugRenderer::DepthBufferExtractor::GetRenderTarget(Image2 &givenRenderTarget, 
     depthBuffer = gpuObjectManager->CreateDepthBuffer(depthSource->GetExtent());
   }
 
-  previousCommands.push_back(depthSource->Transition(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL));
+  recorder.RecordTransition(*depthSource, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
   for (auto &material : materials) {
     if (material->mainPassDepthBuffer.GetExtent() != depthSource->GetExtent()) {
       // Create new texture of fitting dimension
@@ -164,11 +170,11 @@ DebugRenderer::DepthBufferExtractor::GetRenderTarget(Image2 &givenRenderTarget, 
           VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
           VK_IMAGE_ASPECT_DEPTH_BIT);
     }
-    previousCommands.push_back(material->mainPassDepthBuffer.Transition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL));
-    previousCommands.push_back(depthSource->BlitTo(material->mainPassDepthBuffer, VK_FILTER_NEAREST));
-    previousCommands.push_back(material->mainPassDepthBuffer.Transition(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL));
+    recorder.RecordTransition(material->mainPassDepthBuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    recorder.RecordBlit(*depthSource, material->mainPassDepthBuffer, VK_FILTER_NEAREST);
+    recorder.RecordTransition(material->mainPassDepthBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   }
-  previousCommands.push_back(depthSource->Transition(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL));
+  recorder.RecordTransition(*depthSource, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
   return {givenRenderTarget, depthBuffer, VK_ATTACHMENT_LOAD_OP_CLEAR};
 }

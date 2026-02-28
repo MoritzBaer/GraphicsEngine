@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Graphics/CommandQueue.h"
 #include "Graphics/GPUObjectManager.h"
 #include "Graphics/RenderingStrategy.h"
 
@@ -20,11 +21,11 @@ class ForwardRendering : public RenderingStrategy {
   void DestroyRenderBuffer();
 
 public:
-  std::vector<Command const *> GetRenderingCommands(RenderingRequest const &request,
+  void RecordRenderingCommands(RenderingRequest const &request,
                                                     UniformBinder &uniformBufferProvider,
                                                     DescriptorAllocator &descriptorAllocator,
                                                     DescriptorWriter &descriptorWriter, Image<2> &renderTarget,
-                                                    std::optional<Image<2>> &depthTarget) override;
+                                                    std::optional<Image<2>> &depthTarget, CommandRecorder const & recorder) override;
 
   ForwardRendering(InstanceManager const *instanceManager, GPUObjectManager RELEASE_CONST *objectManager,
                    BackgroundStrategy *backgroundStrategy)

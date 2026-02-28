@@ -1,12 +1,15 @@
 #pragma once
 
 #include "AssetManager.h"
+#include "Graphics/CommandQueue.h"
+#include "Graphics/Material.h"
 #include "Graphics/RenderingStrategy.h"
 
 namespace Engine::Graphics::RenderingStrategies {
+
 struct CompiledEffect {
-  VkPipelineLayout pipelineLayout;
   VkPipeline pipeline;
+  VkPipelineLayout pipelineLayout;
 };
 
 struct ComputePushConstants {
@@ -18,14 +21,13 @@ class ComputeBackground : public BackgroundStrategy {
   DescriptorAllocator descriptorAllocator;
   DescriptorWriter descriptorWriter;
   VkDescriptorSetLayout descriptorSetLayout;
-  CompiledEffect effect;
+  Pipeline effect;
   ComputePushConstants data;
 
 public:
-  ComputeBackground(InstanceManager const *instanceManager, CompiledEffect const &effect,
-                    ComputePushConstants const &data);
+  ComputeBackground(InstanceManager const *instanceManager, Pipeline const &effect, ComputePushConstants const &data);
   ComputeBackground() = default;
-  std::vector<Command const *> GetRenderingCommands(Image<2> &renderTarget) override;
+  void RecordRenderingCommands(Image<2> &renderTarget, CommandRecorder const &recorder) override;
   void Cleanup();
 };
 

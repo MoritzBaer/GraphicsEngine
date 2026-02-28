@@ -4,17 +4,6 @@
 
 namespace Engine::Graphics {
 
-void Material::Apply(VkCommandBuffer const &commandBuffer, DescriptorAllocator &descriptorAllocator,
-                     DescriptorWriter &writer, UniformBinding const &uniform) const {
-  pipeline->Bind(commandBuffer);
-  std::vector<VkDescriptorSet> descriptorSets;
-  AddDescriptors(descriptorSets, descriptorAllocator, writer, uniform);
-  if (!descriptorSets.empty()) {
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->Layout(), 0,
-                            static_cast<uint32_t>(descriptorSets.size()), descriptorSets.data(), 0, nullptr);
-  }
-}
-
 void PipelineBuilder::SetBlendFactors(VkBlendFactor const &srcFactor, VkBlendFactor const &dstFactor) {
   colourBlendAttachment.colorWriteMask =
       VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;

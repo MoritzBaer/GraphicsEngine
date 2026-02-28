@@ -7,15 +7,19 @@
 #include "UniformAggregate.h"
 #include "Util/DeletionQueue.h"
 #include "vulkan/vulkan.h"
+#include <span>
 #include <vector>
+#include <vulkan/vulkan_core.h>
 
 namespace Engine::Graphics {
 
 class PipelineBuilder;
+class CommandRecorder;
 class RenderPassRecorder;
 
 class Pipeline {
   friend class PipelineBuilder;
+  friend class CommandRecorder;
   friend class RenderPassRecorder;
 
   VkPipeline pipeline;
@@ -38,18 +42,17 @@ public:
 
 class Material {
 protected:
+  friend class RenderPassRecorder;
+
   Pipeline const *pipeline;
 
 public:
   Material(Material const *other) : pipeline(other->pipeline) {}
   Material(Pipeline const *pipeline) : pipeline(pipeline) {}
   virtual void AppendData(PushConstantsAggregate &aggregate) const = 0;
-  void Apply(VkCommandBuffer const &commandBuffer, DescriptorAllocator &descriptorAllocator,
-                    DescriptorWriter &writer, UniformBinding const &uniform) const;
-  virtual void AddDescriptors(std::vector<VkDescriptorSet> &descriptorSets,
-                              DescriptorAllocator &descriptorAllocator, DescriptorWriter &writer,
-                              UniformBinding const &uniform) const {}
-  VkPipelineLayout GetPipelineLayout() const { return pipeline->Layout(); }
+  virtual std::vector<VkDescriptorSet> WriteDescriptors(DescriptorAllocator &descriptorAllocator,
+                                                      DescriptorWriter &writer, UniformBinding const &uniform) const = 0;
+  Pipeline GetPipeline() const { return pipeline; }
 };
 
 class PipelineBuilder {
@@ -92,8 +95,8 @@ public:
   PipelineBuilder &Reset();
 
   PipelineBuilder(InstanceManager const *instanceManager)
-      : instanceManager(instanceManager), descriptorSets(4), shaderStageInfos(), pushConstantRanges(), vertexInputBindings(),
-        vertexInputAttributes(), colourAttachmentformat(VK_FORMAT_UNDEFINED) {
+      : instanceManager(instanceManager), descriptorSets(4), shaderStageInfos(), pushConstantRanges(),
+        vertexInputBindings(), vertexInputAttributes(), colourAttachmentformat(VK_FORMAT_UNDEFINED) {
     for (int i = 0; i < 4; i++) {
       descriptorSets[i].layoutBuilder = DescriptorLayoutBuilder(instanceManager);
     }

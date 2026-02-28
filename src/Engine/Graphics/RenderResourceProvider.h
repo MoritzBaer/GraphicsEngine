@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Graphics/CommandQueue.h"
 #include "Image.h"
 #include "UniformBinder.h"
 
@@ -22,8 +23,8 @@ struct RenderResourceProvider {
 
   virtual FrameResources GetFrameResources() = 0;
   virtual std::optional<RenderTarget> GetRenderTarget() = 0;
-  virtual std::vector<Command const *> PrepareTargetForRendering() = 0;
-  virtual std::vector<Command const *> PrepareTargetForDisplaying() = 0;
+  virtual void PrepareTargetForRendering(CommandRecorder const & recorder) = 0;
+  virtual void PrepareTargetForDisplaying(CommandRecorder const & recorder) = 0;
   virtual void DisplayRenderTarget() = 0;
 };
 

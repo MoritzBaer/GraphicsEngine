@@ -2,6 +2,7 @@
 
 #include "AssetManager.h"
 #include "Debug/Profiling.h"
+#include "Graphics/CommandQueue.h"
 #include <iterator>
 #include <optional>
 #include <vulkan/vulkan_core.h>
@@ -124,8 +125,8 @@ void SwapChainProvider::DisplayRenderTarget() {
   currentFrame++;
 }
 
-std::vector<Command const *> SwapChainProvider::PrepareTargetForDisplaying() {
-  return {swapchainImages[swapchainImageIndex].Transition(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)};
+void SwapChainProvider::PrepareTargetForDisplaying(CommandRecorder const & recorder) {
+  recorder.RecordTransition(swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 }
 
 SwapChainProvider::SwapChainProvider(InstanceManager const *instanceManager,

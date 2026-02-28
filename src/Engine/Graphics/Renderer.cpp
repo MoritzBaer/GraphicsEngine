@@ -1,6 +1,7 @@
 #include "Renderer.h"
 #include "Debug/Logging.h"
 #include "Debug/Profiling.h"
+#include "Graphics/CommandQueue.h"
 #include "UniformAggregate.h"
 #include "VulkanUtil.h"
 #include <algorithm>
@@ -40,24 +41,18 @@ void Renderer::DrawFrame(RenderingRequest const &request) {
   {
     PROFILE_SCOPE("Generate commands")
   
-    std::vector<Command const *> commands;
+    CommandRecorder commands = frameResources.commandQueue.GetRecorder();
 
-    auto prepareTarget = renderResourceProvider->PrepareTargetForRendering();
-
-    commands.insert(commands.end(), prepareTarget.begin(), prepareTarget.end());
+    renderResourceProvider->PrepareTargetForRendering(commands);
 
     std::optional<Image2> depthResult {};
-    auto strategyCommands = renderingStrategy->GetRenderingCommands(
+    renderingStrategy->RecordRenderingCommands(
         request, frameResources.uniformBinder, frameResources.descriptorAllocator, frameResources.descriptorWriter,
-        renderTarget.target, depthResult);
+        renderTarget.target, depthResult, commands);
 
-    commands.insert(commands.end(), strategyCommands.begin(), strategyCommands.end());
+    renderResourceProvider->PrepareTargetForDisplaying(commands);
 
-    prepareTarget = renderResourceProvider->PrepareTargetForDisplaying();
-
-    commands.insert(commands.end(), prepareTarget.begin(), prepareTarget.end());
-
-    commandBufferSubmitInfo = frameResources.commandQueue.EnqueueCommandSequence(commands);
+    commandBufferSubmitInfo = frameResources.commandQueue.EnqueueCommandRecord(commands);
   }
 
   std::vector<VkSemaphoreSubmitInfo> semaphoreWaitInfo{};

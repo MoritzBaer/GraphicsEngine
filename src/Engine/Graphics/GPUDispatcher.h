@@ -30,12 +30,15 @@ public:
     }
   }
 
-  void Dispatch(std::span<Command const *> const &commands) const;
+  void Dispatch(CommandSet auto const &commands) const {
+    instanceManager->ResetFences(&fence);
+    auto commandInfo = commandQueue.EnqueueCommands(commands);
+    std::vector<VkCommandBufferSubmitInfo> buffer{commandInfo};
+    VkSubmitInfo2 submitInfo = vkinit::SubmitInfo({}, buffer, {});
 
-  inline void Dispatch(Command const *command) const {
-    std::vector<Command const *> commandSpan = {command};
-    Dispatch(commandSpan);
+    VULKAN_ASSERT(vkQueueSubmit2(dispatchQueue, 1, &submitInfo, fence), "Failed to submit immediate queue")
+
+    instanceManager->WaitForFences(&fence);
   }
-  template <CommandType T> inline void Dispatch(T const &command) const { Dispatch(new T(command)); }
 };
 } // namespace Engine::Graphics

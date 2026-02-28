@@ -10,6 +10,8 @@
 
 namespace Engine::Graphics {
 
+  class CommandRecorder;
+
 // Image is not responsible for image object creation and therefore also doesn't destroy it
 template <uint8_t Dimension> class Image {
 protected:
@@ -23,6 +25,7 @@ protected:
 
   friend class GPUMemoryManager;
   friend class GPUObjectManager;
+  friend class CommandRecorder;
 
 public:
   inline static const VkImageType IMAGE_TYPE;

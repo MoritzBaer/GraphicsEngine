@@ -4,6 +4,7 @@
 #include "Game.h"
 #include "Graphics/Material.h"
 #include "Graphics/Texture.h"
+#include <vector>
 
 namespace Engine::Graphics::Materials {
 
@@ -32,13 +33,15 @@ struct AlbedoAndBump : public Material {
         phongExponent(phongExponent), hue(hue) {}
 
   inline void AppendData(PushConstantsAggregate &aggregate) const override {}
-  inline void AddDescriptors(std::vector<VkDescriptorSet> &descriptorSets, DescriptorAllocator &descriptorAllocator,
+  inline std::vector<VkDescriptorSet> WriteDescriptors(DescriptorAllocator &descriptorAllocator,
                               DescriptorWriter &writer, UniformBinding const &uniform) const override {
+                                std::vector<VkDescriptorSet> descriptorSets{};
     descriptorSets.push_back(pipeline->AllocateForLayout(0, descriptorAllocator));
     uniform.WriteToDescriptorSet(writer, descriptorSets.back(), 0);
     descriptorSets.push_back(pipeline->AllocateForLayout(1, descriptorAllocator));
     albedo.UpdateDescriptors(writer, descriptorSets.back(), 0);
     normal.UpdateDescriptors(writer, descriptorSets.back(), 1);
+    return descriptorSets;
   }
 };
 

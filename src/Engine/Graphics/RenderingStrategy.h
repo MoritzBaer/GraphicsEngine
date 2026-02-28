@@ -14,23 +14,22 @@ public:
   virtual ~RenderingStrategy() = default;
   // A rendering strategy should render to renderTarget and copy its depth buffer to depthTarget if depthTarget is not
   // null.
-  virtual std::vector<Command const *> GetRenderingCommands(RenderingRequest const &request,
-                                                            UniformBinder &uniformBufferProvider,
-                                                            DescriptorAllocator &descriptorAllocator,
-                                                            DescriptorWriter &descriptorWriter, Image<2> &renderTarget,
-                                                            std::optional<Image<2>> &depthTarget) = 0;
+  virtual void RecordRenderingCommands(RenderingRequest const &request, UniformBinder &uniformBufferProvider,
+                                       DescriptorAllocator &descriptorAllocator, DescriptorWriter &descriptorWriter,
+                                       Image<2> &renderTarget, std::optional<Image<2>> &depthTarget,
+                                       CommandRecorder const &recorder) = 0;
 };
 
 class BackgroundStrategy : public RenderingStrategy {
 public:
   virtual ~BackgroundStrategy() = default;
-  virtual std::vector<Command const *> GetRenderingCommands(Image<2> &renderTarget) = 0;
-  inline std::vector<Command const *> GetRenderingCommands(RenderingRequest const &request,
-                                                           UniformBinder &uniformBufferProvider,
-                                                           DescriptorAllocator &descriptorAllocator,
-                                                           DescriptorWriter &descriptorWriter, Image<2> &renderTarget,
-                                                           std::optional<Image<2>> &depthTarget) override {
-    return GetRenderingCommands(renderTarget);
+  virtual void RecordRenderingCommands(Image<2> &renderTarget, CommandRecorder const &recorder) = 0;
+
+  void RecordRenderingCommands(RenderingRequest const &request, UniformBinder &uniformBufferProvider,
+                               DescriptorAllocator &descriptorAllocator, DescriptorWriter &descriptorWriter,
+                               Image<2> &renderTarget, std::optional<Image<2>> &depthTarget,
+                               CommandRecorder const &recorder) override {
+    RecordRenderingCommands(renderTarget, recorder);
   }
 };
 } // namespace Engine::Graphics

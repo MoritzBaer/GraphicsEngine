@@ -27,8 +27,8 @@ inline VkFenceCreateInfo FenceCreateInfo(VkFenceCreateFlags flags = VK_FENCE_CRE
   return {.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, .flags = flags};
 }
 
-inline VkImageMemoryBarrier2 ImageMemoryBarrier(VkImage image, VkImageLayout currentLayout,
-                                                VkImageLayout targetLayout, VkImageAspectFlags aspect) {
+inline VkImageMemoryBarrier2 ImageMemoryBarrier(VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout,
+                                                VkImageAspectFlags aspect) {
   return {.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
           .srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
           .srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT,
@@ -138,12 +138,29 @@ template <> inline VkOffset3D DimensionToOffset(Maths::Dimension<3> dimension) {
                     static_cast<int32_t>(dimension.z())};
 }
 
+inline VkViewport MakeViewport(Maths::Dimension2 const &dimension,
+                               Maths::Dimension2 const &offset = Maths::Dimension2::Zero, float minDepth = 0,
+                               float maxDepth = 1) {
+  return VkViewport{.x = static_cast<float>(offset.x()),
+                    .y = static_cast<float>(offset.y()),
+                    .width = static_cast<float>(dimension.x()),
+                    .height = static_cast<float>(dimension.y()),
+                    .minDepth = minDepth,
+                    .maxDepth = maxDepth};
+}
+
+inline VkRect2D MakeRect(Maths::Dimension2 const &dimension,
+                         Maths::Dimension2 const &offset = Maths::Dimension2::Zero) {
+  return {.offset = {.x = static_cast<int32_t>(offset.x()), .y = static_cast<int32_t>(offset.y())},
+          .extent = {.width = dimension.x(), .height = dimension.y()}};
+}
+
 // +--------------+
 // |   COMMANDS   |
 // +--------------+
 
 class NoOpCommand : public Engine::Graphics::Command {
-  public: 
+public:
   void QueueExecution(VkCommandBuffer const &) const {}
 };
 
@@ -173,7 +190,8 @@ class BlitImageCommand : public Command {
   VkImage source, destination;
 
 public:
-  BlitImageCommand(VkImage const &source, VkImage const &destination, std::vector<VkImageBlit2> const &blitRegions, VkFilter filter)
+  BlitImageCommand(VkImage const &source, VkImage const &destination, std::vector<VkImageBlit2> const &blitRegions,
+                   VkFilter filter)
       : blitRegions(blitRegions), source(source), destination(destination), filter(filter) {}
   void QueueExecution(VkCommandBuffer const &queue) const;
 };
@@ -232,7 +250,8 @@ inline PipelineBarrierCommand TransitionImageCommand(VkImage image, VkImageLayou
   return PipelineBarrierCommand({vkinit::ImageMemoryBarrier(image, currentLayout, targetLayout, aspect)});
 }
 
-inline BlitImageCommand CopyFullImage(VkImage source, VkImage destination, VkExtent3D srcExtent, VkExtent3D dstExtent, VkFilter filter) {
+inline BlitImageCommand CopyFullImage(VkImage source, VkImage destination, VkExtent3D srcExtent, VkExtent3D dstExtent,
+                                      VkFilter filter) {
   VkImageBlit2 blitRegion{
       .sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2,
       .srcSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1},

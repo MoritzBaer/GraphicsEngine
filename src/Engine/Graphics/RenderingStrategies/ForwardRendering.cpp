@@ -1,13 +1,11 @@
 #include "ForwardRendering.h"
 
-#include "Graphics/RenderCommand.h"
+#include "Graphics/AllocatedMesh.h"
+#include "Graphics/CommandQueue.h"
+#include "Graphics/UniformAggregate.h"
 #include <vulkan/vulkan_core.h>
 
-#define CALCULATE_CLIP_SPACE(name, z)                                                                                  \
-  auto name##CamSpace = projection * Vector4(0, 0, z, 1);                                                              \
-  auto name = Vector3(name##CamSpace[X], name##CamSpace[Y], name##CamSpace[Z]) / name##CamSpace[W];
-
-namespace Engine::Graphics {
+namespace Engine::Graphics::RenderingStrategies {
 
 struct DrawData {
   Maths::Matrix4 view;
@@ -15,34 +13,6 @@ struct DrawData {
   Maths::Matrix4 viewProjection;
   SceneData sceneData;
 };
-
-template <>
-void MultiRenderCommand<MeshRenderer const *>::DoSingleRender(VkCommandBuffer const &commandBuffer,
-                                                              MeshRenderer const *const &renderInfo,
-                                                              UniformBinding const &uniformBinding) const {
-  AllocatedMesh const *mesh = renderInfo->mesh;
-  Material const *material = renderInfo->material;
-
-  // Bind material pipelines
-  material->Apply(commandBuffer, descriptorAllocator, descriptorWriter, uniformBinding);
-
-  // Upload uniform data
-  Maths::Matrix4 model = renderInfo->entity.GetComponent<Transform>()->ModelToWorldMatrix();
-  Maths::Matrix4 normals = renderInfo->entity.GetComponent<Transform>()->ModelToWorldMatrix().Inverse().Transposed();
-  PushConstantsAggregate data{};
-  data.PushData(&model);
-  mesh->AppendData(data);
-  material->AppendData(data);
-
-  vkCmdPushConstants(commandBuffer, material->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, data.Size(),
-                     data.Data());
-
-  // Draw mesh
-  mesh->BindAndDraw(commandBuffer);
-}
-} // namespace Engine::Graphics
-
-namespace Engine::Graphics::RenderingStrategies {
 
 std::vector<VkFormat> const formatsByPreference = {VK_FORMAT_R16G16B16A16_SFLOAT, //
                                                    VK_FORMAT_R8G8B8A8_SRGB,       //
@@ -79,67 +49,69 @@ void ForwardRendering::DestroyRenderBuffer() {
   objectManager->DestroyImage(renderBuffer.depthImage);
 }
 
-std::vector<Command const *>
-ForwardRendering::GetRenderingCommands(RenderingRequest const &request, UniformBinder &uniformBufferProvider,
-                                       DescriptorAllocator &descriptorAllocator, DescriptorWriter &descriptorWriter,
-                                       Image<2> &renderTarget, std::optional<Image<2>> &depthTarget) {
+void ForwardRendering::RecordRenderingCommands(RenderingRequest const &request, UniformBinder &uniformBufferProvider,
+                                               DescriptorAllocator &descriptorAllocator,
+                                               DescriptorWriter &descriptorWriter, Image<2> &renderTarget,
+                                               std::optional<Image<2>> &depthTarget, CommandRecorder const &recorder) {
 
-  auto commands = backgroundStrategy->GetRenderingCommands(renderBuffer.colourImage);
+  backgroundStrategy->RecordRenderingCommands(renderBuffer.colourImage, recorder);
 
-  auto transitionBufferToRenderTarget = renderBuffer.colourImage.Transition(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-  auto transitionBufferToDepthStencil =
-      renderBuffer.depthImage.Transition(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+  recorder.RecordTransition(renderBuffer.colourImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+  recorder.RecordTransition(renderBuffer.depthImage, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
-  commands.push_back(transitionBufferToRenderTarget);
-  commands.push_back(transitionBufferToDepthStencil);
+  // Draw meshes in perspective
+  Maths::Matrix4 const view = request.camera->entity.GetComponent<Transform>()->WorldToModelMatrix();
+  Maths::Matrix4 const projection = request.camera->projection;
 
-  Maths::Matrix4 view = request.camera->entity.GetComponent<Transform>()->WorldToModelMatrix();
-  Maths::Matrix4 projection = request.camera->projection;
-
-  auto v = projection * Vector4(0.01, 1.99, 0.01, 1);
-  Vector3 vp = v.xyz();
-  auto vh = vp / v[W];
-  auto v_ = projection * Vector4(0.01, 2.01, 0.01, 1);
-  Vector3 vp_ = v_.xyz();
-  auto vh_ = vp_ / v_[W];
-
-  DrawData uniformData{
+  DrawData const uniformData{
       .view = view,
       .projection = projection,
       .viewProjection = projection * view,
       .sceneData = request.sceneData,
   };
 
-  auto uniformBinding = uniformBufferProvider.GetBinding<DrawData>(uniformData);
-  auto drawMeshes = new MultiRenderCommand<MeshRenderer const *>(
-      renderBuffer.colourImage, renderBuffer.depthImage, descriptorAllocator, descriptorWriter,
-      renderBuffer.colourImage.GetExtent(), uniformBinding, request.objectsToDraw);
+  auto const uniformBinding = uniformBufferProvider.GetBinding<DrawData>(uniformData);
 
-  commands.push_back(drawMeshes);
+  recorder.RecordRenderPass()
+      .WithDrawImage(renderBuffer.colourImage)
+      .WithDepthImage(renderBuffer.depthImage)
+      .As([&](RenderPassRecorder const &recorder) {
+        for (auto const &renderInfo : request.objectsToDraw) {
+
+          // Draw indivisual mesh
+          AllocatedMesh const &mesh = renderInfo->mesh;
+          Material const &material = renderInfo->material;
+          auto const descriptors = material.WriteDescriptors(descriptorAllocator, descriptorWriter, uniformBinding);
+
+          auto const model = renderInfo->entity.GetComponent<Transform>()->ModelToWorldMatrix();
+          auto const normals =
+              renderInfo->entity.GetComponent<Transform>()->ModelToWorldMatrix().Inverse().Transposed();
+          PushConstantsAggregate data{};
+          data.PushData(&model);
+          mesh.AppendData(data);
+          material.AppendData(data);
+
+          recorder.RecordWithBoundPipeline(
+              material.GetPipeline(), VK_PIPELINE_BIND_POINT_GRAPHICS, [&](DrawCallRecorder const &recorder) {
+                recorder.RecordPushConstantSet(data, VK_SHADER_STAGE_VERTEX_BIT);
+                recorder.RecordMeshDraw(mesh);
+              });
+        }
+      });
 
   // Commands for copying render to target
-  auto transitionBufferToTransferSrc = renderBuffer.colourImage.Transition(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-  auto transitionTargetToTransferDst = renderTarget.Transition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-  auto copyBufferToPresenter = renderBuffer.colourImage.BlitTo(renderTarget);
-
-  commands.push_back(transitionBufferToTransferSrc);
-  commands.push_back(transitionTargetToTransferDst);
-  commands.push_back(copyBufferToPresenter);
+  recorder.RecordTransition(renderBuffer.colourImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+  recorder.RecordTransition(renderTarget, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+  recorder.RecordBlit(renderBuffer.colourImage, renderTarget, VK_FILTER_LINEAR);
 
   // Commands for optionally copying depth to target
   if (depthTarget) {
-    auto transitionDepthToTransferSrc = renderBuffer.depthImage.Transition(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-    auto transitionDepthPresenterToTransferDst = depthTarget->Transition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    auto copyDepthToTarget = renderBuffer.depthImage.BlitTo(*depthTarget);
-
-    commands.push_back(transitionDepthToTransferSrc);
-    commands.push_back(transitionDepthPresenterToTransferDst);
-    commands.push_back(copyDepthToTarget);
+    recorder.RecordTransition(renderBuffer.depthImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    recorder.RecordTransition(depthTarget.value(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    recorder.RecordBlit(renderBuffer.depthImage, depthTarget.value(), VK_FILTER_NEAREST);
   } else {
     depthTarget.emplace(renderBuffer.depthImage);
   }
-
-  return commands;
 }
 
 } // namespace Engine::Graphics::RenderingStrategies

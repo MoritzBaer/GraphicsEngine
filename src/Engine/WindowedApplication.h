@@ -39,8 +39,8 @@ private:
   FrameResources GetFrameResources() override;
   std::optional<RenderTarget> GetRenderTarget() override;
   void DisplayRenderTarget() override;
-  std::vector<Command const *> PrepareTargetForRendering() override { return {}; }
-  std::vector<Command const *> PrepareTargetForDisplaying() override;
+  void PrepareTargetForRendering(CommandRecorder const &recorder) override {}
+  void PrepareTargetForDisplaying(CommandRecorder const &recorder) override;
 
   inline void RecreateSwapchain() {
     instanceManager->WaitUntilDeviceIdle();

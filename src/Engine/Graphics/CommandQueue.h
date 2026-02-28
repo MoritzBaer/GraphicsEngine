@@ -6,33 +6,37 @@
 #include "Graphics/AllocatedMesh.h"
 #include "Graphics/Image.h"
 #include "Graphics/Material.h"
+#include "Graphics/UniformAggregate.h"
 #include "Graphics/VulkanUtil.h"
 #include "Maths/Dimension.h"
-#include "Util/DeletionQueue.h"
 #include "vulkan/vulkan.h"
 #include <algorithm>
-#include <array>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <initializer_list>
 #include <span>
 #include <tuple>
-#include <utility>
-#include <vulkan/vulkan_core.h>
+
 
 namespace Engine::Graphics {
 
 class GPUObjectManager;
 
 template <typename T_GPU> struct VertexBufferBinding {
-  VertexBufferT<T_GPU> const &buffer;
+  VertexBufferT<T_GPU> buffer;
   VkDeviceSize offset;
 };
 
 class CommandRecorder;
 class RenderPassRecorder;
 class MaterialBinder;
+class DrawCallRecorder;
+
+template <typename CS_T>
+concept CommandSet = requires(CS_T const &cs, CommandRecorder const &cr) {
+  { cs(cr) };
+};
 
 template <typename RP_T>
 concept RenderPassDefinition = requires(RP_T const &rp, RenderPassRecorder const &rpr) {
@@ -44,10 +48,15 @@ concept MaterialBind = requires(MB_T const &mb, MaterialBinder const &mbr) {
   { mb(mbr) };
 };
 
+template <typename DC_T>
+concept DrawCall = requires(DC_T const &dc, DrawCallRecorder const &dcr) {
+  { dc(dcr) };
+};
+
 class CommandRecorder {
 
   struct RenderPassTarget {
-    std::initializer_list<Image2> drawImages;
+    std::vector<Image2> drawImages;
     Image2 const *depthImage;
     VkAttachmentLoadOp depthBufferLoadOp;
     Maths::Dimension2 const *extent;
@@ -62,14 +71,14 @@ class CommandRecorder {
   public:
     RenderPassBuilder(const CommandRecorder &parentRecorder) : underConstruction(), parentRecorder(parentRecorder) {}
 
-    RenderPassBuilder &WithDrawImage(std::same_as<Image2> auto const &&...images) {
+    RenderPassBuilder &WithDrawImage(std::same_as<Image2> auto const &...images) {
       if constexpr (sizeof...(images) == 1) {
         // Automatically deduce extent only in this case
         if (!underConstruction.extent) {
-          underConstruction.extent = &std::get<0>(std::tie(std::forward(images)...)).GetExtent();
+          underConstruction.extent = &std::get<0>(std::tie(images...)).GetExtent();
         }
       }
-      underConstruction.drawImages = {std::forward(images)...};
+      underConstruction.drawImages = {images...};
       return *this;
     }
     RenderPassBuilder &WithDepthImage(Image2 const &image) {
@@ -88,29 +97,7 @@ class CommandRecorder {
       underConstruction.offset = &offset;
       return *this;
     }
-    void As(RenderPassDefinition auto const &definition) {
-
-      if (!underConstruction.drawImages.size() && !underConstruction.depthImage) {
-        ENGINE_WARNING("Render pass without target images defined, skipping pass.");
-        return;
-      }
-
-      if (!underConstruction.offset) {
-        underConstruction.offset = &Maths::Dimension2::Zero;
-      }
-
-      if (!underConstruction.extent) {
-        if (!underConstruction.depthImage) {
-          ENGINE_WARNING("No extent specified for render pass, and deduction was not possible; skipping pass.");
-          return;
-        }
-        underConstruction.extent = &underConstruction.depthImage->GetExtent();
-      }
-
-      parentRecorder.RecordRenderPass(underConstruction.drawImages, underConstruction.depthImage,
-                                      underConstruction.depthBufferLoadOp, underConstruction.extent,
-                                      underConstruction.offset, definition);
-    }
+    void As(RenderPassDefinition auto const &definition);
   };
 
 protected:
@@ -123,8 +110,8 @@ public:
 
   // Buffer-to-buffer
   template <typename T1, typename T2>
-  void RecordCopy(Buffer<T1> const &src, Buffer<T2> const &dst, size_t numBytes, size_t srcOffset = 0,
-                  size_t dstOffset = 0) const;
+  void RecordCopy(Buffer<T1> const &src, Buffer<T2> const &dst, size_t numBytes, size_t srcOffset,
+                  size_t dstOffset) const;
   template <typename T1, typename T2>
   inline void RecordCopy(Buffer<T1> const &src, Buffer<T2> const &dst, size_t srcOffset = 0,
                          size_t dstOffset = 0) const {
@@ -153,8 +140,8 @@ public:
 
   // +-------- Image operations -------+
   void RecordPipelineBarrier(std::initializer_list<VkImageMemoryBarrier2> const &imageBarriers) const;
-  inline void RecordPipelineBarrier(std::same_as<VkImageMemoryBarrier2> auto const &&...imageBarriers) const {
-    RecordPipelineBarrier({std::forward(imageBarriers)...});
+  inline void RecordPipelineBarrier(std::same_as<VkImageMemoryBarrier2> auto const &...imageBarriers) const {
+    RecordPipelineBarrier(std::initializer_list<VkImageMemoryBarrier2>{imageBarriers...});
   }
 
   template <uint8_t D>
@@ -162,8 +149,8 @@ public:
                              std::initializer_list<VkImageSubresourceRange> const &subresourceRanges) const;
   template <uint8_t D>
   inline void RecordColorImageClear(Image<D> const &image, VkClearColorValue const &clearColour,
-                                    std::same_as<VkImageSubresourceRange> auto const &&...subresourceRanges) const {
-    RecordColorImageClear({std::forward(subresourceRanges)...});
+                                    std::same_as<VkImageSubresourceRange> auto const &...subresourceRanges) const {
+    RecordColorImageClear({subresourceRanges...});
   }
 
   template <uint8_t D>
@@ -171,24 +158,38 @@ public:
                   std::initializer_list<VkImageBlit2> const &blitRegions) const;
   template <uint8_t D>
   inline void RecordBlit(Image<D> const &source, Image<D> const &destination, VkFilter filter,
-                         std::same_as<VkImageBlit2> auto const &&...blitRegions) const {
-    RecordBlit(source, destination, filter, {std::forward(blitRegions)...});
+                         std::same_as<VkImageBlit2> auto const &...blitRegions) const {
+    RecordBlit(source, destination, filter, {blitRegions...});
   }
   template <uint8_t D> void RecordBlit(Image<D> const &source, Image<D> const &destination, VkFilter filter) const;
 
   template <uint8_t D> void RecordTransition(Image<D> &image, VkImageLayout newLayout) const;
 
+  void RecordWithBoundPipeline(Graphics::Pipeline const &pipeline, VkPipelineBindPoint bindPoint,
+                               MaterialBind auto const &binder) const;
+
   // +---------- Render pass ----------+
-  void RecordRenderPass(std::initializer_list<Image2> const &drawImages, Image2 const &depthImage,
+  void RecordRenderPass(std::span<Image2> const &drawImages, Image2 const &depthImage,
                         VkAttachmentLoadOp depthBufferLoadOp, Maths::Dimension2 const &extent,
                         Maths::Dimension2 const &offset, RenderPassDefinition auto const &recorder) const;
   inline RenderPassBuilder RecordRenderPass() const { return RenderPassBuilder(*this); }
+
+  void RecordViewports(std::initializer_list<VkViewport> const &viewports) const;
+  inline void RecordViewports(std::same_as<VkViewport> auto const &...viewports) const {
+    RecordViewports({viewports...});
+  }
+
+  void RecordScissors(std::initializer_list<VkRect2D> const &scissors) const;
+  inline void RecordScissors(std::same_as<VkRect2D> auto const &...scissors) const { RecordScissors({scissors...}); }
 };
 
-class RenderPassRecorder : protected CommandRecorder {
+class MaterialBinder : protected CommandRecorder {
+  VkPipelineLayout boundLayout;
+  VkPipelineBindPoint usedBindpoint;
 
 public:
-  RenderPassRecorder(VkCommandBuffer buffer) : CommandRecorder(buffer) {}
+  MaterialBinder(VkCommandBuffer buffer, VkPipelineLayout layout, VkPipelineBindPoint bindPoint)
+      : CommandRecorder(buffer), boundLayout(layout), usedBindpoint(bindPoint) {}
 
   using CommandRecorder::RecordBlit;
   using CommandRecorder::RecordColorImageClear;
@@ -196,15 +197,42 @@ public:
   using CommandRecorder::RecordPipelineBarrier;
   using CommandRecorder::RecordTransition;
 
-  void RecordViewports(std::initializer_list<VkViewport> const &viewports) const;
-  inline void RecordViewports(std::same_as<VkViewport> auto const &&...viewports) const {
-    RecordViewports({std::forward(viewports)...});
+  // +-------- Material binding -------+
+  void RecordDescriptorBind(std::span<VkDescriptorSet const> const &descriptors) const;
+  inline void RecordDescriptorBind(std::same_as<VkDescriptorSet> auto... descriptors) const {
+    RecordDescriptorBind(std::span(std::initializer_list{descriptors...}));
   }
+  template <typename T> void RecordPushConstantSet(T const &constants, VkShaderStageFlags stage) const;
 
-  void RecordScissors(std::initializer_list<VkRect2D> const &scissors) const;
-  inline void RecordScissors(std::same_as<VkRect2D> auto const &&...scissors) const {
-    RecordScissors({std::forward(scissors)...});
+  // +----------- Dispatch ------------+
+  inline void RecordDispatch(uint32_t workerGroupsX, uint32_t workerGroupsY = 1, uint32_t workerGroupsZ = 1) const {
+    vkCmdDispatch(buffer, workerGroupsX, workerGroupsY, workerGroupsZ);
   }
+};
+
+class RenderPassRecorder : protected CommandRecorder {
+public:
+  RenderPassRecorder(VkCommandBuffer buffer) : CommandRecorder(buffer) {}
+
+  using CommandRecorder::RecordBlit;
+  using CommandRecorder::RecordColorImageClear;
+  using CommandRecorder::RecordCopy;
+  using CommandRecorder::RecordPipelineBarrier;
+  using CommandRecorder::RecordScissors;
+  using CommandRecorder::RecordTransition;
+  using CommandRecorder::RecordViewports;
+
+  void RecordWithBoundPipeline(Graphics::Pipeline const &pipeline, VkPipelineBindPoint bindPoint,
+                               DrawCall auto const &drawCall) const;
+};
+
+class DrawCallRecorder : protected RenderPassRecorder, public MaterialBinder {
+public:
+  DrawCallRecorder(VkCommandBuffer buffer, VkPipelineLayout layout, VkPipelineBindPoint bindPoint)
+      : RenderPassRecorder(buffer), MaterialBinder(buffer, layout, bindPoint) {}
+
+  using RenderPassRecorder::RecordScissors;
+  using RenderPassRecorder::RecordViewports;
 
   template <std::integral T>
   void RecordIndexedDraw(Buffer<T> const &indexBuffer, uint32_t indexCount, uint32_t instanceCount = 1,
@@ -215,55 +243,41 @@ public:
     RecordIndexedDraw(indexBuffer, indexBuffer.Size(), instanceCount, firstIndex, vertexOffset, firstInstance);
   }
 
+  inline void RecordMeshDraw(AllocatedMesh const &mesh) const { RecordIndexedDraw(mesh.indexBuffer); }
+
+  template <typename T_GPU> void RecordVertexBufferBind(std::span<VertexBufferBinding<T_GPU>> const &bindings) const;
   template <typename T_GPU>
-  void RecordVertexBufferBind(std::initializer_list<VertexBufferBinding<T_GPU>> const &bindings) const;
+  void RecordVertexBufferBind(std::initializer_list<VertexBufferBinding<T_GPU>> const &bindings) const {
+    RecordVertexBufferBind(std::span<VertexBufferBinding<T_GPU>>(bindings));
+  }
   template <typename T_GPU>
-  inline void RecordVertexBufferBind(std::initializer_list<VertexBufferT<T_GPU const &>> const &buffers) const {
+  inline void RecordVertexBufferBind(std::initializer_list<VertexBufferT<T_GPU>> const &buffers) const {
     std::vector<VertexBufferBinding<T_GPU>> bindings{};
     bindings.resize(buffers.size());
     std::transform(buffers.begin(), buffers.end(), bindings.begin(), [](VertexBufferT<T_GPU> const &buf) {
       return VertexBufferBinding<T_GPU>{.buffer = buf, .offset = 0};
     });
-    RecordVertexBufferBind(bindings);
+    RecordVertexBufferBind(std::span(bindings));
   }
   template <typename T_GPU>
-  void RecordVertexBufferBind(std::same_as<VertexBufferBinding<T_GPU>> auto const &&...bindings) const {
-    RecordVertexBufferBind({std::forward(bindings)...});
+  void RecordVertexBufferBind(std::same_as<VertexBufferBinding<T_GPU>> auto const &...bindings) const {
+    RecordVertexBufferBind({bindings...});
   }
   template <typename T_GPU>
-  void RecordVertexBufferBind(std::same_as<VertexBufferT<T_GPU>> auto const &&...buffers) const {
-    RecordVertexBufferBind({std::forward(buffers)...});
+  void RecordVertexBufferBind(std::same_as<VertexBufferT<T_GPU>> auto const &...buffers) const {
+    RecordVertexBufferBind({buffers...});
   }
 
-  template <std::integral T> void RecordIndexBufferBind(Buffer<T> const &indexBuffer, VkDeviceSize offset = 0);
-
-  void RecordWithBoundPipeline(Graphics::Pipeline const &pipeline, MaterialBind auto const &binder) const;
-};
-
-class MaterialBinder : protected RenderPassRecorder {
-  VkPipelineLayout boundLayout;
-  VkPipelineBindPoint usedBindpoint;
-
-public:
-  MaterialBinder(VkCommandBuffer buffer, VkPipelineLayout layout, VkPipelineBindPoint bindPoint)
-      : RenderPassRecorder(buffer), boundLayout(layout), usedBindpoint(bindPoint) {}
-
-  using RenderPassRecorder::RecordBlit;
-  using RenderPassRecorder::RecordColorImageClear;
-  using RenderPassRecorder::RecordCopy;
-  using RenderPassRecorder::RecordIndexBufferBind;
-  using RenderPassRecorder::RecordIndexedDraw;
-  using RenderPassRecorder::RecordPipelineBarrier;
-  using RenderPassRecorder::RecordScissors;
-  using RenderPassRecorder::RecordTransition;
-  using RenderPassRecorder::RecordVertexBufferBind;
-  using RenderPassRecorder::RecordViewports;
-
-  void BindDescriptors(std::initializer_list<VkDescriptorSet> const &descriptors) const;
-  inline void BindDescriptors(std::same_as<VkDescriptorSet> auto const &&...descriptors) const {
-    BindDescriptors({std::forward(descriptors)...});
+  template <std::integral T> void RecordIndexBufferBind(Buffer<T> const &indexBuffer, VkDeviceSize offset = 0) const;
+  inline void RecordDraw(uint32_t vertexCount, uint32_t instanceCount = 1, uint32_t firstVertex = 0,
+                         uint32_t firstInstance = 0) const {
+    vkCmdDraw(RenderPassRecorder::buffer, vertexCount, instanceCount, firstVertex, firstInstance);
   }
-  template <typename T> void SetPushConstants(T const &constants, VkShaderStageFlags stage) const;
+  template <typename T>
+  inline void RecordDraw(Buffer<T> const &vertexBuffer, uint32_t instanceCount = 1, uint32_t firstInstance = 0) const {
+    RecordVertexBufferBind<T>(VertexBufferT<T>(vertexBuffer));
+    RecordDraw(vertexBuffer.Size(), instanceCount, 0, firstInstance);
+  }
 };
 
 class CommandQueue {
@@ -277,8 +291,15 @@ public:
   CommandQueue(VkCommandBuffer mainBuffer, VkCommandPool pool) : mainBuffer(mainBuffer), pool(pool) {}
   CommandQueue() : CommandQueue(VK_NULL_HANDLE, VK_NULL_HANDLE) {}
 
-  VkCommandBufferSubmitInfo EnqueueCommandSequence(std::span<Command const *> const &commands,
-                                                   VkCommandBufferUsageFlags flags = 0) const;
+  CommandRecorder GetRecorder(VkCommandBufferUsageFlags flags = 0) const;
+  VkCommandBufferSubmitInfo EnqueueCommandRecord(CommandRecorder const &recorder) const;
+
+  inline VkCommandBufferSubmitInfo EnqueueCommands(CommandSet auto const &commands,
+                                                   VkCommandBufferUsageFlags flags = 0) const {
+    auto const rec = GetRecorder(flags);
+    commands(rec);
+    return EnqueueCommandRecord(rec);
+  }
 };
 
 class CompositeCommand : public Command {
@@ -382,7 +403,7 @@ template <uint8_t D> inline void CommandRecorder::RecordTransition(Image<D> &ima
   image.currentLayout = newLayout;
 }
 
-inline void Engine::Graphics::CommandRecorder::RecordRenderPass(std::initializer_list<Image2> const &drawImages,
+inline void Engine::Graphics::CommandRecorder::RecordRenderPass(std::span<Image2> const &drawImages,
                                                                 Image2 const &depthImage,
                                                                 VkAttachmentLoadOp depthBufferLoadOp,
                                                                 Maths::Dimension2 const &extent,
@@ -409,25 +430,24 @@ inline void Engine::Graphics::CommandRecorder::RecordRenderPass(std::initializer
   vkCmdEndRendering(buffer);
 }
 
-inline void RenderPassRecorder::RecordViewports(std::initializer_list<VkViewport> const &viewports) const {
+inline void CommandRecorder::RecordViewports(std::initializer_list<VkViewport> const &viewports) const {
   vkCmdSetViewport(buffer, 0, viewports.size(), viewports.begin());
 }
 
-inline void RenderPassRecorder::RecordScissors(std::initializer_list<VkRect2D> const &scissors) const {
+inline void CommandRecorder::RecordScissors(std::initializer_list<VkRect2D> const &scissors) const {
   vkCmdSetScissor(buffer, 0, scissors.size(), scissors.begin());
 }
 
 template <std::integral T>
-inline void RenderPassRecorder::RecordIndexedDraw(Buffer<T> const &indexBuffer, uint32_t indexCount,
-                                                  uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset,
-                                                  uint32_t firstInstance) const {
+inline void DrawCallRecorder::RecordIndexedDraw(Buffer<T> const &indexBuffer, uint32_t indexCount,
+                                                uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset,
+                                                uint32_t firstInstance) const {
   RecordIndexBufferBind(indexBuffer);
-  vkCmdDrawIndexed(buffer, static_cast<uint32_t>(indexBuffer.Size()), 1, 0, 0, 0);
+  vkCmdDrawIndexed(RenderPassRecorder::buffer, static_cast<uint32_t>(indexBuffer.Size()), 1, 0, 0, 0);
 }
 
 template <typename T_GPU>
-inline void
-RenderPassRecorder::RecordVertexBufferBind(std::initializer_list<VertexBufferBinding<T_GPU>> const &bindings) const {
+inline void DrawCallRecorder::RecordVertexBufferBind(std::span<VertexBufferBinding<T_GPU>> const &bindings) const {
   std::vector<VkDeviceSize> offsets{};
   offsets.reserve(bindings.size());
   std::vector<VkBuffer> buffers{};
@@ -437,27 +457,64 @@ RenderPassRecorder::RecordVertexBufferBind(std::initializer_list<VertexBufferBin
     offsets.push_back(binding.offset);
   });
 
-  vkCmdBindVertexBuffers(buffer, 0, bindings.size(), buffers.data(), offsets.data());
+  vkCmdBindVertexBuffers(RenderPassRecorder::buffer, 0, bindings.size(), buffers.data(), offsets.data());
 }
 
 template <std::integral T>
-inline void RenderPassRecorder::RecordIndexBufferBind(Buffer<T> const &indexBuffer, VkDeviceSize offset) {
-  vkCmdBindIndexBuffer(buffer, indexBuffer, offset, IndexType<T>::type);
+inline void DrawCallRecorder::RecordIndexBufferBind(Buffer<T> const &indexBuffer, VkDeviceSize offset) const {
+  vkCmdBindIndexBuffer(RenderPassRecorder::buffer, indexBuffer.GetBuffer(), offset, IndexType<T>::type);
+}
+
+inline void CommandRecorder::RecordWithBoundPipeline(Graphics::Pipeline const &pipeline, VkPipelineBindPoint bindPoint,
+                                                     MaterialBind auto const &bind) const {
+  vkCmdBindPipeline(buffer, bindPoint /* TODO: Take from pipeline directly? */, pipeline.pipeline);
+  bind(MaterialBinder(buffer, pipeline.layout, bindPoint));
 }
 
 inline void RenderPassRecorder::RecordWithBoundPipeline(Graphics::Pipeline const &pipeline,
-                                                        MaterialBind auto const &bind) const {
-  vkCmdBindPipeline(buffer, VK_PIPELINE_BIND_POINT_GRAPHICS /* TODO: Take from pipeline directly? */,
-                    pipeline.pipeline);
-  bind(MaterialBinder(buffer, pipeline.layout, VK_PIPELINE_BIND_POINT_GRAPHICS));
+                                                        VkPipelineBindPoint bindPoint,
+                                                        DrawCall auto const &drawCall) const {
+  vkCmdBindPipeline(buffer, bindPoint /* TODO: Take from pipeline directly? */, pipeline.pipeline);
+  drawCall(DrawCallRecorder(buffer, pipeline.layout, bindPoint));
 }
 
-inline void MaterialBinder::BindDescriptors(std::initializer_list<VkDescriptorSet> const &descriptors) const {
-  vkCmdBindDescriptorSets(buffer, usedBindpoint, boundLayout, 0, descriptors.size(), descriptors.begin(), 0, nullptr);
+inline void MaterialBinder::RecordDescriptorBind(std::span<VkDescriptorSet const> const &descriptors) const {
+  vkCmdBindDescriptorSets(buffer, usedBindpoint, boundLayout, 0, descriptors.size(), descriptors.data(), 0, nullptr);
 }
 
-template <typename T> inline void MaterialBinder::SetPushConstants(T const &constants, VkShaderStageFlags stage) const {
+template <>
+inline void MaterialBinder::RecordPushConstantSet<PushConstantsAggregate>(PushConstantsAggregate const &constants,
+                                                                          VkShaderStageFlags stage) const {
+  vkCmdPushConstants(buffer, boundLayout, stage, 0, constants.Size(), constants.Data());
+}
+template <typename T>
+inline void MaterialBinder::RecordPushConstantSet(T const &constants, VkShaderStageFlags stage) const {
   vkCmdPushConstants(buffer, boundLayout, stage, 0, sizeof(T), &constants);
+}
+
+inline void CommandRecorder::RenderPassBuilder::As(RenderPassDefinition auto const &definition) {
+  {
+    if (!underConstruction.drawImages.size() && !underConstruction.depthImage) {
+      ENGINE_WARNING("Render pass without target images defined, skipping pass.");
+      return;
+    }
+
+    if (!underConstruction.offset) {
+      underConstruction.offset = &Maths::Dimension2::Zero;
+    }
+
+    if (!underConstruction.extent) {
+      if (!underConstruction.depthImage) {
+        ENGINE_WARNING("No extent specified for render pass, and deduction was not possible; skipping pass.");
+        return;
+      }
+      underConstruction.extent = &underConstruction.depthImage->GetExtent();
+    }
+
+    parentRecorder.RecordRenderPass(underConstruction.drawImages, *underConstruction.depthImage,
+                                    underConstruction.depthBufferLoadOp, *underConstruction.extent,
+                                    *underConstruction.offset, definition);
+  }
 }
 
 } // namespace Engine::Graphics

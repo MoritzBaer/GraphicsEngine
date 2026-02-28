@@ -17,6 +17,7 @@ public:
   public:
     inline operator AllocatedMesh *() { return mesh; }
     inline operator AllocatedMesh const *() const { return mesh; }
+    inline operator AllocatedMesh const &() const { return *mesh; }
     inline AllocatedMesh *&operator=(AllocatedMesh *mesh) {
       // Maybe make copy of the mesh. In that case, delete the old mesh at assignment
       this->mesh = mesh;
@@ -30,6 +31,7 @@ public:
   public:
     inline operator Material *() { return material; }
     inline operator Material const *() const { return material; }
+    inline operator Material const &() const { return *material; }
     inline Material *&operator=(Material *material) {
       // TODO: Eventually use copy of given material
       this->material = material;

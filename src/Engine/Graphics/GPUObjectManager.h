@@ -9,6 +9,7 @@
 #include "Buffer.h"
 #include "Texture.h"
 #include <cstdint>
+#include <vulkan/vulkan_core.h>
 
 #include "Debug/Logging.h"
 #include "Util/Macros.h"
@@ -268,7 +269,10 @@ inline void GPUObjectManager::SetPixels(Texture<D> &target, T const *data,
   auto copy = GPUMemoryManager::CopyBufferToImage(pixelBuffer, target, dimension);
   auto transition = target.Image<D>::Transition(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   std::vector<Command const *> commands{copy, transition};
-  dispatcher.Dispatch(commands);
+  dispatcher.Dispatch([&](CommandRecorder const &recorder) {
+    recorder.RecordCopy(pixelBuffer, target);
+    recorder.RecordTransition(target, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+  });
 
   DestroyBuffer(pixelBuffer);
 }
@@ -320,7 +324,10 @@ inline AllocatedMesh GPUObjectManager::AllocateMesh(MeshT<T_CPU> const &mesh) RE
   memcpy((char *)data + vertexBuffer.PhysicalSize(), mesh.indices.data(), indexBuffer.PhysicalSize());
 
   auto unstage = new UnstageMeshCommand(stagingBuffer, vertexBuffer, indexBuffer);
-  dispatcher.Dispatch(unstage);
+  dispatcher.Dispatch([&stagingBuffer, &vertexBuffer, &indexBuffer](CommandRecorder const &recorder) {
+    recorder.RecordCopy(stagingBuffer, vertexBuffer);
+    recorder.RecordCopy(stagingBuffer, indexBuffer, vertexBuffer.PhysicalSize(), 0, 0);
+  });
   DestroyBuffer(stagingBuffer);
   return AllocatedMesh(new VertexBufferT<T_GPU>(vertexBuffer), indexBuffer, vertexBufferAddress);
 }

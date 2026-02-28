@@ -5,20 +5,18 @@
 #include "Util/Macros.h"
 #include "VulkanUtil.h"
 
-VkCommandBufferSubmitInfo
-Engine::Graphics::CommandQueue::EnqueueCommandSequence(std::span<Command const *> const &commands,
-                                                       VkCommandBufferUsageFlags flags) const {
-  PROFILE_FUNCTION()
+Engine::Graphics::CommandRecorder Engine::Graphics::CommandQueue::GetRecorder(VkCommandBufferUsageFlags flags) const {
   VkCommandBufferBeginInfo beginInfo{.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, .flags = flags};
 
   VULKAN_ASSERT(vkResetCommandBuffer(mainBuffer, 0), "Failed to reset command buffer!")
 
   VULKAN_ASSERT(vkBeginCommandBuffer(mainBuffer, &beginInfo), "Failed to begin command buffer!")
+  return CommandRecorder{mainBuffer};
+}
 
-  for (auto command : commands) {
-    PROFILE_SCOPE("Queueing command") command->QueueExecution(mainBuffer);
-    delete command;
-  }
+VkCommandBufferSubmitInfo
+Engine::Graphics::CommandQueue::EnqueueCommandRecord(Engine::Graphics::CommandRecorder const &commands) const {
+  PROFILE_FUNCTION()
 
   VULKAN_ASSERT(vkEndCommandBuffer(mainBuffer), "Failed to end command buffer!")
 

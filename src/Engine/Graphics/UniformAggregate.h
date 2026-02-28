@@ -21,8 +21,8 @@ public:
     return *this;
   }
 
-  inline void *Data() { return data; }
-  inline size_t Size() { return size; }
+  inline void const *Data() const { return data; }
+  inline size_t Size() const { return size; }
 };
 
 } // namespace Engine::Graphics
