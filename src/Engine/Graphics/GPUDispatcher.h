@@ -7,9 +7,6 @@
 
 namespace Engine::Graphics {
 
-template <typename T_Command>
-concept CommandType = std::is_base_of<Command, T_Command>::value;
-
 class GPUObjectManager;
 class GPUDispatcher {
   InstanceManager const *instanceManager;

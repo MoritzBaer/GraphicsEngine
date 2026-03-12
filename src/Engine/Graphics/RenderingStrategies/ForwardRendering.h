@@ -14,6 +14,7 @@ class ForwardRendering : public RenderingStrategy {
   struct {
     Image2 colourImage;
     Image2 depthImage;
+    VkFence renderFence;
   } renderBuffer;
 
   VkFormat ChooseRenderBufferFormat();

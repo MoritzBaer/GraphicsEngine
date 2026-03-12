@@ -76,8 +76,8 @@ void Game::Init() {
   if (!assetManager.IsRegistered<Core::Entity>()) {
     assetManager.RegisterAssetType<Core::Entity, EntityManager>(&assetManager);
   }
-  if (!assetManager.IsRegistered<Graphics::RenderingStrategies::CompiledEffect>()) {
-    assetManager.RegisterAssetType<Graphics::RenderingStrategies::CompiledEffect>(
+  if (!assetManager.IsRegistered<Graphics::RenderingStrategies::CompiledEffect*>()) {
+    assetManager.RegisterAssetType<Graphics::RenderingStrategies::CompiledEffect*>(
         CompiledEffectLoader(&vulkan->instanceManager, &assetManager), CompiledEffectCache(&vulkan->instanceManager));
   }
   if (!assetManager.IsRegistered<Graphics::RenderingStrategies::ComputeBackground *>()) {

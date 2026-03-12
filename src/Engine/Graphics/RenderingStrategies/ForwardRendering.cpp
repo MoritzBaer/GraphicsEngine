@@ -1,8 +1,11 @@
 #include "ForwardRendering.h"
 
+#include "AssetManager.h"
 #include "Graphics/AllocatedMesh.h"
 #include "Graphics/CommandQueue.h"
 #include "Graphics/UniformAggregate.h"
+#include "Graphics/VulkanUtil.h"
+#include <cstdlib>
 #include <vulkan/vulkan_core.h>
 
 namespace Engine::Graphics::RenderingStrategies {
@@ -42,6 +45,8 @@ void ForwardRendering::CreateRenderBuffer(Maths::Dimension2 const &renderDimensi
                       ChooseRenderBufferFormat(), renderDimension, renderBufferUsage,
                       VK_IMAGE_ASPECT_COLOR_BIT DEBUG_LABEL_VALUE(1, 1, VK_SAMPLE_COUNT_1_BIT, "RENDER_BUFFER")),
                   .depthImage = objectManager->CreateDepthBuffer(renderDimension)};
+  auto fenceInfo = vkinit::FenceCreateInfo();
+  instanceManager->CreateFence(&fenceInfo, &renderBuffer.renderFence);
 }
 
 void ForwardRendering::DestroyRenderBuffer() {
@@ -53,6 +58,9 @@ void ForwardRendering::RecordRenderingCommands(RenderingRequest const &request, 
                                                DescriptorAllocator &descriptorAllocator,
                                                DescriptorWriter &descriptorWriter, Image<2> &renderTarget,
                                                std::optional<Image<2>> &depthTarget, CommandRecorder const &recorder) {
+
+  instanceManager->WaitForFences(&renderBuffer.renderFence);
+  instanceManager->ResetFences(&renderBuffer.renderFence);
 
   backgroundStrategy->RecordRenderingCommands(renderBuffer.colourImage, recorder);
 
@@ -72,6 +80,8 @@ void ForwardRendering::RecordRenderingCommands(RenderingRequest const &request, 
 
   auto const uniformBinding = uniformBufferProvider.GetBinding<DrawData>(uniformData);
 
+  recorder.RecordViewports(vkutil::MakeViewport(renderBuffer.colourImage.GetExtent()));
+  recorder.RecordScissors(vkutil::MakeRect(renderBuffer.colourImage.GetExtent()));
   recorder.RecordRenderPass()
       .WithDrawImage(renderBuffer.colourImage)
       .WithDepthImage(renderBuffer.depthImage)
@@ -91,11 +101,12 @@ void ForwardRendering::RecordRenderingCommands(RenderingRequest const &request, 
           mesh.AppendData(data);
           material.AppendData(data);
 
-          recorder.RecordWithBoundPipeline(
-              material.GetPipeline(), VK_PIPELINE_BIND_POINT_GRAPHICS, [&](DrawCallRecorder const &recorder) {
-                recorder.RecordPushConstantSet(data, VK_SHADER_STAGE_VERTEX_BIT);
-                recorder.RecordMeshDraw(mesh);
-              });
+          recorder.RecordWithBoundPipeline(material.GetPipeline(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                           [&](DrawCallRecorder const &recorder) {
+                                             recorder.RecordDescriptorBind(std::span(descriptors));
+                                             recorder.RecordPushConstantSet(data, VK_SHADER_STAGE_VERTEX_BIT);
+                                             recorder.RecordMeshDraw(mesh);
+                                           });
         }
       });
 

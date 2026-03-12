@@ -2,7 +2,6 @@
 
 #include "Buffer.h"
 #include "DescriptorHandling.h"
-#include "Graphics/Command.h"
 #include "Shader.h"
 #include "UniformAggregate.h"
 #include "Util/DeletionQueue.h"
@@ -27,13 +26,10 @@ class Pipeline {
   std::vector<VkDescriptorSetLayout> descriptorLayouts;
 
 public:
-  Pipeline(VkPipelineLayout layout, std::vector<VkDescriptorSetLayout> descriptorLayouts, VkPipeline pipeline)
+  Pipeline(VkPipelineLayout layout, std::vector<VkDescriptorSetLayout> const &descriptorLayouts, VkPipeline pipeline)
       : pipeline(pipeline), layout(layout), descriptorLayouts(descriptorLayouts) {}
   Pipeline(Pipeline const *other) : Pipeline(other->layout, other->descriptorLayouts, other->pipeline) {}
   Pipeline() = delete;
-  inline void Bind(VkCommandBuffer const &commandBuffer) const {
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-  }
   inline VkPipelineLayout Layout() const { return layout; }
   inline VkDescriptorSet AllocateForLayout(uint8_t set, DescriptorAllocator &descriptorAllocator) const {
     return descriptorAllocator.Allocate(descriptorLayouts[set]);
@@ -51,8 +47,9 @@ public:
   Material(Pipeline const *pipeline) : pipeline(pipeline) {}
   virtual void AppendData(PushConstantsAggregate &aggregate) const = 0;
   virtual std::vector<VkDescriptorSet> WriteDescriptors(DescriptorAllocator &descriptorAllocator,
-                                                      DescriptorWriter &writer, UniformBinding const &uniform) const = 0;
-  Pipeline GetPipeline() const { return pipeline; }
+                                                        DescriptorWriter &writer,
+                                                        UniformBinding const &uniform) const = 0;
+  inline Pipeline const * GetPipeline() const { return pipeline; }
 };
 
 class PipelineBuilder {

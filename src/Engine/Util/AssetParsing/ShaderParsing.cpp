@@ -1,9 +1,9 @@
 #include "ShaderParsing.h"
 
-#include "Graphics/Material.h"
-#include "MaterialParsing.h"
 #include "AssetManager.h"
+#include "Graphics/Material.h"
 #include "Graphics/RenderingStrategies/ComputeBackground.h"
+#include "MaterialParsing.h"
 
 namespace Engine {
 
@@ -20,31 +20,26 @@ template <> std::string ShaderLoader<Graphics::ShaderType::GEOMETRY>::FileExtens
 template <> std::string ShaderLoader<Graphics::ShaderType::FRAGMENT>::FileExtension() const { return ".frag"; }
 template <> std::string ShaderLoader<Graphics::ShaderType::COMPUTE>::FileExtension() const { return ".comp"; }
 
-Graphics::RenderingStrategies::CompiledEffect CompiledEffectLoader::LoadAsset(std::string const &effectName) const {
+Graphics::RenderingStrategies::CompiledEffect *CompiledEffectLoader::LoadAsset(std::string const &effectName) const {
 
   auto effectShader = assetManager->LoadAsset<Graphics::Shader<Graphics::ShaderType::COMPUTE>>(effectName);
   auto pipelineInfoCopy = pipelineInfo;
   pipelineInfoCopy.stage = effectShader.GetStageInfo();
 
-  Graphics::RenderingStrategies::CompiledEffect effect{
-      .pipeline = VK_NULL_HANDLE,
-      .pipelineLayout = computePipelineLayout,
-  };
-  instanceManager->CreateComputePipeline(pipelineInfoCopy, &effect.pipeline);
-  return effect;
+  VkPipeline pl{};
+
+  instanceManager->CreateComputePipeline(pipelineInfoCopy, &pl);
+  return new Graphics::RenderingStrategies::CompiledEffect(computePipelineLayout, pl);
 }
 
-void CompiledEffectDestroyer::DestroyAsset(Graphics::RenderingStrategies::CompiledEffect &asset) const {
-  instanceManager->DestroyPipeline(asset.pipeline);
+void CompiledEffectDestroyer::DestroyAsset(Graphics::RenderingStrategies::CompiledEffect* &asset) const {
+  Graphics::PipelineBuilder::DestroyPipeline(*asset, instanceManager);
 }
 
 Graphics::RenderingStrategies::ComputeBackground *
 ComputeBackgroundConverter::ConvertDSO(ComputeBackgroundDSO const &dso) const {
-  //auto effect = assetManager->LoadAsset<Graphics::Pipeline>(dso.effectName);
-  Graphics::Pipeline *effect;
-  // TODO: Fix
-
-  return new Graphics::RenderingStrategies::ComputeBackground(instanceManager, *effect, dso.data);
+  auto effect = assetManager->LoadAsset<Graphics::RenderingStrategies::CompiledEffect*>(dso.effectName);
+  return new Graphics::RenderingStrategies::ComputeBackground(instanceManager, effect, dso.data);
 }
 
 } // namespace Engine

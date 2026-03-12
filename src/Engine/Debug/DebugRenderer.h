@@ -65,12 +65,6 @@ private:
     GetRenderTarget(Image2 &givenRenderTarget, std::optional<Image2> &givenDepthTarget,
                     CommandRecorder const &previousCommands) override;
 
-    inline std::vector<Command *> GetTargetSwapCommands(Image2 &givenRenderTarget,
-                                                        std::optional<Image2> &givenDepthTarget) {
-      givenDepthTarget.emplace(depthBuffer);
-      return {};
-    }
-
     inline void BeginFrame();
   } bufferExtractor;
 

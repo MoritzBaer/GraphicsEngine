@@ -7,9 +7,8 @@
 
 namespace Engine::Graphics::RenderingStrategies {
 
-struct CompiledEffect {
-  VkPipeline pipeline;
-  VkPipelineLayout pipelineLayout;
+struct CompiledEffect : public Pipeline {
+  CompiledEffect(VkPipelineLayout layout, VkPipeline pipeline):Pipeline(layout, {}, pipeline){}
 };
 
 struct ComputePushConstants {
@@ -21,11 +20,11 @@ class ComputeBackground : public BackgroundStrategy {
   DescriptorAllocator descriptorAllocator;
   DescriptorWriter descriptorWriter;
   VkDescriptorSetLayout descriptorSetLayout;
-  Pipeline effect;
+  CompiledEffect const* effect;
   ComputePushConstants data;
 
 public:
-  ComputeBackground(InstanceManager const *instanceManager, Pipeline const &effect, ComputePushConstants const &data);
+  ComputeBackground(InstanceManager const *instanceManager, CompiledEffect const *effect, ComputePushConstants const &data);
   ComputeBackground() = default;
   void RecordRenderingCommands(Image<2> &renderTarget, CommandRecorder const &recorder) override;
   void Cleanup();

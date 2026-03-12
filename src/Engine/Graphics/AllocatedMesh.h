@@ -3,7 +3,6 @@
 #include "Mesh.h"
 
 #include "Buffer.h"
-#include "Command.h"
 #include "UniformAggregate.h"
 #include "Util/DeletionQueue.h"
 #include <algorithm>

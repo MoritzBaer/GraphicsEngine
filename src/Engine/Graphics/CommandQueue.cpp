@@ -4,6 +4,7 @@
 #include "InstanceManager.h"
 #include "Util/Macros.h"
 #include "VulkanUtil.h"
+#include <cstddef>
 
 Engine::Graphics::CommandRecorder Engine::Graphics::CommandQueue::GetRecorder(VkCommandBufferUsageFlags flags) const {
   VkCommandBufferBeginInfo beginInfo{.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, .flags = flags};
@@ -11,6 +12,7 @@ Engine::Graphics::CommandRecorder Engine::Graphics::CommandQueue::GetRecorder(Vk
   VULKAN_ASSERT(vkResetCommandBuffer(mainBuffer, 0), "Failed to reset command buffer!")
 
   VULKAN_ASSERT(vkBeginCommandBuffer(mainBuffer, &beginInfo), "Failed to begin command buffer!")
+
   return CommandRecorder{mainBuffer};
 }
 

@@ -3,6 +3,7 @@
 #include "Buffer.h"
 #include "Debug/Logging.h"
 #include "GPUObjectManager.h"
+#include "Graphics/CommandQueue.h"
 #include "Graphics/MemoryAllocator.h"
 #include <array>
 #include <stack>
@@ -59,7 +60,9 @@ template <typename T_Uniform> class UniformBufferProducer : public BufferProduce
     if constexpr (STAGING_REQUIRED) {
       stagingBuffer.SetData(data);
       gpuDispatcher->Dispatch(
-          GPUMemoryManager::CopyBufferToBuffer(stagingBuffer, buffer, stagingBuffer.PhysicalSize()));
+        [&](CommandRecorder const & recorder) {
+          recorder.RecordCopy(stagingBuffer, buffer);
+        });
     } else {
       buffer.SetData(data);
     }

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Command.h"
 #include "DescriptorHandling.h"
 #include "InstanceManager.h"
 #include "MemoryAllocator.h"
@@ -72,17 +71,6 @@ public:
   inline void SetData(std::vector<T> const &data) const { SetData(data.data(), data.size()); }
 
   inline UniformBinding BindAsUniform() const { return UniformBinding(buffer, PhysicalSize()); }
-
-  inline void BindAsVertexBuffer(VkCommandBuffer const &commandBuffer) const {
-    VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &buffer, &offset);
-  }
-
-  inline void BindAsIndexBuffer(VkCommandBuffer const &commandBuffer) const
-    requires(std::integral<T>)
-  {
-    vkCmdBindIndexBuffer(commandBuffer, buffer, 0, IndexType<T>::type);
-  }
 };
 
 } // namespace Engine::Graphics

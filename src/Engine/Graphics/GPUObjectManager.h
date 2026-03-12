@@ -1,7 +1,7 @@
 #pragma once
 
 #include "GPUDispatcher.h"
-#include "GPUMemoryManager.h"
+#include "Graphics/CommandQueue.h"
 #include "InstanceManager.h"
 #include "MemoryAllocator.h"
 
@@ -134,21 +134,6 @@ public:
 // | IMPLEMENTATIONS |
 // +-----------------+
 
-template <typename T_GPU> class UnstageMeshCommand : public Command {
-  BufferCopyCommand vertices;
-  BufferCopyCommand indices;
-
-public:
-  UnstageMeshCommand(Buffer<uint8_t> stagingBuffer, Buffer<T_GPU> vertexBuffer, Buffer<uint32_t> indexBuffer)
-      : vertices(GPUMemoryManager::CopyBufferToBuffer(stagingBuffer, vertexBuffer, vertexBuffer.PhysicalSize())),
-        indices(GPUMemoryManager::CopyBufferToBuffer(stagingBuffer, indexBuffer, indexBuffer.PhysicalSize(),
-                                                     vertexBuffer.PhysicalSize())) {}
-  inline void QueueExecution(VkCommandBuffer const &queue) const {
-    vertices.QueueExecution(queue);
-    indices.QueueExecution(queue);
-  }
-};
-
 inline CommandQueue GPUObjectManager::CreateCommandQueue() const {
   VkCommandPoolCreateInfo commandPoolInfo{
       .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -266,9 +251,6 @@ inline void GPUObjectManager::SetPixels(Texture<D> &target, T const *data,
   Buffer<T> pixelBuffer =
       CreateBuffer(data, dimension.Volume(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
-  auto copy = GPUMemoryManager::CopyBufferToImage(pixelBuffer, target, dimension);
-  auto transition = target.Image<D>::Transition(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-  std::vector<Command const *> commands{copy, transition};
   dispatcher.Dispatch([&](CommandRecorder const &recorder) {
     recorder.RecordCopy(pixelBuffer, target);
     recorder.RecordTransition(target, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -323,10 +305,9 @@ inline AllocatedMesh GPUObjectManager::AllocateMesh(MeshT<T_CPU> const &mesh) RE
   memcpy(data, uploadReadyVertices.data(), vertexBuffer.PhysicalSize());
   memcpy((char *)data + vertexBuffer.PhysicalSize(), mesh.indices.data(), indexBuffer.PhysicalSize());
 
-  auto unstage = new UnstageMeshCommand(stagingBuffer, vertexBuffer, indexBuffer);
   dispatcher.Dispatch([&stagingBuffer, &vertexBuffer, &indexBuffer](CommandRecorder const &recorder) {
-    recorder.RecordCopy(stagingBuffer, vertexBuffer);
-    recorder.RecordCopy(stagingBuffer, indexBuffer, vertexBuffer.PhysicalSize(), 0, 0);
+    recorder.RecordCopy(stagingBuffer, vertexBuffer, vertexBuffer.PhysicalSize(), 0, 0);
+    recorder.RecordCopy(stagingBuffer, indexBuffer, indexBuffer.PhysicalSize(), vertexBuffer.PhysicalSize(), 0);
   });
   DestroyBuffer(stagingBuffer);
   return AllocatedMesh(new VertexBufferT<T_GPU>(vertexBuffer), indexBuffer, vertexBufferAddress);

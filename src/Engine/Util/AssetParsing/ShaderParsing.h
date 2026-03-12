@@ -75,7 +75,7 @@ public:
     instanceManager->DestroyPipelineLayout(computePipelineLayout);
   }
 
-  Graphics::RenderingStrategies::CompiledEffect LoadAsset(std::string const &effectName) const;
+  Graphics::RenderingStrategies::CompiledEffect *LoadAsset(std::string const &effectName) const;
 };
 
 class CompiledEffectDestroyer {
@@ -83,12 +83,12 @@ class CompiledEffectDestroyer {
 
 public:
   CompiledEffectDestroyer(Graphics::InstanceManager const *instanceManager) : instanceManager(instanceManager) {}
-  void DestroyAsset(Graphics::RenderingStrategies::CompiledEffect &asset) const;
+  void DestroyAsset(Graphics::RenderingStrategies::CompiledEffect *&asset) const;
 };
 
-using CompiledEffectCache = AssetCacheImpl<Graphics::RenderingStrategies::CompiledEffect, CompiledEffectDestroyer>;
+using CompiledEffectCache = AssetCacheImpl<Graphics::RenderingStrategies::CompiledEffect *, CompiledEffectDestroyer>;
 using CompiledEffectManager =
-    TypeManagerImpl<Graphics::RenderingStrategies::CompiledEffect, CompiledEffectLoader, CompiledEffectCache>;
+    TypeManagerImpl<Graphics::RenderingStrategies::CompiledEffect *, CompiledEffectLoader, CompiledEffectCache>;
 
 struct ComputeBackgroundDSO {
   std::string effectName;

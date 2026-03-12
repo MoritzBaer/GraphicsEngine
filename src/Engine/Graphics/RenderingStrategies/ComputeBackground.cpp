@@ -9,7 +9,7 @@ namespace Engine::Graphics::RenderingStrategies {
 
 std::vector<Graphics::DescriptorAllocator::PoolSizeRatio> ratios{{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1}};
 
-ComputeBackground::ComputeBackground(InstanceManager const *instanceManager, Pipeline const &effect,
+ComputeBackground::ComputeBackground(InstanceManager const *instanceManager, CompiledEffect const *effect,
                                      ComputePushConstants const &data)
     : descriptorAllocator(instanceManager), descriptorWriter(instanceManager), effect(effect), data(data),
       instanceManager(instanceManager) {

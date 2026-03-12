@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Command.h"
 #include "Maths/Dimension.h"
 #include "vulkan/vulkan.h"
 #include <vector>
@@ -153,122 +152,6 @@ inline VkRect2D MakeRect(Maths::Dimension2 const &dimension,
                          Maths::Dimension2 const &offset = Maths::Dimension2::Zero) {
   return {.offset = {.x = static_cast<int32_t>(offset.x()), .y = static_cast<int32_t>(offset.y())},
           .extent = {.width = dimension.x(), .height = dimension.y()}};
-}
-
-// +--------------+
-// |   COMMANDS   |
-// +--------------+
-
-class NoOpCommand : public Engine::Graphics::Command {
-public:
-  void QueueExecution(VkCommandBuffer const &) const {}
-};
-
-class PipelineBarrierCommand : public Engine::Graphics::Command {
-  std::vector<VkImageMemoryBarrier2> imageMemoryBarriers;
-
-public:
-  PipelineBarrierCommand(std::vector<VkImageMemoryBarrier2> const &imageMemoryBarriers);
-  void QueueExecution(VkCommandBuffer const &queue) const;
-};
-
-class ClearColourCommand : public Command {
-  VkImage image;
-  VkImageLayout currentLayout;
-  VkClearColorValue clearColour;
-  std::vector<VkImageSubresourceRange> subresourceRanges;
-
-public:
-  ClearColourCommand(VkImage image, VkImageLayout currentLayout, VkClearColorValue const &clearValue,
-                     std::vector<VkImageSubresourceRange> const &subresourceRanges);
-  void QueueExecution(VkCommandBuffer const &queue) const;
-};
-
-class BlitImageCommand : public Command {
-  std::vector<VkImageBlit2> blitRegions;
-  VkFilter filter;
-  VkImage source, destination;
-
-public:
-  BlitImageCommand(VkImage const &source, VkImage const &destination, std::vector<VkImageBlit2> const &blitRegions,
-                   VkFilter filter)
-      : blitRegions(blitRegions), source(source), destination(destination), filter(filter) {}
-  void QueueExecution(VkCommandBuffer const &queue) const;
-};
-
-class BindPipelineCommand : public Command {
-  VkPipelineBindPoint bindPoint;
-  VkPipeline pipeline;
-
-public:
-  BindPipelineCommand(VkPipeline const &pipeline, VkPipelineBindPoint const &bindPoint)
-      : pipeline(pipeline), bindPoint(bindPoint) {}
-  inline void QueueExecution(VkCommandBuffer const &queue) const { vkCmdBindPipeline(queue, bindPoint, pipeline); }
-};
-
-class BindDescriptorSetsCommand : public Command {
-  VkPipelineBindPoint bindPoint;
-  VkPipelineLayout layout;
-  std::vector<VkDescriptorSet> descriptors;
-
-public:
-  BindDescriptorSetsCommand(VkPipelineBindPoint const &bindPoint, VkPipelineLayout const &layout,
-                            std::vector<VkDescriptorSet> const &descriptors)
-      : bindPoint(bindPoint), layout(layout), descriptors(descriptors) {}
-  BindDescriptorSetsCommand(VkPipelineBindPoint const &bindPoint, VkPipelineLayout const &layout,
-                            VkDescriptorSet const &descriptor)
-      : bindPoint(bindPoint), layout(layout), descriptors{descriptor} {}
-  inline void QueueExecution(VkCommandBuffer const &queue) const {
-    vkCmdBindDescriptorSets(queue, bindPoint, layout, 0, static_cast<uint32_t>(descriptors.size()), descriptors.data(),
-                            0, nullptr);
-  }
-};
-
-class DispatchCommand : public Command {
-  uint32_t gx, gy, gz;
-
-public:
-  DispatchCommand(uint32_t workerGroupsX, uint32_t workerGroupsY, uint32_t workerGroupsZ)
-      : gx(workerGroupsX), gy(workerGroupsY), gz(workerGroupsZ) {}
-  inline void QueueExecution(VkCommandBuffer const &queue) const { vkCmdDispatch(queue, gx, gy, gz); }
-};
-
-template <typename T> class PushConstantsCommand : public Command {
-  T constants;
-  VkPipelineLayout pipelineLayout;
-
-public:
-  PushConstantsCommand(T const &constants, VkPipelineLayout const &pipelineLayout)
-      : constants(constants), pipelineLayout(pipelineLayout) {}
-  void QueueExecution(VkCommandBuffer const &queue) const {
-    vkCmdPushConstants(queue, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(T), &constants);
-  }
-};
-
-inline PipelineBarrierCommand TransitionImageCommand(VkImage image, VkImageLayout currentLayout,
-                                                     VkImageLayout targetLayout, VkImageAspectFlags aspect) {
-  return PipelineBarrierCommand({vkinit::ImageMemoryBarrier(image, currentLayout, targetLayout, aspect)});
-}
-
-inline BlitImageCommand CopyFullImage(VkImage source, VkImage destination, VkExtent3D srcExtent, VkExtent3D dstExtent,
-                                      VkFilter filter) {
-  VkImageBlit2 blitRegion{
-      .sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2,
-      .srcSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1},
-      .srcOffsets =
-          {
-              {0, 0, 0},
-              {static_cast<int32_t>(srcExtent.width), static_cast<int32_t>(srcExtent.height),
-               static_cast<int32_t>(srcExtent.depth)},
-          },
-      .dstSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1},
-      .dstOffsets = {
-          {0, 0, 0},
-          {static_cast<int32_t>(dstExtent.width), static_cast<int32_t>(dstExtent.height),
-           static_cast<int32_t>(dstExtent.depth)},
-      }};
-
-  return BlitImageCommand(source, destination, {blitRegion}, filter);
 }
 
 } // namespace Engine::Graphics::vkutil

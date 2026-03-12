@@ -2,7 +2,7 @@
 
 #include "AssetManager.h"
 #include "Buffer.h"
-#include "Command.h"
+#include "Debug/Logging.h"
 #include "Graphics/AllocatedMesh.h"
 #include "Graphics/Image.h"
 #include "Graphics/Material.h"
@@ -17,7 +17,6 @@
 #include <initializer_list>
 #include <span>
 #include <tuple>
-
 
 namespace Engine::Graphics {
 
@@ -56,7 +55,7 @@ concept DrawCall = requires(DC_T const &dc, DrawCallRecorder const &dcr) {
 class CommandRecorder {
 
   struct RenderPassTarget {
-    std::vector<Image2> drawImages;
+    std::vector<Image2 > drawImages;
     Image2 const *depthImage;
     VkAttachmentLoadOp depthBufferLoadOp;
     Maths::Dimension2 const *extent;
@@ -184,11 +183,12 @@ public:
 };
 
 class MaterialBinder : protected CommandRecorder {
+
   VkPipelineLayout boundLayout;
   VkPipelineBindPoint usedBindpoint;
 
 public:
-  MaterialBinder(VkCommandBuffer buffer, VkPipelineLayout layout, VkPipelineBindPoint bindPoint)
+  MaterialBinder(VkCommandBuffer const & buffer, VkPipelineLayout layout, VkPipelineBindPoint bindPoint)
       : CommandRecorder(buffer), boundLayout(layout), usedBindpoint(bindPoint) {}
 
   using CommandRecorder::RecordBlit;
@@ -212,7 +212,7 @@ public:
 
 class RenderPassRecorder : protected CommandRecorder {
 public:
-  RenderPassRecorder(VkCommandBuffer buffer) : CommandRecorder(buffer) {}
+  RenderPassRecorder(VkCommandBuffer const &buffer) : CommandRecorder(buffer) {}
 
   using CommandRecorder::RecordBlit;
   using CommandRecorder::RecordColorImageClear;
@@ -226,13 +226,22 @@ public:
                                DrawCall auto const &drawCall) const;
 };
 
-class DrawCallRecorder : protected RenderPassRecorder, public MaterialBinder {
+class DrawCallRecorder : protected RenderPassRecorder, protected MaterialBinder {
+
 public:
-  DrawCallRecorder(VkCommandBuffer buffer, VkPipelineLayout layout, VkPipelineBindPoint bindPoint)
+  DrawCallRecorder(VkCommandBuffer const & buffer, VkPipelineLayout layout, VkPipelineBindPoint bindPoint)
       : RenderPassRecorder(buffer), MaterialBinder(buffer, layout, bindPoint) {}
 
   using RenderPassRecorder::RecordScissors;
   using RenderPassRecorder::RecordViewports;
+  using RenderPassRecorder::RecordBlit;
+  using RenderPassRecorder::RecordColorImageClear;
+  using RenderPassRecorder::RecordCopy;
+  using RenderPassRecorder::RecordPipelineBarrier;
+  using RenderPassRecorder::RecordTransition;
+  using MaterialBinder::RecordPushConstantSet;
+  using MaterialBinder::RecordDescriptorBind;
+  using MaterialBinder::RecordDispatch;
 
   template <std::integral T>
   void RecordIndexedDraw(Buffer<T> const &indexBuffer, uint32_t indexCount, uint32_t instanceCount = 1,
@@ -299,19 +308,6 @@ public:
     auto const rec = GetRecorder(flags);
     commands(rec);
     return EnqueueCommandRecord(rec);
-  }
-};
-
-class CompositeCommand : public Command {
-  std::span<Command const *> commands;
-
-public:
-  CompositeCommand(std::span<Command const *> const &commands) : commands(commands) {}
-  void QueueExecution(VkCommandBuffer const &queue) const {
-    for (Command const *command : commands) {
-      command->QueueExecution(queue);
-      delete command;
-    }
   }
 };
 
