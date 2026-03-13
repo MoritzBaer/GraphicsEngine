@@ -6,6 +6,7 @@
 #include "Graphics/UniformBinder.h"
 #include <optional>
 #include <vector>
+#include "Graphics/RenderBufferPool.h"
 
 namespace Engine::Graphics {
 

@@ -4,7 +4,7 @@
 
 #include "signal.h"
 
-#define __FILE_NAME_LOG__ (__FILE__ + SOURCE_PATH_SIZE)
+#define __FILE_NAME_LOG__ (&__FILE__[SOURCE_PATH_SIZE])
 
 #if defined(__debugbreak) 
 #define __ENGINE_BREAKPOINT __debugbreak()
