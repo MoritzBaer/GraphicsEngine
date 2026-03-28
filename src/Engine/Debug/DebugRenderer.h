@@ -3,9 +3,12 @@
 #include "AssetManager.h"
 #include "Graphics/BufferedRenderer.h"
 #include "Graphics/CommandQueue.h"
+#include "Graphics/Material.h"
+#include "Graphics/RenderingStrategy.h"
 #include "Maths/Matrix.h"
 #include <optional>
 #include <span>
+#include <vector>
 #include <vulkan/vulkan_core.h>
 
 namespace Engine::Graphics {
@@ -40,34 +43,6 @@ public:
   };
 
 private:
-  class DepthBufferReadingMaterial;
-
-  class DepthBufferExtractor : public RenderTargetProvider {
-    std::vector<DepthBufferReadingMaterial *> materials;
-    Image2 emptyDepthBuffer; // Needed in case the wrapped strategy does not produce a depth buffer
-    inline static constexpr const float one = 1;
-    Image2 depthBuffer;
-    std::vector<Texture2D> textureDump;
-    std::vector<Image2> depthBufferDump;
-    bool doExtract = true;
-
-  public:
-    DepthBufferExtractor(GPUObjectManager RELEASE_CONST *gpuObjectManager)
-        : RenderTargetProvider(gpuObjectManager), materials(), depthBuffer(), depthBufferDump(), textureDump(),
-          emptyDepthBuffer(gpuObjectManager->CreateTexture(Dimension2(1, 1), &one, VK_FILTER_NEAREST, VK_FILTER_NEAREST,
-                                                           VK_FORMAT_D32_SFLOAT, false, VK_SAMPLE_COUNT_1_BIT,
-                                                           VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-                                                           VK_IMAGE_ASPECT_DEPTH_BIT)) {}
-
-    inline void AddMaterial(DepthBufferReadingMaterial *material) { materials.push_back(material); }
-
-    inline std::tuple<Image2, Image2, VkAttachmentLoadOp>
-    GetRenderTarget(Image2 &givenRenderTarget, std::optional<Image2> &givenDepthTarget,
-                    CommandRecorder const &previousCommands) override;
-
-    inline void BeginFrame();
-  } bufferExtractor;
-
   class DepthBufferReadingMaterial : public Material {
     Texture2D mainPassDepthBuffer;
     friend class DepthBufferExtractor;
@@ -77,8 +52,8 @@ private:
 
     inline void AppendData(PushConstantsAggregate &aggregate) const override {}
     inline std::vector<VkDescriptorSet> WriteDescriptors(DescriptorAllocator &descriptorAllocator,
-                                                       DescriptorWriter &writer,
-                                                       UniformBinding const &uniform) const override {
+                                                         DescriptorWriter &writer,
+                                                         UniformBinding const &uniform) const override {
       std::vector<VkDescriptorSet> descriptorSets{};
       descriptorSets.push_back(pipeline->AllocateForLayout(0, descriptorAllocator));
       uniform.WriteToDescriptorSet(writer, descriptorSets.back(), 0);
@@ -91,10 +66,11 @@ private:
   BufferedRenderer<DebugPoint, Uniform> pointRenderer;
   BufferedRenderer<DebugLine, Uniform> lineRenderer;
 
+  std::vector<DepthBufferReadingMaterial *> materials;
+
 public:
   DebugRenderer(GPUObjectManager RELEASE_CONST *gpuObjectManager, InstanceManager const *instanceManager)
-      : bufferExtractor(gpuObjectManager), pointRenderer(instanceManager, gpuObjectManager, &bufferExtractor),
-        lineRenderer(instanceManager, gpuObjectManager, &bufferExtractor) {}
+      : pointRenderer(instanceManager, gpuObjectManager), lineRenderer(instanceManager, gpuObjectManager) {}
 
   void AddPoint(Maths::Vector3 position, Maths::Vector3 color) { pointRenderer.AddToBuffer({position, color}); }
   void AddLine(Maths::Vector3 start, Maths::Vector3 end, Maths::Vector3 color) {
@@ -102,11 +78,6 @@ public:
   }
 
   inline void BeginFrame() {
-    Clear();
-    bufferExtractor.BeginFrame();
-  }
-
-  inline void Clear() {
     pointRenderer.ClearBuffer();
     lineRenderer.ClearBuffer();
   }
@@ -115,9 +86,9 @@ public:
     auto pointMat = new DepthBufferReadingMaterial(assetManager.LoadAsset<Pipeline *>("debug_points"));
     auto lineMat = new DepthBufferReadingMaterial(assetManager.LoadAsset<Pipeline *>("debug_lines"));
     pointRenderer.SetMaterial(pointMat);
+    materials.push_back(pointMat);
     lineRenderer.SetMaterial(lineMat);
-    bufferExtractor.AddMaterial(pointMat);
-    bufferExtractor.AddMaterial(lineMat);
+    materials.push_back(lineMat);
   }
 
   Graphics::RenderingStrategy *Wrap(Graphics::RenderingStrategy *strategy) {
@@ -125,52 +96,28 @@ public:
   }
 };
 
-inline void DebugRenderer::DepthBufferExtractor::BeginFrame() {
-  doExtract = true;
-  for (auto const &texture : textureDump) {
-    gpuObjectManager->DestroyTexture(texture);
-  }
-  textureDump.clear();
-  for (auto const &db : depthBufferDump) {
-    gpuObjectManager->DestroyImage(db);
-  }
-  depthBufferDump.clear();
-  doExtract = true;
-}
+// TODO: Get texture from depth image if present, otherwise pass single-pixel white
+class DepthBufferExtractor : public RenderingStrategy {
+  RenderingStrategy *mainStrategy;
+  std::vector<Material *> depthMaterials;
 
-inline std::tuple<Image2, Image2, VkAttachmentLoadOp>
-DebugRenderer::DepthBufferExtractor::GetRenderTarget(Image2 &givenRenderTarget, std::optional<Image2> &givenDepthTarget,
-                                                     CommandRecorder const &recorder) {
-  if (!doExtract || materials.empty()) {
-    return RenderTargetProvider::GetRenderTarget(givenRenderTarget, givenDepthTarget, recorder);
-  }
+public:
+  inline void RecordRenderingCommands(RenderingRequest const &request, UniformBinder &uniformBufferProvider,
+                                      DescriptorAllocator &descriptorAllocator, DescriptorWriter &descriptorWriter,
+                                      RenderBuffer renderBuffer, CommandRecorder const &recorder) override {
+    mainStrategy->RecordRenderingCommands(request, uniformBufferProvider, descriptorAllocator, descriptorWriter,
+                                          renderBuffer, recorder);
 
-  doExtract = false;
+    if (renderBuffer.DepthBufferInUse()) {
 
-  Image2 *depthSource = givenDepthTarget ? &givenDepthTarget.value() : &emptyDepthBuffer;
-
-  if (depthBuffer.GetExtent() != depthSource->GetExtent()) {
-    depthBufferDump.push_back(depthBuffer);
-    depthBuffer = gpuObjectManager->CreateDepthBuffer(depthSource->GetExtent());
-  }
-
-  recorder.RecordTransition(*depthSource, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-  for (auto &material : materials) {
-    if (material->mainPassDepthBuffer.GetExtent() != depthSource->GetExtent()) {
-      // Create new texture of fitting dimension
-      textureDump.push_back(material->mainPassDepthBuffer);
-      material->mainPassDepthBuffer = gpuObjectManager->CreateTexture(
-          depthSource->GetExtent(), VK_FILTER_NEAREST, VK_FILTER_NEAREST, VK_FORMAT_D32_SFLOAT, false,
-          VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-          VK_IMAGE_ASPECT_DEPTH_BIT);
+      recorder.RecordTransition(renderBuffer.depthImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+      for (auto &material : depthMaterials) {
+        // Set depth texture for material
+      }
     }
-    recorder.RecordTransition(material->mainPassDepthBuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    recorder.RecordBlit(*depthSource, material->mainPassDepthBuffer, VK_FILTER_NEAREST);
-    recorder.RecordTransition(material->mainPassDepthBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   }
-  recorder.RecordTransition(*depthSource, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
-  return {givenRenderTarget, depthBuffer, VK_ATTACHMENT_LOAD_OP_CLEAR};
-}
+  DepthBufferExtractor(RenderingStrategy *mainStrategy) : mainStrategy(mainStrategy) {}
+};
 
 } // namespace Engine::Debug

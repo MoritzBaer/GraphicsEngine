@@ -51,6 +51,7 @@ public:
   inline virtual VkDescriptorImageInfo BindInDescriptor(VkImageLayout layout) const;
 
   inline Maths::Dimension<Dimension> const &GetExtent() const { return imageDimension; }
+  inline VkFormat const &GetFormat() const { return imageFormat; }
 };
 
 using Image1 = Image<1>;

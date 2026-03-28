@@ -30,7 +30,9 @@ void Renderer::DrawFrame(RenderingRequest const &request) {
     instanceManager->ResetFences(&frameResources.renderFence);
   }
 
-  auto renderTargetOption = renderResourceProvider->GetRenderTarget();
+  CommandRecorder commands = frameResources.commandQueue.GetRecorder();
+
+  auto renderTargetOption = renderResourceProvider->GetRenderTarget(commands);
 
   if (!renderTargetOption) {
     return;
@@ -40,15 +42,11 @@ void Renderer::DrawFrame(RenderingRequest const &request) {
 
   {
     PROFILE_SCOPE("Generate commands")
-  
-    CommandRecorder commands = frameResources.commandQueue.GetRecorder();
 
     renderResourceProvider->PrepareTargetForRendering(commands);
-
-    std::optional<Image2> depthResult {};
-    renderingStrategy->RecordRenderingCommands(
-        request, frameResources.uniformBinder, frameResources.descriptorAllocator, frameResources.descriptorWriter,
-        renderTarget.target, depthResult, commands);
+    renderingStrategy->RecordRenderingCommands(request, frameResources.uniformBinder,
+                                               frameResources.descriptorAllocator, frameResources.descriptorWriter,
+                                               renderTarget.renderBuffer, commands);
 
     renderResourceProvider->PrepareTargetForDisplaying(commands);
 
@@ -72,7 +70,7 @@ void Renderer::DrawFrame(RenderingRequest const &request) {
 
   VULKAN_ASSERT(vkQueueSubmit2(graphicsQueue, 1, &submitInfo, frameResources.renderFence), "Failed to submit queue")
 
-  renderResourceProvider->DisplayRenderTarget();
+  renderResourceProvider->DisplayRenderTarget(commands);
 }
 
 } // namespace Engine::Graphics

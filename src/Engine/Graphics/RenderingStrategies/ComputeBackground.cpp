@@ -1,6 +1,7 @@
 #include "ComputeBackground.h"
 
 #include "Graphics/CommandQueue.h"
+#include "Graphics/Image.h"
 #include "Graphics/VulkanUtil.h"
 #include <initializer_list>
 #include <vulkan/vulkan_core.h>
@@ -20,21 +21,29 @@ ComputeBackground::ComputeBackground(InstanceManager const *instanceManager, Com
   descriptorSetLayout = descriptorLayoutBuilder.Build(VK_SHADER_STAGE_COMPUTE_BIT);
 }
 
-void ComputeBackground::RecordRenderingCommands(Image<2> &renderTarget, CommandRecorder const &recorder) {
+void ComputeBackground::RecordRenderingCommands(RenderBuffer renderBuffer, CommandRecorder const &recorder) {
+
+  auto &backgroundTarget = renderBuffer.GetAuxiliaryBuffer(
+      renderBuffer.colourImage.GetExtent(), renderBuffer.colourImage->GetFormat(),
+      VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
 
   auto const targetDescriptor = descriptorAllocator.Allocate(descriptorSetLayout);
 
-  descriptorWriter.WriteImage(0, renderTarget, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+  descriptorWriter.WriteImage(0, backgroundTarget, VK_IMAGE_LAYOUT_GENERAL, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
   descriptorWriter.UpdateSet(targetDescriptor);
   descriptorWriter.Clear();
 
+  recorder.RecordTransition(backgroundTarget, VK_IMAGE_LAYOUT_GENERAL);
   recorder.RecordWithBoundPipeline(effect, VK_PIPELINE_BIND_POINT_COMPUTE, [&](MaterialBinder const &binder) {
     binder.RecordDescriptorBind(targetDescriptor);
     binder.RecordPushConstantSet(data, VK_SHADER_STAGE_COMPUTE_BIT);
-    binder.RecordDispatch(std::ceil(renderTarget.GetExtent().x() / 16u), std::ceil(renderTarget.GetExtent().y() / 16u));
+    binder.RecordDispatch(std::ceil(backgroundTarget.GetExtent().x() / 16u),
+                          std::ceil(backgroundTarget.GetExtent().y() / 16u));
   });
 
-  recorder.RecordTransition(renderTarget, VK_IMAGE_LAYOUT_GENERAL);
+  recorder.RecordTransition(backgroundTarget, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+  recorder.RecordTransition(renderBuffer.colourImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+  recorder.RecordBlit(backgroundTarget, renderBuffer.colourImage, VK_FILTER_LINEAR);
 }
 
 void ComputeBackground::Cleanup() {

@@ -3,8 +3,10 @@
 #include "AssetManager.h"
 #include "Graphics/AllocatedMesh.h"
 #include "Graphics/CommandQueue.h"
+#include "Graphics/RenderBufferPool.h"
 #include "Graphics/UniformAggregate.h"
 #include "Graphics/VulkanUtil.h"
+#include "Maths/Dimension.h"
 #include <cstdlib>
 #include <vulkan/vulkan_core.h>
 
@@ -40,29 +42,14 @@ VkFormat ForwardRendering::ChooseRenderBufferFormat() {
   return VK_FORMAT_UNDEFINED;
 }
 
-void ForwardRendering::CreateRenderBuffer(Maths::Dimension2 const &renderDimension) {
-  renderBuffer = {.colourImage = objectManager->AllocateImage(
-                      ChooseRenderBufferFormat(), renderDimension, renderBufferUsage,
-                      VK_IMAGE_ASPECT_COLOR_BIT DEBUG_LABEL_VALUE(1, 1, VK_SAMPLE_COUNT_1_BIT, "RENDER_BUFFER")),
-                  .depthImage = objectManager->CreateDepthBuffer(renderDimension)};
-  auto fenceInfo = vkinit::FenceCreateInfo();
-  instanceManager->CreateFence(&fenceInfo, &renderBuffer.renderFence);
-}
-
-void ForwardRendering::DestroyRenderBuffer() {
-  objectManager->DestroyImage(renderBuffer.colourImage);
-  objectManager->DestroyImage(renderBuffer.depthImage);
-}
-
 void ForwardRendering::RecordRenderingCommands(RenderingRequest const &request, UniformBinder &uniformBufferProvider,
                                                DescriptorAllocator &descriptorAllocator,
-                                               DescriptorWriter &descriptorWriter, Image<2> &renderTarget,
-                                               std::optional<Image<2>> &depthTarget, CommandRecorder const &recorder) {
+                                               DescriptorWriter &descriptorWriter, RenderBuffer renderBuffer,
+                                               CommandRecorder const &recorder) {
+                                                renderBuffer.SetResolution(Maths::Dimension2(1600,900));
+                                                renderBuffer.SetFormat(VK_FORMAT_R16G16B16A16_SFLOAT);
 
-  instanceManager->WaitForFences(&renderBuffer.renderFence);
-  instanceManager->ResetFences(&renderBuffer.renderFence);
-
-  backgroundStrategy->RecordRenderingCommands(renderBuffer.colourImage, recorder);
+  backgroundStrategy->RecordRenderingCommands(renderBuffer, recorder);
 
   recorder.RecordTransition(renderBuffer.colourImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
   recorder.RecordTransition(renderBuffer.depthImage, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
@@ -109,20 +96,6 @@ void ForwardRendering::RecordRenderingCommands(RenderingRequest const &request, 
                                            });
         }
       });
-
-  // Commands for copying render to target
-  recorder.RecordTransition(renderBuffer.colourImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-  recorder.RecordTransition(renderTarget, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-  recorder.RecordBlit(renderBuffer.colourImage, renderTarget, VK_FILTER_LINEAR);
-
-  // Commands for optionally copying depth to target
-  if (depthTarget) {
-    recorder.RecordTransition(renderBuffer.depthImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-    recorder.RecordTransition(depthTarget.value(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    recorder.RecordBlit(renderBuffer.depthImage, depthTarget.value(), VK_FILTER_NEAREST);
-  } else {
-    depthTarget.emplace(renderBuffer.depthImage);
-  }
 }
 
 } // namespace Engine::Graphics::RenderingStrategies

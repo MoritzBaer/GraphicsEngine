@@ -26,7 +26,7 @@ class ComputeBackground : public BackgroundStrategy {
 public:
   ComputeBackground(InstanceManager const *instanceManager, CompiledEffect const *effect, ComputePushConstants const &data);
   ComputeBackground() = default;
-  void RecordRenderingCommands(Image<2> &renderTarget, CommandRecorder const &recorder) override;
+  void RecordRenderingCommands(RenderBuffer renderBuffer, CommandRecorder const &recorder) override;
   void Cleanup();
 };
 

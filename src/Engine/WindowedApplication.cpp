@@ -3,6 +3,7 @@
 #include "AssetManager.h"
 #include "Debug/Profiling.h"
 #include "Graphics/CommandQueue.h"
+#include "Graphics/RenderBufferPool.h"
 #include <iterator>
 #include <optional>
 #include <vulkan/vulkan_core.h>
@@ -66,6 +67,7 @@ void SwapChainProvider::CreateSwapchain() {
   std::vector<VkImage> scImgs;
   instanceManager->GetSwapchainImages(swapchain, scImgs);
   swapchainImages.resize(scImgs.size());
+  swapchainBufferPools.resize(scImgs.size());
   presentSemaphores.resize(scImgs.size());
 
   VkSemaphoreCreateInfo semaphoreInfo = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
@@ -74,6 +76,7 @@ void SwapChainProvider::CreateSwapchain() {
   for (int i = 0; i < swapchainImages.size(); i++) {
     swapchainImages[i] = gpuObjectManager->CreateImage(scImgs[i], windowDimension, surfaceFormat.format,
                                                        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_ASPECT_COLOR_BIT);
+    swapchainBufferPools[i] = std::move(RenderBufferPool(gpuObjectManager, swapchainImages[i]));
     instanceManager->CreateSemaphore(&semaphoreInfo, &presentSemaphores[i]);
   }
 }
@@ -96,7 +99,7 @@ RenderResourceProvider::FrameResources SwapChainProvider::GetFrameResources() {
   return frameResources[resourceIndex];
 }
 
-std::optional<SwapChainProvider::RenderTarget> SwapChainProvider::GetRenderTarget() {
+std::optional<SwapChainProvider::RenderTarget> SwapChainProvider::GetRenderTarget(CommandRecorder const &recorder) {
   frameResources[resourceIndex].descriptorAllocator.ClearDescriptors();
 
   VkResult swapchainImageAcqusitionResult;
@@ -107,11 +110,14 @@ std::optional<SwapChainProvider::RenderTarget> SwapChainProvider::GetRenderTarge
     RecreateSwapchain();
     return {};
   }
-  return {{.presentSemaphore = {presentSemaphores[swapchainImageIndex]}, //
-           .target = swapchainImages[swapchainImageIndex]}};
+
+  swapchainBufferPools[swapchainImageIndex].PrepareFrame();
+
+  return std::move(std::make_optional(RenderTarget{.presentSemaphore = {presentSemaphores[swapchainImageIndex]},
+                                                   .renderBuffer = std::move(swapchainBufferPools[swapchainImageIndex].GetRenderBuffer(recorder))}));
 }
 
-void SwapChainProvider::DisplayRenderTarget() {
+void SwapChainProvider::DisplayRenderTarget(CommandRecorder const &recorder) {
 
   VkPresentInfoKHR presentInfo{.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
                                .waitSemaphoreCount = 1,
@@ -125,8 +131,8 @@ void SwapChainProvider::DisplayRenderTarget() {
   currentFrame++;
 }
 
-void SwapChainProvider::PrepareTargetForDisplaying(CommandRecorder const & recorder) {
-  recorder.RecordTransition(swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+void SwapChainProvider::PrepareTargetForDisplaying(CommandRecorder const &recorder) {
+  recorder.RecordTransition(swapchainBufferPools[swapchainImageIndex].ColourImage(0), VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 }
 
 SwapChainProvider::SwapChainProvider(InstanceManager const *instanceManager,

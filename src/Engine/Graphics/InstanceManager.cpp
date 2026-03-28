@@ -14,6 +14,7 @@
 #include "WindowManager.h"
 
 #include "Debug/Profiling.h"
+#include <csignal>
 
 namespace Engine::Graphics {
 
@@ -35,6 +36,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityF
   case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
     validationLogger.PrintError<'|'>(pCallbackData->pMessage);
     __ENGINE_BREAKPOINT
+    std::raise(SIGTRAP);
     break;
   case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
     validationLogger.PrintWarning<'|'>(pCallbackData->pMessage);

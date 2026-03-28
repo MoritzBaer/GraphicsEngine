@@ -2,42 +2,39 @@
 #ifndef _LOGGING_MACROS_INCLUDED
 #define _LOGGING_MACROS_INCLUDED
 
-#include "signal.h"
 
 #define __FILE_NAME_LOG__ (&__FILE__[SOURCE_PATH_SIZE])
 
-#if defined(__debugbreak) 
-#define __ENGINE_BREAKPOINT __debugbreak()
-#elif defined(raise)
-#ifdef defined(SIGTRAP)
-#define __ENGINE_BREAKPOINT raise(SIGTRAP)
-#else 
-#define __ENGINE_BREAKPOINT raise(SIGABRT)
+#if defined(__debugbreak)
+#define __ENGINE_BREAKPOINT __debugbreak();
+#else
+#include <csignal>
+#ifdef SIGTRAP
+#define __ENGINE_BREAKPOINT std::raise(SIGTRAP);
+#else
+#define __ENGINE_BREAKPOINT std::raise(SIGABRT);
 #endif
-#else 
-#define __ENGINE_BREAKPOINT
-#endif 
+#endif
 
 inline Engine::Debug::Logging::Logger engineLogger = Engine::Debug::Logging::Logger("Engine");
 
 #define ENGINE_MESSAGE(format, ...)                                                                                    \
   {                                                                                                                    \
-    engineLogger.PrintMessage(format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME_LOG__, __LINE__);                \
+    engineLogger.PrintMessage(format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME_LOG__, __LINE__);            \
   }
 #define ENGINE_WARNING(format, ...)                                                                                    \
   {                                                                                                                    \
-    engineLogger.PrintWarning(format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME_LOG__, __LINE__);                \
+    engineLogger.PrintWarning(format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME_LOG__, __LINE__);            \
   }
 #define ENGINE_SUCCESS(format, ...)                                                                                    \
   {                                                                                                                    \
-    engineLogger.PrintSuccess(format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME_LOG__, __LINE__);                \
+    engineLogger.PrintSuccess(format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME_LOG__, __LINE__);            \
   }
 #define ENGINE_ERROR(format, ...)                                                                                      \
   {                                                                                                                    \
-    engineLogger.PrintError(format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME_LOG__, __LINE__);                  \
-    __ENGINE_BREAKPOINT;                                                                                                    \
+    engineLogger.PrintError(format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME_LOG__, __LINE__);              \
+    __ENGINE_BREAKPOINT;                                                                                               \
   }
-
 
 #define ENGINE_ASSERT(condition, format, ...)                                                                          \
   if (!(condition)) {                                                                                                  \

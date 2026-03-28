@@ -5,6 +5,7 @@
 #include "Game.h"
 #include "Graphics/CommandQueue.h"
 #include "Graphics/DescriptorHandling.h"
+#include "Graphics/RenderBufferPool.h"
 #include "Graphics/RenderResourceProvider.h"
 #include "WindowManager.h"
 
@@ -24,6 +25,7 @@ private:
   VkFormat swapchainFormat;
   VkExtent2D swapchainExtent;
   std::vector<Image2> swapchainImages;
+  std::vector<RenderBufferPool> swapchainBufferPools;
   std::vector<VkSemaphore> presentSemaphores;
   std::array<FrameResources, MAX_FRAME_OVERLAP> frameResources;
   uint32_t currentFrame = 0;
@@ -37,8 +39,8 @@ private:
   void DestroySwapchain();
 
   FrameResources GetFrameResources() override;
-  std::optional<RenderTarget> GetRenderTarget() override;
-  void DisplayRenderTarget() override;
+  std::optional<RenderTarget> GetRenderTarget(CommandRecorder const & recorder) override;
+  void DisplayRenderTarget(CommandRecorder const & recorder) override;
   void PrepareTargetForRendering(CommandRecorder const &recorder) override {}
   void PrepareTargetForDisplaying(CommandRecorder const &recorder) override;
 

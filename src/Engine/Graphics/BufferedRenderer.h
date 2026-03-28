@@ -2,6 +2,7 @@
 
 #include "GPUObjectManager.h"
 #include "Graphics/CommandQueue.h"
+#include "Graphics/RenderBufferPool.h"
 #include "Graphics/VulkanUtil.h"
 #include "MemoryAllocator.h"
 #include "RenderingStrategy.h"
@@ -13,42 +14,6 @@ template <typename T_Object> struct RenderObjectBuffer {
   Material *material;
 
   RenderObjectBuffer(Material *material) : material(material) {}
-};
-
-class RenderTargetProvider {
-  Image2 depthBuffer;
-  std::vector<Image2> discardedDepthBuffers;
-
-protected:
-  GPUObjectManager RELEASE_CONST *gpuObjectManager;
-
-public:
-  RenderTargetProvider(GPUObjectManager RELEASE_CONST *gpuObjectManager)
-      : depthBuffer(), discardedDepthBuffers(), gpuObjectManager(gpuObjectManager) {}
-  virtual std::tuple<Image2, Image2, VkAttachmentLoadOp>
-  GetRenderTarget(Image2 &givenRenderTarget, std::optional<Image2> &givenDepthTarget, CommandRecorder const &commands) {
-    if (givenDepthTarget) {
-      return {givenRenderTarget, *givenDepthTarget, VK_ATTACHMENT_LOAD_OP_LOAD};
-    }
-
-    for (auto const &discardedBuffer : discardedDepthBuffers) {
-      gpuObjectManager->DestroyImage(discardedBuffer);
-    }
-    discardedDepthBuffers.clear();
-
-    if (depthBuffer.GetExtent() != givenRenderTarget.GetExtent()) {
-      discardedDepthBuffers.push_back(depthBuffer);
-      depthBuffer = gpuObjectManager->CreateDepthBuffer(Maths::Dimension2(1600, 900));
-    }
-
-    return {givenRenderTarget, depthBuffer, VK_ATTACHMENT_LOAD_OP_CLEAR};
-  }
-
-  virtual void GetTargetSwapCommands(Image2 &givenRenderTarget, std::optional<Image2> &givenDepthTarget,
-                                     CommandRecorder const &recorder) {
-    if (!givenDepthTarget)
-      givenDepthTarget.emplace(depthBuffer);
-  }
 };
 
 template <typename T_Object, typename T_Uniform> class BufferedRenderer {
@@ -68,43 +33,32 @@ template <typename T_Object, typename T_Uniform> class BufferedRenderer {
     GPUDispatcher gpuDispatcher;
     RenderingStrategy *wrappedStrategy;
 
-    RenderTargetProvider *renderTargetProvider;
-
     T_Uniform ExtractUniformData(RenderingRequest const &request) const;
 
   public:
     BufferedStrategy(InstanceManager const *instanceManager, GPUObjectManager RELEASE_CONST *gpuObjectManager,
-                     RenderingStrategy *subStrategy, RenderObjectBuffer<T_Object> &buffer,
-                     RenderTargetProvider *renderTargetProvider)
+                     RenderingStrategy *subStrategy, RenderObjectBuffer<T_Object> &buffer)
         : buffer(buffer), gpuObjectManager(gpuObjectManager), wrappedStrategy(subStrategy),
-          gpuDispatcher(instanceManager, gpuObjectManager->CreateCommandQueue()),
-          renderTargetProvider(renderTargetProvider) {}
+          gpuDispatcher(instanceManager, gpuObjectManager->CreateCommandQueue()) {}
 
     void RecordRenderingCommands(RenderingRequest const &request, UniformBinder &uniformBufferProvider,
                                  DescriptorAllocator &descriptorAllocator, DescriptorWriter &descriptorWriter,
-                                 Image<2> &renderTarget, std::optional<Image<2>> &depthTarget,
-                                 CommandRecorder const &recorder) override;
+                                 RenderBuffer renderTarget, CommandRecorder const &recorder) override;
   };
-
-  RenderTargetProvider *renderTargetProvider;
 
 public:
   BufferedRenderer(InstanceManager const *instanceManager, GPUObjectManager RELEASE_CONST *gpuObjectManager,
-                   RenderTargetProvider *renderTargetProvider = nullptr, Material *material = nullptr)
-      : instanceManager(instanceManager), gpuObjectManager(gpuObjectManager), renderObjectBuffer(material),
-        renderTargetProvider(renderTargetProvider) {
+                   Material *material = nullptr)
+      : instanceManager(instanceManager), gpuObjectManager(gpuObjectManager), renderObjectBuffer(material) {
     renderObjectBuffer.gpuBuffer = gpuObjectManager->CreateBuffer<T_Object>(
         INITIAL_BUFFER_SIZE, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         VMA_MEMORY_USAGE_GPU_ONLY);
-    if (!renderTargetProvider)
-      this->renderTargetProvider = new RenderTargetProvider(gpuObjectManager);
   }
 
   void SetMaterial(Material *material) { renderObjectBuffer.material = material; }
 
   RenderingStrategy *WrapWithBufferedStrategy(RenderingStrategy *subStrategy) {
-    return new BufferedStrategy(instanceManager, gpuObjectManager, subStrategy, renderObjectBuffer,
-                                renderTargetProvider);
+    return new BufferedStrategy(instanceManager, gpuObjectManager, subStrategy, renderObjectBuffer);
   }
 
   void AddToBuffer(T_Object const &object) { renderObjectBuffer.objects.push_back(object); }
@@ -119,12 +73,11 @@ public:
 template <typename T_Object, typename T_Uniform>
 void BufferedRenderer<T_Object, T_Uniform>::BufferedStrategy::RecordRenderingCommands(
     RenderingRequest const &request, UniformBinder &uniformBufferProvider, DescriptorAllocator &descriptorAllocator,
-    DescriptorWriter &descriptorWriter, Image<2> &renderTarget, std::optional<Image<2>> &depthTarget,
-    CommandRecorder const &recorder) {
+    DescriptorWriter &descriptorWriter, RenderBuffer renderTarget, CommandRecorder const &recorder) {
 
   // Execute wrapped strategy
   wrappedStrategy->RecordRenderingCommands(request, uniformBufferProvider, descriptorAllocator, descriptorWriter,
-                                           renderTarget, depthTarget, recorder);
+                                           renderTarget, recorder);
 
   // Cleanup buffers used in previous frames
   if (!bufferDump.empty()) {
@@ -152,15 +105,13 @@ void BufferedRenderer<T_Object, T_Uniform>::BufferedStrategy::RecordRenderingCom
 
     auto uniformBinding = uniformBufferProvider.GetBinding(ExtractUniformData(request));
 
-    // Get render targets to use for buffered rendering call
-    auto [usedRenderTarget, usedDepthTarget, usedLoadOp] =
-        renderTargetProvider->GetRenderTarget(renderTarget, depthTarget, recorder);
+    auto const usedLoadOp = renderTarget.DepthBufferInUse() ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_CLEAR;
 
-    recorder.RecordViewports(vkutil::MakeViewport(usedRenderTarget.GetExtent()));
-    recorder.RecordScissors(vkutil::MakeRect(usedRenderTarget.GetExtent()));
+    recorder.RecordViewports(vkutil::MakeViewport(renderTarget.colourImage.GetExtent()));
+    recorder.RecordScissors(vkutil::MakeRect(renderTarget.colourImage.GetExtent()));
     recorder.RecordRenderPass()
-        .WithDrawImage(usedRenderTarget)
-        .WithDepthImage(usedDepthTarget)
+        .WithDrawImage(renderTarget.colourImage)
+        .WithDepthImage(renderTarget.depthImage)
         .WithDepthBufferLoadOp(usedLoadOp)
         .As([&](RenderPassRecorder const &recorder) {
           recorder.RecordWithBoundPipeline(
@@ -170,9 +121,6 @@ void BufferedRenderer<T_Object, T_Uniform>::BufferedStrategy::RecordRenderingCom
                 recorder.RecordDraw(buffer.gpuBuffer);
               });
         });
-
-    // Copy contents to given buffers
-    renderTargetProvider->GetTargetSwapCommands(renderTarget, depthTarget, recorder);
   }
 }
 

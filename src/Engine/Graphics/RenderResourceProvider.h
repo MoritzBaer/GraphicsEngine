@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Graphics/CommandQueue.h"
+#include "Graphics/RenderBufferPool.h"
 #include "Image.h"
 #include "UniformBinder.h"
 
@@ -10,22 +11,22 @@ struct RenderResourceProvider {
   struct FrameResources {
     CommandQueue commandQueue;
     std::optional<VkSemaphore> renderSemaphore;
-    VkFence renderFence;
     DescriptorAllocator descriptorAllocator;
     DescriptorWriter descriptorWriter;
     UniformBinder uniformBinder;
+    VkFence renderFence;
   };
 
   struct RenderTarget {
     std::optional<VkSemaphore> presentSemaphore;
-    Image2 &target;
+    RenderBuffer renderBuffer;
   };
 
   virtual FrameResources GetFrameResources() = 0;
-  virtual std::optional<RenderTarget> GetRenderTarget() = 0;
+  virtual std::optional<RenderTarget> GetRenderTarget(CommandRecorder const & recorder) = 0;
   virtual void PrepareTargetForRendering(CommandRecorder const & recorder) = 0;
   virtual void PrepareTargetForDisplaying(CommandRecorder const & recorder) = 0;
-  virtual void DisplayRenderTarget() = 0;
+  virtual void DisplayRenderTarget(CommandRecorder const & recorder) = 0;
 };
 
 inline void CreateFrameResources(RenderResourceProvider::FrameResources &resources,

@@ -2,11 +2,11 @@
 
 #include "Graphics/CommandQueue.h"
 #include "Graphics/Image.h"
+#include "Graphics/RenderBufferPool.h"
 #include "Graphics/RenderingRequest.h"
 #include "Graphics/UniformBinder.h"
 #include <optional>
 #include <vector>
-#include "Graphics/RenderBufferPool.h"
 
 namespace Engine::Graphics {
 
@@ -17,20 +17,18 @@ public:
   // null.
   virtual void RecordRenderingCommands(RenderingRequest const &request, UniformBinder &uniformBufferProvider,
                                        DescriptorAllocator &descriptorAllocator, DescriptorWriter &descriptorWriter,
-                                       Image<2> &renderTarget, std::optional<Image<2>> &depthTarget,
-                                       CommandRecorder const &recorder) = 0;
+                                       RenderBuffer renderBuffer, CommandRecorder const &recorder) = 0;
 };
 
 class BackgroundStrategy : public RenderingStrategy {
 public:
   virtual ~BackgroundStrategy() = default;
-  virtual void RecordRenderingCommands(Image<2> &renderTarget, CommandRecorder const &recorder) = 0;
+  virtual void RecordRenderingCommands(RenderBuffer renderBuffer, CommandRecorder const &recorder) = 0;
 
   void RecordRenderingCommands(RenderingRequest const &request, UniformBinder &uniformBufferProvider,
                                DescriptorAllocator &descriptorAllocator, DescriptorWriter &descriptorWriter,
-                               Image<2> &renderTarget, std::optional<Image<2>> &depthTarget,
-                               CommandRecorder const &recorder) override {
-    RecordRenderingCommands(renderTarget, recorder);
+                               RenderBuffer renderBuffer, CommandRecorder const &recorder) override {
+    RecordRenderingCommands(renderBuffer, recorder);
   }
 };
 } // namespace Engine::Graphics
