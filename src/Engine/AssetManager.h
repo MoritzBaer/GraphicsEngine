@@ -131,6 +131,7 @@ class AssetManager {
   class ListableManager {
   public:
     virtual void Cleanup() = 0;
+    virtual ~ListableManager() = default;
   };
 
   template <typename T_Asset> class ListableTypeManager : public ListableManager {

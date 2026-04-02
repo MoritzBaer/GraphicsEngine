@@ -9,6 +9,7 @@
 
 
 Engine::Graphics::MemoryAllocator::~MemoryAllocator() {
+  ENGINE_MESSAGE("Deallocating memory manager!")
   #ifndef NDEBUG
   for (auto undestroyed : allocatedImages) {
     auto label = std::get<2>(undestroyed);

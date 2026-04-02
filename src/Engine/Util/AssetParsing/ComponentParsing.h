@@ -5,6 +5,7 @@
 namespace Engine {
 struct ComponentDSO {
   virtual void AttachToEntity(Core::Entity entity, AssetManager *assetManger) = 0;
+  virtual ~ComponentDSO() = default;
 };
 
 template <typename T> struct ComponentDSO_T : public ComponentDSO {

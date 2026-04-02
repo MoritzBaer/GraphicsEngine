@@ -5,7 +5,8 @@
 
 #define __FILE_NAME_LOG__ (&__FILE__[SOURCE_PATH_SIZE])
 
-#if defined(__debugbreak)
+#ifndef NDEBUG
+#ifdef __debugbreak
 #define __ENGINE_BREAKPOINT __debugbreak();
 #else
 #include <csignal>
@@ -14,6 +15,9 @@
 #else
 #define __ENGINE_BREAKPOINT std::raise(SIGABRT);
 #endif
+#endif
+#else 
+#define __ENGINE_BREAKPOINT
 #endif
 
 inline Engine::Debug::Logging::Logger engineLogger = Engine::Debug::Logging::Logger("Engine");

@@ -25,6 +25,7 @@ int main() {
   try {
     auto app = new GameApp<TestProject>("Test Project", {1600, 900});
     app->Run();
+    delete app;
   } catch (std::exception &e) {
     ENGINE_ERROR("Exception: {}", e.what());
   }

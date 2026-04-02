@@ -1,9 +1,9 @@
 #include "Shader.h"
 #include "Debug/Logging.h"
-#include "Util/Macros.h"
 #include "InstanceManager.h"
 #include "Util/FileIO.h"
-#include <algorithm>
+#include "Util/Macros.h"
+#include <cstddef>
 
 namespace Engine::Graphics {
 
@@ -12,12 +12,27 @@ class ShaderIncluder : public shaderc::CompileOptions::IncluderInterface {
     const char *name;
     const char *content;
 
-    UserData(const char *name, const char *content)
-        : name(strcpy(static_cast<char *>(malloc(strlen(name) * sizeof(char))), name)),
-          content(strcpy(static_cast<char *>(malloc(strlen(content) * sizeof(char))), content)) {}
+    UserData(const char *name, const char *content) : name(strdup(name)), content(strdup(content)) {}
+    UserData(UserData const &other) : UserData(other.name, other.content) {}
+    UserData(UserData &&other) : name(other.name), content(other.content) {
+      other.name = nullptr;
+      other.content = nullptr;
+    }
     ~UserData() {
-      // free((void *)name);
-      // free((void *)content);
+      free((void *)name);
+      free((void *)content);
+    }
+
+    inline UserData &operator=(UserData &&other) {
+      name = other.name;
+      content = other.content;
+      other.name = nullptr;
+      other.content = nullptr;
+      return *this;
+    }
+    inline UserData &operator=(UserData const &other) {
+      auto const cp = UserData(other);
+      return *this = std::move(cp);
     }
   };
 

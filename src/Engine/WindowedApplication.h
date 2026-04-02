@@ -39,8 +39,8 @@ private:
   void DestroySwapchain();
 
   FrameResources GetFrameResources() override;
-  std::optional<RenderTarget> GetRenderTarget(CommandRecorder const & recorder) override;
-  void DisplayRenderTarget(CommandRecorder const & recorder) override;
+  std::optional<RenderTarget> GetRenderTarget(CommandRecorder const &recorder) override;
+  void DisplayRenderTarget(CommandRecorder const &recorder) override;
   void PrepareTargetForRendering(CommandRecorder const &recorder) override {}
   void PrepareTargetForDisplaying(CommandRecorder const &recorder) override;
 
@@ -112,8 +112,10 @@ template <typename GameType> inline void GameApp<GameType>::Run() {
     game.Init();
     BEGIN_PROFILE_SESSION()
     game.Start();
-    while (game.IsRunning())
+    while (game.IsRunning()) {
       game.CalculateFrame();
+    }
+    ENGINE_MESSAGE("Shutting down...");
     WRITE_PROFILE_SESSION("Game Loop")
   } catch (std::exception &e) {
     exceptionLogger.PrintError(e.what());

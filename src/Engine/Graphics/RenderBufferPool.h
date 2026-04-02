@@ -77,7 +77,7 @@ class RenderBuffer {
 
   public:
     inline operator Image2 &() const;
-    inline Image2 *operator->() const { return &(Image2&)*this; }
+    inline Image2 *operator->() const { return &(Image2 &)*this; }
     inline Maths::Dimension2 GetExtent() const { return ((Image2) * this).GetExtent(); }
   };
   struct DepthImRef {
@@ -98,9 +98,10 @@ public:
   // TODO: Allow choosing format
   RenderBuffer(RenderBufferPool &pool, size_t stackElem, Maths::Dimension2 const &initialResolution,
                VkFormat initialFormat, CommandRecorder const &recorder)
-      : pool(pool), parentStackElem(stackElem), workingStackElem(stackElem), resized(false), reformatted(false), submitted(false), resolution(initialResolution),
-        format(initialFormat),  colourImage(pool, workingStackElem, resolution, format),
-        depthImage(pool, workingStackElem, resolution, format), recorder(recorder) {}
+      : pool(pool), parentStackElem(stackElem), workingStackElem(stackElem), resized(false), reformatted(false),
+        submitted(false), resolution(initialResolution), format(initialFormat),
+        colourImage(pool, workingStackElem, resolution, format), depthImage(pool, workingStackElem, resolution, format),
+        recorder(recorder) {}
   ~RenderBuffer() {
     if (!submitted) {
       Submit(recorder);
@@ -187,6 +188,10 @@ class RenderBufferPool {
     bool used;
   };
 
+  static_assert(sizeof(RenderBufferImage) == sizeof(Texture2D) + 8, "RenderBufferImage has unexpected size");
+  static_assert(sizeof(StoredRenderBuffer) == 2 * sizeof(RenderBufferImage) + 16,
+                "RenderBufferImage has unexpected size");
+
   GPUObjectManager RELEASE_CONST *objectManager;
   std::vector<std::tuple<StoredRenderBuffer, RenderBufferIdentifier>> buffers;
   std::vector<std::tuple<StoredAuxiliaryBuffer, AuxiliaryBufferIdentifier>> auxiliaryBuffers;
@@ -210,6 +215,7 @@ public:
   RenderBufferPool(GPUObjectManager RELEASE_CONST *objectManager, Image2 const &initialTarget);
   RenderBufferPool() : objectManager(), buffers(), auxiliaryBuffers(), bufferMap(), auxiliaryMap(), bufferStack() {}
   ~RenderBufferPool() {
+    ENGINE_MESSAGE("Clearing render pool")
     PurgeAllBuffers<false>();
     if (std::get<0>(buffers[0]).depthImage) {
       DeallocateImage(*std::get<0>(buffers[0]).depthImage);
@@ -234,6 +240,7 @@ public:
     bufferMap[key] = buffers.size();
     buffers.push_back(std::make_tuple(
         StoredRenderBuffer{.colourImage = AllocateColourImage(extent, colourFormat), .used = true}, key));
+    ENGINE_MESSAGE("Created new render buffer; now holding {}.", buffers.size());
   }
 
   inline Image2 &GetAuxiliaryBuffer(Maths::Dimension2 const &extent, VkFormat format, VkImageUsageFlags usage,
@@ -252,6 +259,7 @@ public:
             .bufferImage = objectManager->AllocateImage<2>(format, extent, usage, aspect, 1, layerCount), .used = true},
         key));
 
+    ENGINE_MESSAGE("Created new auxiliary buffer; now holding {}.", auxiliaryBuffers.size());
     return std::get<0>(auxiliaryBuffers.back()).bufferImage.Image();
   }
 
@@ -415,7 +423,7 @@ inline size_t RenderBufferPool::PurgeBuffers(BufferRange<BufferT, BufferIdentifi
     *cursor = *(--end);
 
     // Update index in map
-    indexMap[key] = cursor - buffers.begin();
+    indexMap[std::get<1>(*cursor)] = cursor - buffers.begin();
   }
 
   return std::end(buffers) - end;
