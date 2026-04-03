@@ -2,3 +2,4 @@
 /dependencies/GLM
 /.VSCodeCounter
 .cache
+/valgrind-out

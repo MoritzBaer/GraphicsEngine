@@ -1,5 +1,6 @@
 #pragma once
 
+#include "AssetManager.h"
 #include "InstanceManager.h"
 #include "Maths/Dimension.h"
 #include "MemoryAllocator.h"

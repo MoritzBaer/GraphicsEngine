@@ -22,6 +22,19 @@
 
 inline Engine::Debug::Logging::Logger engineLogger = Engine::Debug::Logging::Logger("Engine");
 
+#define ENGINE_LOG_LEVEL_DEBUG 3
+#define ENGINE_LOG_LEVEL_INFO 2
+#define ENGINE_LOG_LEVEL_WARN 1
+#define ENGINE_LOG_LEVEL_ERROR 0
+
+#if ENGINE_LOG_LEVEL < ENGINE_LOG_LEVEL_DEBUG
+#define ENGINE_DEBUG(format, ...)
+#else 
+#define ENGINE_DEBUG(format, ...)                                                                                    \
+  {                                                                                                                    \
+    engineLogger.PrintMessage(format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME_LOG__, __LINE__);            \
+  }
+#endif
 #define ENGINE_MESSAGE(format, ...)                                                                                    \
   {                                                                                                                    \
     engineLogger.PrintMessage(format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME_LOG__, __LINE__);            \

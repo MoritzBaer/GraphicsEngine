@@ -20,6 +20,8 @@ file(GLOB_RECURSE EngineFiles
 
 add_library(Engine STATIC ${EngineFiles})
 
+target_compile_definitions(Engine PUBLIC ENGINE_LOG_LEVEL=2)
+
 # Allow for file name macro set relative to source folder
 string(LENGTH "${PROJECT_SOURCE_DIR}/src/" SOURCE_PATH_SIZE)
 target_compile_definitions(Engine PUBLIC SOURCE_PATH_SIZE=${SOURCE_PATH_SIZE})

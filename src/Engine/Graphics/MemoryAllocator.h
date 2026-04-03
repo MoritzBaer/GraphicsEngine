@@ -8,11 +8,11 @@
 #define DEBUG_LABEL
 #define DEBUG_LABEL_DEFAULT
 #define DEBUG_LABEL_REFERENCE
-#define DEBUG_LABEL_VALUE(Value)
+#define DEBUG_LABEL_VALUE(...) __VA_ARGS__
 #else
 #define RELEASE_CONST
 #define DEBUG_LABEL , const char * label
-#define DEBUG_LABEL_DEFAULT DEBUG_LABEL = nullptr
+#define DEBUG_LABEL_DEFAULT(defaultVal) DEBUG_LABEL = defaultVal
 #define DEBUG_LABEL_REFERENCE , label
 #define DEBUG_LABEL_VALUE(...) , __VA_ARGS__
 #endif

@@ -35,7 +35,7 @@ public:
   inline Image<D>
   AllocateImage(VkFormat format, Maths::Dimension<D> const &imageSize, VkImageUsageFlags usage,
                 VkImageAspectFlags aspectMask, uint32_t mipLevels = 1, uint32_t arrayLayers = 1,
-                VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT DEBUG_LABEL_DEFAULT) RELEASE_CONST;
+                VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT DEBUG_LABEL_DEFAULT("IMAGE")) RELEASE_CONST;
   inline Image2 CreateDepthBuffer(Maths::Dimension2 const &imageSize,
                                   VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT) RELEASE_CONST {
     return AllocateImage(VK_FORMAT_D32_SFLOAT, imageSize,
@@ -54,7 +54,7 @@ public:
                                   VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                                                             VK_IMAGE_USAGE_TRANSFER_DST_BIT |
                                                             VK_IMAGE_USAGE_SAMPLED_BIT,
-                                  VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT) RELEASE_CONST;
+                                  VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT DEBUG_LABEL_DEFAULT("TEXTURE")) RELEASE_CONST;
   template <uint8_t D, typename T>
   inline Texture<D>
   CreateTexture(Maths::Dimension<D> const &imageSize, T const *data, VkFilter magFilter = VK_FILTER_LINEAR,
@@ -62,7 +62,7 @@ public:
                 VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT,
                 VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
                                           VK_IMAGE_USAGE_SAMPLED_BIT,
-                VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT) RELEASE_CONST;
+                VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT DEBUG_LABEL_DEFAULT("TEXTURE")) RELEASE_CONST;
 
   template <uint8_t D, typename T>
   inline void SetPixels(Texture<D> &target, T const *data, Maths::Dimension<D> dimension) RELEASE_CONST;
@@ -72,11 +72,11 @@ public:
 
   template <typename T>
   Buffer<T> CreateBuffer(size_t size, VkBufferUsageFlags usage,
-                         VmaMemoryUsage memoryUsage DEBUG_LABEL_DEFAULT) RELEASE_CONST;
+                         VmaMemoryUsage memoryUsage DEBUG_LABEL_DEFAULT("BUFFER")) RELEASE_CONST;
 
   template <typename T>
   inline Buffer<T> CreateBuffer(T const *data, size_t size, VkBufferUsageFlags usage,
-                                VmaMemoryUsage memoryUsage DEBUG_LABEL_DEFAULT) RELEASE_CONST {
+                                VmaMemoryUsage memoryUsage DEBUG_LABEL_DEFAULT("BUFFER")) RELEASE_CONST {
     auto buffer = CreateBuffer<T>(size, usage, memoryUsage DEBUG_LABEL_REFERENCE);
     buffer.SetData(data, size);
     return buffer;
@@ -84,13 +84,13 @@ public:
 
   template <typename T>
   inline Buffer<T> CreateBuffer(std::vector<T> const &data, VkBufferUsageFlags usage,
-                                VmaMemoryUsage memoryUsage DEBUG_LABEL_DEFAULT) RELEASE_CONST {
+                                VmaMemoryUsage memoryUsage DEBUG_LABEL_DEFAULT("BUFFER")) RELEASE_CONST {
     return CreateBuffer<T>(data.data(), data.size(), usage, memoryUsage DEBUG_LABEL_REFERENCE);
   }
 
   template <typename T>
   Buffer<T> CreateBuffer(T const &data, VkBufferUsageFlags usage,
-                         VmaMemoryUsage memoryUsage DEBUG_LABEL_DEFAULT) RELEASE_CONST {
+                         VmaMemoryUsage memoryUsage DEBUG_LABEL_DEFAULT("BUFFER")) RELEASE_CONST {
     return CreateBuffer(&data, 1, usage, memoryUsage DEBUG_LABEL_REFERENCE);
   }
 
@@ -224,14 +224,14 @@ template <uint8_t D>
 inline Texture<D> GPUObjectManager::CreateTexture(Maths::Dimension<D> const &imageSize, VkFilter magFilter,
                                                   VkFilter minFilter, VkFormat format, bool mipped,
                                                   VkSampleCountFlagBits msaaSamples, VkImageUsageFlags usage,
-                                                  VkImageAspectFlags aspectMask) RELEASE_CONST {
+                                                  VkImageAspectFlags aspectMask DEBUG_LABEL) RELEASE_CONST {
   if (!(usage & VK_IMAGE_USAGE_SAMPLED_BIT)) {
     ENGINE_WARNING("Texture created without the sampled bit set!")
   }
   return CreateTexture(
       AllocateImage(format, imageSize, usage, aspectMask,
                     (mipped ? static_cast<uint32_t>(std::floor(std::log2(imageSize.MaxEntry()))) : 0) + 1, 1,
-                    msaaSamples DEBUG_LABEL_VALUE("TEXTURE")),
+                    msaaSamples DEBUG_LABEL_REFERENCE),
       magFilter, minFilter);
 }
 
@@ -239,8 +239,8 @@ template <uint8_t D, typename T>
 inline Texture<D> GPUObjectManager::CreateTexture(Maths::Dimension<D> const &imageSize, T const *data,
                                                   VkFilter magFilter, VkFilter minFilter, VkFormat format, bool mipped,
                                                   VkSampleCountFlagBits msaaSamples, VkImageUsageFlags usage,
-                                                  VkImageAspectFlags aspectMask) RELEASE_CONST {
-  auto texture = CreateTexture(imageSize, magFilter, minFilter, format, mipped, msaaSamples, usage, aspectMask);
+                                                  VkImageAspectFlags aspectMask DEBUG_LABEL) RELEASE_CONST {
+  auto texture = CreateTexture(imageSize, magFilter, minFilter, format, mipped, msaaSamples, usage, aspectMask DEBUG_LABEL_REFERENCE);
   SetPixels(texture, data, imageSize);
   return texture;
 }
