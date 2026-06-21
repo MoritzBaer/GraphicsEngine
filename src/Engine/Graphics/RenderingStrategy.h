@@ -23,12 +23,12 @@ public:
 class BackgroundStrategy : public RenderingStrategy {
 public:
   virtual ~BackgroundStrategy() = default;
-  virtual void RecordRenderingCommands(RenderBuffer renderBuffer, CommandRecorder const &recorder) = 0;
+  virtual void RecordRenderingCommands(DescriptorAllocator &descriptorAllocator, DescriptorWriter &descriptorWriter, RenderBuffer renderBuffer, CommandRecorder const &recorder) = 0;
 
   void RecordRenderingCommands(RenderingRequest const &request, UniformBinder &uniformBufferProvider,
                                DescriptorAllocator &descriptorAllocator, DescriptorWriter &descriptorWriter,
                                RenderBuffer renderBuffer, CommandRecorder const &recorder) override {
-    RecordRenderingCommands(renderBuffer, recorder);
+    RecordRenderingCommands(descriptorAllocator, descriptorWriter, renderBuffer, recorder);
   }
 };
 } // namespace Engine::Graphics

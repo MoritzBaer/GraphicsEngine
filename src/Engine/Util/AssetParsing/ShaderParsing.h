@@ -110,10 +110,7 @@ class ComputeBackgroundDestroyer {
 
 public:
   ComputeBackgroundDestroyer(Graphics::InstanceManager const *instanceManager) : instanceManager(instanceManager) {}
-  inline void DestroyAsset(Graphics::RenderingStrategies::ComputeBackground *asset) const {
-    asset->Cleanup();
-    delete asset;
-  }
+  inline void DestroyAsset(Graphics::RenderingStrategies::ComputeBackground *asset) const { delete asset; }
 };
 
 using ComputeBackgroundCache =

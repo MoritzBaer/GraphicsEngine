@@ -4,6 +4,7 @@
 #include "Graphics/CommandQueue.h"
 #include "Graphics/Material.h"
 #include "Graphics/RenderingStrategy.h"
+#include <vulkan/vulkan_core.h>
 
 namespace Engine::Graphics::RenderingStrategies {
 
@@ -17,8 +18,6 @@ struct ComputePushConstants {
 
 class ComputeBackground : public BackgroundStrategy {
   InstanceManager const *instanceManager;
-  DescriptorAllocator descriptorAllocator;
-  DescriptorWriter descriptorWriter;
   VkDescriptorSetLayout descriptorSetLayout;
   CompiledEffect const *effect;
   ComputePushConstants data;
@@ -27,12 +26,9 @@ public:
   ComputeBackground(InstanceManager const *instanceManager, CompiledEffect const *effect,
                     ComputePushConstants const &data);
   ComputeBackground() = default;
-  ~ComputeBackground() {
-    // descriptorAllocator.ClearDescriptors();
-    // descriptorAllocator.DestroyPools();
-  }
-  void RecordRenderingCommands(RenderBuffer renderBuffer, CommandRecorder const &recorder) override;
-  void Cleanup();
+  ~ComputeBackground() { instanceManager->DestroyDescriptorSetLayout(descriptorSetLayout); };
+  void RecordRenderingCommands(DescriptorAllocator &descriptorAllocator, DescriptorWriter &descriptorWriter,
+                               RenderBuffer renderBuffer, CommandRecorder const &recorder) override;
 };
 
 } // namespace Engine::Graphics::RenderingStrategies

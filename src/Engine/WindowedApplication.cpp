@@ -99,7 +99,7 @@ RenderResourceProvider::FrameResources &SwapChainProvider::GetFrameResources() {
 
   resourceIndex = currentFrame % MAX_FRAME_OVERLAP;
 
-  frameResources[resourceIndex].descriptorWriter.Clear();
+   frameResources[resourceIndex].descriptorWriter.Clear();
   frameResources[resourceIndex].uniformBinder->ResetBuffers();
 
   return frameResources[resourceIndex];

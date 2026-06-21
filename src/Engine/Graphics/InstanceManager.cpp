@@ -517,9 +517,6 @@ void InstanceManager::CreateDescriptorPool(VkDescriptorPoolCreateInfo const *cre
                                            VkDescriptorPool *descriptorPool) const {
   VULKAN_ASSERT(vkCreateDescriptorPool(graphicsHandler, createInfo, nullptr, descriptorPool),
                 "Failed to create descriptor pool!")
-  if (reinterpret_cast<size_t>(*descriptorPool) == 0xd000000000d0) {
-    ENGINE_MESSAGE("Created layout that will never be destroyed")
-  }
 }
 
 void InstanceManager::CreatePipelineLayout(VkPipelineLayoutCreateInfo const *createInfo,

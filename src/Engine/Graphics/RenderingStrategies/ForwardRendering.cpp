@@ -46,10 +46,10 @@ void ForwardRendering::RecordRenderingCommands(RenderingRequest const &request, 
                                                DescriptorAllocator &descriptorAllocator,
                                                DescriptorWriter &descriptorWriter, RenderBuffer renderBuffer,
                                                CommandRecorder const &recorder) {
-                                                renderBuffer.SetResolution(Maths::Dimension2(1600,900));
-                                                renderBuffer.SetFormat(VK_FORMAT_R16G16B16A16_SFLOAT);
+  renderBuffer.SetResolution(Maths::Dimension2(1600, 900));
+  renderBuffer.SetFormat(VK_FORMAT_R16G16B16A16_SFLOAT);
 
-  backgroundStrategy->RecordRenderingCommands(renderBuffer, recorder);
+  backgroundStrategy->RecordRenderingCommands(descriptorAllocator, descriptorWriter, renderBuffer, recorder);
 
   recorder.RecordTransition(renderBuffer.colourImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
   recorder.RecordTransition(renderBuffer.depthImage, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
