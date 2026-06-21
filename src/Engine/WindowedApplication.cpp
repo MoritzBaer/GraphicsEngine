@@ -66,9 +66,11 @@ void SwapChainProvider::CreateSwapchain() {
 
   std::vector<VkImage> scImgs;
   instanceManager->GetSwapchainImages(swapchain, scImgs);
+
   swapchainImages.resize(scImgs.size());
   swapchainBufferPools.resize(scImgs.size());
   presentSemaphores.resize(scImgs.size());
+
 
   VkSemaphoreCreateInfo semaphoreInfo = {.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
 
@@ -76,7 +78,7 @@ void SwapChainProvider::CreateSwapchain() {
   for (int i = 0; i < swapchainImages.size(); i++) {
     swapchainImages[i] = gpuObjectManager->CreateImage(scImgs[i], windowDimension, surfaceFormat.format,
                                                        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_ASPECT_COLOR_BIT);
-    swapchainBufferPools[i] = std::move(RenderBufferPool(gpuObjectManager, swapchainImages[i]));
+    swapchainBufferPools[i] = std::move(RenderBufferPool(gpuObjectManager, swapchainImages[i])); 
     instanceManager->CreateSemaphore(&semaphoreInfo, &presentSemaphores[i]);
   }
 }
@@ -85,16 +87,20 @@ void SwapChainProvider::DestroySwapchain() {
   for (auto image : swapchainImages) {
     gpuObjectManager->DestroyImage(image);
   }
+  for (auto semaphore : presentSemaphores) {
+    instanceManager->DestroySemaphore(semaphore);
+  }
   instanceManager->DestroySwapchain(swapchain);
 }
 
-RenderResourceProvider::FrameResources SwapChainProvider::GetFrameResources() {
+RenderResourceProvider::FrameResources &SwapChainProvider::GetFrameResources() {
 
   PROFILE_FUNCTION()
 
   resourceIndex = currentFrame % MAX_FRAME_OVERLAP;
 
   frameResources[resourceIndex].descriptorWriter.Clear();
+  frameResources[resourceIndex].uniformBinder->ResetBuffers();
 
   return frameResources[resourceIndex];
 }

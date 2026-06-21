@@ -39,7 +39,11 @@ template <typename T_Object, typename T_Uniform> class BufferedRenderer {
     BufferedStrategy(InstanceManager const *instanceManager, GPUObjectManager RELEASE_CONST *gpuObjectManager,
                      RenderingStrategy *subStrategy, RenderObjectBuffer<T_Object> &buffer)
         : buffer(buffer), gpuObjectManager(gpuObjectManager), wrappedStrategy(subStrategy),
-          gpuDispatcher(instanceManager, gpuObjectManager->CreateCommandQueue()) {}
+          gpuDispatcher(gpuObjectManager->CreateGPUDispatcher()) {}
+    ~BufferedStrategy() {
+      gpuObjectManager->DestroyGPUDispatcher(gpuDispatcher);
+      delete wrappedStrategy;
+    }
 
     void RecordRenderingCommands(RenderingRequest const &request, UniformBinder &uniformBufferProvider,
                                  DescriptorAllocator &descriptorAllocator, DescriptorWriter &descriptorWriter,
@@ -50,10 +54,13 @@ public:
   BufferedRenderer(InstanceManager const *instanceManager, GPUObjectManager RELEASE_CONST *gpuObjectManager,
                    Material *material = nullptr)
       : instanceManager(instanceManager), gpuObjectManager(gpuObjectManager), renderObjectBuffer(material) {
+    DEBUG_LABEL("Render object buffer")
     renderObjectBuffer.gpuBuffer = gpuObjectManager->CreateBuffer<T_Object>(
         INITIAL_BUFFER_SIZE, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         VMA_MEMORY_USAGE_GPU_ONLY);
   }
+
+  ~BufferedRenderer() { gpuObjectManager->DestroyBuffer(renderObjectBuffer.gpuBuffer); }
 
   void SetMaterial(Material *material) { renderObjectBuffer.material = material; }
 
@@ -91,6 +98,7 @@ void BufferedRenderer<T_Object, T_Uniform>::BufferedStrategy::RecordRenderingCom
     if (buffer.objects.size() > buffer.gpuBuffer.Size()) {
       // Allocate new buffer of fitting size
       bufferDump.push_back(buffer.gpuBuffer);
+      DEBUG_LABEL("Render object buffer")
       buffer.gpuBuffer = gpuObjectManager->CreateBuffer<T_Object>(
           std::max(buffer.objects.size(), buffer.gpuBuffer.Size() * 2),
           VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY);

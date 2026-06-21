@@ -54,6 +54,11 @@ struct AuxiliaryBufferIdentifier {
   }
 };
 
+template <typename BufT, typename IDT> struct IdentifiedBuffer {
+  BufT buffer;
+  IDT id;
+};
+
 class RenderBufferPool;
 
 class RenderBuffer {
@@ -158,7 +163,7 @@ public:
 
 template <typename RangeT, typename BufferT, typename BufferIdentifierT>
 concept BufferRange = std::ranges::range<RangeT> &&
-                      std::same_as<std::ranges::range_value_t<RangeT>, std::tuple<BufferT, BufferIdentifierT>>;
+                      std::same_as<std::ranges::range_value_t<RangeT>, IdentifiedBuffer<BufferT, BufferIdentifierT>>;
 
 class RenderBufferPool {
   struct RenderBufferImage {
@@ -166,6 +171,7 @@ class RenderBufferPool {
     Texture2D texture;
     bool isTexture;
 
+    RenderBufferImage() : image(), texture(), isTexture(false) {}
     RenderBufferImage(Image2 const &im) : image(im), texture(), isTexture(false) {}
     RenderBufferImage(Texture2D const &tex) : image(), texture(tex), isTexture(true) {}
     Image2 &operator=(Image2 const &im) {
@@ -193,8 +199,8 @@ class RenderBufferPool {
   };
 
   GPUObjectManager RELEASE_CONST *objectManager;
-  std::vector<std::tuple<StoredRenderBuffer, RenderBufferIdentifier>> buffers;
-  std::vector<std::tuple<StoredAuxiliaryBuffer, AuxiliaryBufferIdentifier>> auxiliaryBuffers;
+  std::vector<IdentifiedBuffer<StoredRenderBuffer, RenderBufferIdentifier>> buffers;
+  std::vector<IdentifiedBuffer<StoredAuxiliaryBuffer, AuxiliaryBufferIdentifier>> auxiliaryBuffers;
 
   std::unordered_map<RenderBufferIdentifier, size_t> bufferMap;
   std::unordered_map<AuxiliaryBufferIdentifier, size_t> auxiliaryMap;

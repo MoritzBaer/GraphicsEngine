@@ -1,6 +1,8 @@
 #include "TextureParsing.h"
 
 #include "Game.h"
+#include "Graphics/MemoryAllocator.h"
+#include <vulkan/vulkan_core.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -15,8 +17,12 @@ TextureCache::TextureCache(Graphics::GPUObjectManager RELEASE_CONST *gpuObjectMa
   uint32_t white = 0xFFFFFFFF;
   uint32_t normalUp = 0xFFFF8080;
 
-  baseCache.InsertAsset("white", gpuObjectManager->CreateTexture(Maths::Dimension2(1, 1), &white));
-  baseCache.InsertAsset("normalUp", gpuObjectManager->CreateTexture(Maths::Dimension2(1, 1), &normalUp));
+  DEBUG_LABEL("Default white texture")
+  baseCache.InsertAsset(
+      "white", gpuObjectManager->CreateTexture(Maths::Dimension2(1, 1), &white, VK_FILTER_NEAREST, VK_FILTER_NEAREST));
+  DEBUG_LABEL("Default up texture")
+  baseCache.InsertAsset("normalUp", gpuObjectManager->CreateTexture(Maths::Dimension2(1, 1), &normalUp,
+                                                                    VK_FILTER_NEAREST, VK_FILTER_NEAREST));
 
   // Load error texture
   std::vector<uint32_t> errorTextureData(16 * 16, 0xFFFF00FF);
@@ -25,6 +31,7 @@ TextureCache::TextureCache(Graphics::GPUObjectManager RELEASE_CONST *gpuObjectMa
       errorTextureData[x * 16 + y] = 0xFF000000;
     }
   }
+  DEBUG_LABEL("Default missing texture")
   baseCache.InsertAsset("missing", gpuObjectManager->CreateTexture(Maths::Dimension2(16, 16), errorTextureData.data(),
                                                                    VK_FILTER_NEAREST, VK_FILTER_NEAREST));
 }
@@ -34,15 +41,15 @@ Graphics::Texture2D TextureConverter::ConvertDSO(TextureDSO const &dso) const {
   if (!pixels) {
     return assetManager->LoadAsset<Graphics::Texture2D>("missing");
   }
-  return gpuObjectManager->CreateTexture(Maths::Dimension2(dso.width, dso.height), pixels, VK_FILTER_LINEAR,
-                                         VK_FILTER_LINEAR);
+  return DEBUG_LABEL("Parsed texture") gpuObjectManager->CreateTexture(Maths::Dimension2(dso.width, dso.height), pixels,
+                                                                       VK_FILTER_LINEAR, VK_FILTER_LINEAR);
 }
 
 TextureDSO TextureParser::ParseDSO(std::vector<char> const &source) const {
   auto dso = TextureDSO();
   dso.data = stbi_load_from_memory(reinterpret_cast<stbi_uc const *>(source.data()), source.size(), &dso.width,
                                    &dso.height, &dso.channels, STBI_rgb_alpha);
-  return dso;
+  return std::move(dso);
 }
 
 } // namespace Engine

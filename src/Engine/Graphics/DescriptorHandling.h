@@ -48,6 +48,10 @@ public:
   DescriptorAllocator(InstanceManager const *instanceManager)
       : instanceManager(instanceManager), poolRatios(), fullPools(), readyPools(), setsPerPool(-1) {}
   DescriptorAllocator() : DescriptorAllocator(nullptr) {}
+  ~DescriptorAllocator() {
+    ClearDescriptors();
+    DestroyPools();
+  }
 
   inline void InitPools(uint32_t initialSets, std::span<PoolSizeRatio> poolRatios);
   inline void ClearDescriptors();
@@ -142,6 +146,8 @@ VkDescriptorPool DescriptorAllocator::GetPool() {
     return pool;
   } else {
     VkDescriptorPool newPool = CreatePool(setsPerPool, poolRatios);
+    ENGINE_MESSAGE("Created descriptor pool {} for descriptor allocator {} ({} ready, {} full)",
+                   static_cast<void *>(newPool), static_cast<void *>(this), readyPools.size(), fullPools.size());
     setsPerPool = setsPerPool * 3 / 2;
     if (setsPerPool > 4092) {
       setsPerPool = 4092;

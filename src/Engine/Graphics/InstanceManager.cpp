@@ -234,6 +234,7 @@ InstanceManager::~InstanceManager() {
     DestroyDebugUtilsMessengerEXT(vulkanInstance, debugMessenger, nullptr);
   }
   vkDestroyInstance(vulkanInstance, nullptr);
+  ENGINE_SUCCESS("Destroyed vulkan instance")
 }
 
 void InstanceManager::InitVulkan(const char *appName, Window const *surfaceWindow) {
@@ -263,7 +264,7 @@ void InstanceManager::CreateInstance(const char *applicationName) {
                                     .applicationVersion = VK_MAKE_VERSION(1, 0, 0), // TODO: Make accessible to user
                                     .pEngineName = "TBNgine",
                                     .engineVersion = ENGINE_VERSION,
-                                    .apiVersion = VK_API_VERSION_1_3};
+                                    .apiVersion = VK_API_VERSION_1_4};
 
   auto requiredExtensions = GetRequiredExtensions();
 
@@ -289,6 +290,7 @@ void InstanceManager::CreateInstance(const char *applicationName) {
   }
 
   VULKAN_ASSERT(vkCreateInstance(&createInfo, nullptr, &vulkanInstance), "Failed to create vulkan Instance!")
+  ENGINE_SUCCESS("Created vulkan instance")
 }
 
 #ifndef NDEBUG
@@ -403,13 +405,6 @@ void InstanceManager::CreateLogicalDevice() {
                                 .ppEnabledExtensionNames = requiredExtensions.data(),
                                 .pEnabledFeatures = nullptr};
 
-  if (enableValidationLayers) {
-    deviceInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-    deviceInfo.ppEnabledLayerNames = validationLayers.data();
-  } else {
-    deviceInfo.enabledLayerCount = 0;
-  }
-
   VULKAN_ASSERT(vkCreateDevice(gpu, &deviceInfo, nullptr, &graphicsHandler), "Failed to create logical device!")
 }
 
@@ -522,6 +517,9 @@ void InstanceManager::CreateDescriptorPool(VkDescriptorPoolCreateInfo const *cre
                                            VkDescriptorPool *descriptorPool) const {
   VULKAN_ASSERT(vkCreateDescriptorPool(graphicsHandler, createInfo, nullptr, descriptorPool),
                 "Failed to create descriptor pool!")
+  if (reinterpret_cast<size_t>(*descriptorPool) == 0xd000000000d0) {
+    ENGINE_MESSAGE("Created layout that will never be destroyed")
+  }
 }
 
 void InstanceManager::CreatePipelineLayout(VkPipelineLayoutCreateInfo const *createInfo,
@@ -568,6 +566,7 @@ VkResult InstanceManager::AllocateDescriptorSets(std::vector<VkDescriptorSetLayo
       allocationResult == VK_ERROR_FRAGMENTED_POOL) {
     ENGINE_ERROR("Failed to allocate descriptor sets!")
   }
+
   return allocationResult;
 }
 

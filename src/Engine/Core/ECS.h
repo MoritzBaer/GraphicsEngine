@@ -36,7 +36,7 @@ private:
     virtual Component *AddComponent(EntityId e) = 0;
     virtual void RemoveComponent(EntityId e) = 0;
     virtual ComponentArray *InitEmptyForOtherECS(ECS *otherECS) const = 0;
-    virtual ~ComponentArray() {}
+    virtual ~ComponentArray() = default;
   };
 
   template <class C> class ComponentArrayT : public ComponentArray {
@@ -199,8 +199,13 @@ template <class C> inline C *ECS::ComponentArrayT<C>::AddComponent(EntityId e) {
 template <class C> inline void ECS::ComponentArrayT<C>::RemoveComponent(EntityId e) {
   C *component = components[entityComponentIndexMap[e]];
   delete component;
-  components[entityComponentIndexMap[e]] = components.back();
-  entityComponentIndexMap[components.back()->entity.id] = entityComponentIndexMap[e];
+
+  if (entityComponentIndexMap[e] < components.size() - 1) {
+    // Swap in last component
+    components[entityComponentIndexMap[e]] = components.back();
+    entityComponentIndexMap[components.back()->entity.id] = entityComponentIndexMap[e];
+  }
+
   components.pop_back();
 }
 

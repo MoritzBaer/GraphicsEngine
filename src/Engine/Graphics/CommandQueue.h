@@ -451,7 +451,7 @@ inline void DrawCallRecorder::RecordIndexedDraw(Buffer<T> const &indexBuffer, ui
                                                 uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset,
                                                 uint32_t firstInstance) const {
   RecordIndexBufferBind(indexBuffer);
-  vkCmdDrawIndexed(RenderPassRecorder::buffer, static_cast<uint32_t>(indexBuffer.Size()), 1, 0, 0, 0);
+  vkCmdDrawIndexed(RenderPassRecorder::buffer, static_cast<uint32_t>(indexBuffer.Size()), instanceCount, firstIndex, vertexOffset, firstInstance);
 }
 
 template <typename T_GPU>

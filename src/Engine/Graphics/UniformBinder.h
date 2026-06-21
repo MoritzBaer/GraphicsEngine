@@ -16,6 +16,8 @@ class BufferProducer {
 public:
   virtual void ResetBuffers() = 0;
   virtual void FreeBuffers() = 0;
+
+  virtual ~BufferProducer() = default;
 };
 
 typedef uint8_t typeId_t;
@@ -73,7 +75,7 @@ template <typename T_Uniform> class UniformBufferProducer : public BufferProduce
       return gpuObjectManager->CreateBuffer<T_Uniform>(
           1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
     } else {
-      return gpuObjectManager->CreateBuffer<T_Uniform>(1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+      return DEBUG_LABEL("Uniform buffer") gpuObjectManager->CreateBuffer<T_Uniform>(1, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                                                        VMA_MEMORY_USAGE_CPU_TO_GPU);
     }
   }

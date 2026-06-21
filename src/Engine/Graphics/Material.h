@@ -30,6 +30,7 @@ public:
       : pipeline(pipeline), layout(layout), descriptorLayouts(descriptorLayouts) {}
   Pipeline(Pipeline const *other) : Pipeline(other->layout, other->descriptorLayouts, other->pipeline) {}
   Pipeline() = delete;
+  virtual ~Pipeline() = default;
   inline VkPipelineLayout Layout() const { return layout; }
   inline VkDescriptorSet AllocateForLayout(uint8_t set, DescriptorAllocator &descriptorAllocator) const {
     return descriptorAllocator.Allocate(descriptorLayouts[set]);
@@ -45,11 +46,12 @@ protected:
 public:
   Material(Material const *other) : pipeline(other->pipeline) {}
   Material(Pipeline const *pipeline) : pipeline(pipeline) {}
+  virtual ~Material() = default;
   virtual void AppendData(PushConstantsAggregate &aggregate) const = 0;
   virtual std::vector<VkDescriptorSet> WriteDescriptors(DescriptorAllocator &descriptorAllocator,
                                                         DescriptorWriter &writer,
                                                         UniformBinding const &uniform) const = 0;
-  inline Pipeline const * GetPipeline() const { return pipeline; }
+  inline Pipeline const *GetPipeline() const { return pipeline; }
 };
 
 class PipelineBuilder {
@@ -120,6 +122,7 @@ public:
 
   Pipeline *Build();
 
+  template <bool onlyPipelineObject = false>
   static void DestroyPipeline(Pipeline const &pipeline, InstanceManager const *im);
 };
 

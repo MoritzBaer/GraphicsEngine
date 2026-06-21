@@ -22,7 +22,7 @@ void Renderer::DrawFrame(RenderingRequest const &request) {
 
   VkCommandBufferSubmitInfo commandBufferSubmitInfo{};
 
-  auto frameResources = renderResourceProvider->GetFrameResources();
+  auto &frameResources = renderResourceProvider->GetFrameResources();
 
   {
     PROFILE_SCOPE("Waiting for previous frame to finish rendering")
@@ -44,7 +44,7 @@ void Renderer::DrawFrame(RenderingRequest const &request) {
     PROFILE_SCOPE("Generate commands")
 
     renderResourceProvider->PrepareTargetForRendering(commands);
-    renderingStrategy->RecordRenderingCommands(request, frameResources.uniformBinder,
+    renderingStrategy->RecordRenderingCommands(request, *frameResources.uniformBinder,
                                                frameResources.descriptorAllocator, frameResources.descriptorWriter,
                                                renderTarget.renderBuffer, commands);
 

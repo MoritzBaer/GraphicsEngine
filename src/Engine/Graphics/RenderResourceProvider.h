@@ -13,7 +13,7 @@ struct RenderResourceProvider {
     std::optional<VkSemaphore> renderSemaphore;
     DescriptorAllocator descriptorAllocator;
     DescriptorWriter descriptorWriter;
-    UniformBinder uniformBinder;
+    UniformBinder *uniformBinder;
     VkFence renderFence;
   };
 
@@ -22,11 +22,11 @@ struct RenderResourceProvider {
     RenderBuffer renderBuffer;
   };
 
-  virtual FrameResources GetFrameResources() = 0;
-  virtual std::optional<RenderTarget> GetRenderTarget(CommandRecorder const & recorder) = 0;
-  virtual void PrepareTargetForRendering(CommandRecorder const & recorder) = 0;
-  virtual void PrepareTargetForDisplaying(CommandRecorder const & recorder) = 0;
-  virtual void DisplayRenderTarget(CommandRecorder const & recorder) = 0;
+  virtual FrameResources &GetFrameResources() = 0;
+  virtual std::optional<RenderTarget> GetRenderTarget(CommandRecorder const &recorder) = 0;
+  virtual void PrepareTargetForRendering(CommandRecorder const &recorder) = 0;
+  virtual void PrepareTargetForDisplaying(CommandRecorder const &recorder) = 0;
+  virtual void DisplayRenderTarget(CommandRecorder const &recorder) = 0;
 };
 
 inline void CreateFrameResources(RenderResourceProvider::FrameResources &resources,
@@ -53,7 +53,7 @@ inline void CreateFrameResources(RenderResourceProvider::FrameResources &resourc
   resources.descriptorWriter = DescriptorWriter(instanceManager);
   resources.descriptorAllocator = DescriptorAllocator(instanceManager);
   resources.descriptorAllocator.InitPools(10, frame_sizes);
-  resources.uniformBinder = UniformBinder(gpuObjectManager);
+  resources.uniformBinder = new UniformBinder(gpuObjectManager);
 }
 
 inline void DestroyFrameResources(RenderResourceProvider::FrameResources &resources,
@@ -67,7 +67,8 @@ inline void DestroyFrameResources(RenderResourceProvider::FrameResources &resour
   resources.descriptorAllocator.ClearDescriptors();
   resources.descriptorAllocator.DestroyPools();
   resources.descriptorWriter.Clear();
-  resources.uniformBinder.Destroy();
+  resources.uniformBinder->Destroy();
+  delete resources.uniformBinder;
 }
 
 } // namespace Engine::Graphics

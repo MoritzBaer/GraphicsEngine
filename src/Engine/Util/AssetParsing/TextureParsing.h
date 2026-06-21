@@ -10,6 +10,30 @@ namespace Engine {
 struct TextureDSO {
   int width, height, channels;
   stbi_uc *data;
+
+  TextureDSO() : data(nullptr), width(0), height(0), channels(0) {}
+  TextureDSO(TextureDSO &&other) {
+    width = other.width;
+    height = other.height;
+    channels = other.channels;
+    data = other.data;
+
+    other.data = nullptr;
+    other.width = other.height = 0;
+  }
+  ~TextureDSO() { free(data); }
+  TextureDSO &operator=(TextureDSO &&other) {
+    free(data);
+    width = other.width;
+    height = other.height;
+    channels = other.channels;
+    data = other.data;
+
+    other.data = nullptr;
+    other.width = other.height = 0;
+
+    return *this;
+  }
 };
 
 class TextureDestroyer {

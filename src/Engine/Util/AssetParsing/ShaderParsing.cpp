@@ -33,7 +33,7 @@ Graphics::RenderingStrategies::CompiledEffect *CompiledEffectLoader::LoadAsset(s
 }
 
 void CompiledEffectDestroyer::DestroyAsset(Graphics::RenderingStrategies::CompiledEffect* &asset) const {
-  Graphics::PipelineBuilder::DestroyPipeline(*asset, instanceManager);
+  Graphics::PipelineBuilder::DestroyPipeline<true>(*asset, instanceManager);
 }
 
 Graphics::RenderingStrategies::ComputeBackground *

@@ -2,6 +2,7 @@
 
 #include "Debug/Logging.h"
 #include "Debug/Profiling.h"
+#include <algorithm>
 
 namespace Engine {
 
@@ -42,6 +43,9 @@ inline const uint8_t INTEGRAL = 2;
 inline const uint8_t NUMERIC = 1;
 inline const uint8_t ALPHABETIC = 0;
 
+#define BUF_CONTAINS_KEYWORD(keyword)                                                                                  \
+  !memcmp(buffer.data(), keyword, std::min(bufferIndex, static_cast<uint8_t>(sizeof(keyword))))
+
 // Could be made much more sophisticated
 template <typename InputIterator> InputIterator tokenizeObj(InputIterator begin, InputIterator end, Token &out) {
   // Skip comments and unsupported object types
@@ -65,7 +69,7 @@ template <typename InputIterator> InputIterator tokenizeObj(InputIterator begin,
     return ++begin;
   }
 
-  std::array<char, 16> buffer{0};
+  std::array<char, 16> buffer{};
   uint8_t bufferIndex = 0;
   uint8_t type = INTEGRAL;
 
@@ -84,10 +88,6 @@ template <typename InputIterator> InputIterator tokenizeObj(InputIterator begin,
     buffer[bufferIndex++] = *begin++;
   }
 
-  if (out.data) {
-    free(out.data);
-  }
-
   switch (type) {
   case INTEGRAL:
     out = Token{Token::Type::INTEGER, malloc(sizeof(uint32_t))};
@@ -98,17 +98,17 @@ template <typename InputIterator> InputIterator tokenizeObj(InputIterator begin,
     *(float *)out.data = atof(buffer.data());
     break;
   case ALPHABETIC:
-    if (memcmp(buffer.data(), "v", bufferIndex) == 0) {
+    if (BUF_CONTAINS_KEYWORD("v")) {
       out = Token{Token::Type::VERTEX_POSITION, nullptr};
-    } else if (memcmp(buffer.data(), "vn", bufferIndex) == 0) {
+    } else if (BUF_CONTAINS_KEYWORD("vn")) {
       out = Token{Token::Type::VERTEX_NORMAL, nullptr};
-    } else if (memcmp(buffer.data(), "vt", bufferIndex) == 0) {
+    } else if (BUF_CONTAINS_KEYWORD("vt")) {
       out = Token{Token::Type::VERTEX_TEXTURE_COORDINATES, nullptr};
-    } else if (memcmp(buffer.data(), "f", bufferIndex) == 0) {
+    } else if (BUF_CONTAINS_KEYWORD("f")) {
       out = Token{Token::Type::FACE, nullptr};
-    } else if (memcmp(buffer.data(), "o", bufferIndex) == 0) {
+    } else if (BUF_CONTAINS_KEYWORD("o")) {
       out = Token{Token::Type::OBJECT_NAME, nullptr};
-    } else if (memcmp(buffer.data(), "s", bufferIndex) == 0) {
+    } else if (BUF_CONTAINS_KEYWORD("s")) {
       out = Token{Token::Type::SMOOTHING_GROUP, nullptr};
     } else {
       out = Token{Token::Type::STRING, malloc(bufferIndex)};
@@ -153,6 +153,8 @@ MeshDSO MeshParser::ParseDSO(std::vector<char> const &source) const {
 
   while (currentToken.type != Token::Type::EOI) {
     if (readNewToken) {
+      free(currentToken.data);
+      currentToken.data = nullptr;
       begin = tokenizeObj(begin, source.end(), currentToken);
     }
     readNewToken = true;
@@ -261,6 +263,8 @@ MeshDSO MeshParser::ParseDSO(std::vector<char> const &source) const {
       break;
     }
   }
+
+  free(currentToken.data);
 
   return dso;
 }

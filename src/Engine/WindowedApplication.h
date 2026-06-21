@@ -38,7 +38,7 @@ private:
   void CreateSwapchain();
   void DestroySwapchain();
 
-  FrameResources GetFrameResources() override;
+  FrameResources &GetFrameResources() override;
   std::optional<RenderTarget> GetRenderTarget(CommandRecorder const &recorder) override;
   void DisplayRenderTarget(CommandRecorder const &recorder) override;
   void PrepareTargetForRendering(CommandRecorder const &recorder) override {}

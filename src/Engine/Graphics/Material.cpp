@@ -213,12 +213,19 @@ Pipeline *PipelineBuilder::Build() {
   return new Pipeline(pipelineLayout, descriptorSetLayouts, pipeline);
 }
 
+template <bool onlyPipelineObject>
 void PipelineBuilder::DestroyPipeline(Pipeline const &pipeline, InstanceManager const *instanceManager) {
   instanceManager->DestroyPipeline(pipeline.pipeline);
-  instanceManager->DestroyPipelineLayout(pipeline.layout);
-  for (auto layout : pipeline.descriptorLayouts) {
-    instanceManager->DestroyDescriptorSetLayout(layout);
+
+  if constexpr (!onlyPipelineObject) {
+    instanceManager->DestroyPipelineLayout(pipeline.layout);
+    for (auto layout : pipeline.descriptorLayouts) {
+      instanceManager->DestroyDescriptorSetLayout(layout);
+    }
   }
 }
+
+template void PipelineBuilder::DestroyPipeline<true>(Pipeline const &pipeline, InstanceManager const *instanceManager);
+template void PipelineBuilder::DestroyPipeline<false>(Pipeline const &pipeline, InstanceManager const *instanceManager);
 
 } // namespace Engine::Graphics

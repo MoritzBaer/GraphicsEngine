@@ -1,24 +1,9 @@
+#include <unistd.h>
 #ifdef LOGGING_INCLUDED
 #ifndef _LOGGING_MACROS_INCLUDED
 #define _LOGGING_MACROS_INCLUDED
 
-
 #define __FILE_NAME_LOG__ (&__FILE__[SOURCE_PATH_SIZE])
-
-#ifndef NDEBUG
-#ifdef __debugbreak
-#define __ENGINE_BREAKPOINT __debugbreak();
-#else
-#include <csignal>
-#ifdef SIGTRAP
-#define __ENGINE_BREAKPOINT std::raise(SIGTRAP);
-#else
-#define __ENGINE_BREAKPOINT std::raise(SIGABRT);
-#endif
-#endif
-#else 
-#define __ENGINE_BREAKPOINT
-#endif
 
 inline Engine::Debug::Logging::Logger engineLogger = Engine::Debug::Logging::Logger("Engine");
 
@@ -29,8 +14,8 @@ inline Engine::Debug::Logging::Logger engineLogger = Engine::Debug::Logging::Log
 
 #if ENGINE_LOG_LEVEL < ENGINE_LOG_LEVEL_DEBUG
 #define ENGINE_DEBUG(format, ...)
-#else 
-#define ENGINE_DEBUG(format, ...)                                                                                    \
+#else
+#define ENGINE_DEBUG(format, ...)                                                                                      \
   {                                                                                                                    \
     engineLogger.PrintMessage(format " ({}({},0))", __VA_OPT__(__VA_ARGS__, ) __FILE_NAME_LOG__, __LINE__);            \
   }
@@ -70,6 +55,68 @@ inline Engine::Debug::Logging::Logger engineLogger = Engine::Debug::Logging::Log
 
 #ifndef _MACROS_INCLUDED
 #define _MACROS_INCLUDED
+
+#ifndef NDEBUG
+#ifdef _WIN32
+#include <windows.h> // IsDebuggerPresent()
+#elif defined(__linux__)
+#include <cstdlib>  // atoi()
+#include <cstring>  // strstr()
+#include <fcntl.h>  // open(), O_RDONLY
+#include <unistd.h> // read(), close(), ssize_t
+#elif defined(__APPLE__)
+#include <sys/sysctl.h> // sysctl(), CTL_KERN, KERN_PROC, kinfo_proc, P_TRACED
+#include <unistd.h>     // getpid()
+#endif
+
+inline bool __debugger_attached() {
+#ifdef _WIN32
+  return IsDebuggerPresent();
+#elif defined(__linux__)
+  // TracerPid is non-zero when a debugger is attached
+  char buf[4096];
+  int fd = open("/proc/self/status", O_RDONLY);
+  if (fd == -1)
+    return false;
+  ssize_t n = read(fd, buf, sizeof(buf) - 1);
+  close(fd);
+  if (n <= 0)
+    return false;
+  buf[n] = '\0';
+  const char *p = strstr(buf, "TracerPid:");
+  return p && atoi(p + 10) != 0;
+#elif defined(__APPLE__)
+  // Use sysctl on macOS
+  int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()};
+  struct kinfo_proc info{};
+  size_t size = sizeof(info);
+  sysctl(mib, 4, &info, &size, nullptr, 0);
+  return info.kp_proc.p_flag & P_TRACED;
+#else
+  return false;
+#endif
+}
+
+#if defined(_MSC_VER)
+#define __ENGINE_UNCONDITIONAL_BREAKPOINT __debugbreak();
+#elif defined(__APPLE__) || defined(__linux__)
+#if defined(__i386__) || defined(__x86_64__)
+#define __ENGINE_UNCONDITIONAL_BREAKPOINT __asm__ volatile("int3; nop");
+#elif defined(__arm__) || defined(__aarch64__)
+#define __ENGINE_UNCONDITIONAL_BREAKPOINT __asm__ volatile("brk #0");
+#else
+#include <csignal>
+#define __ENGINE_UNCONDITIONAL_BREAKPOINT raise(SIGTRAP); // Portable fallback
+#endif
+#else
+#include <csignal>
+#define __ENGINE_UNCONDITIONAL_BREAKPOINT raise(SIGTRAP);
+#endif
+#define __ENGINE_BREAKPOINT                                                                                            \
+  if (__debugger_attached()) {                                                                                         \
+    __ENGINE_UNCONDITIONAL_BREAKPOINT                                                                                  \
+  }
+#endif
 
 #define _CAT(a, b)                                                                                                     \
   a##b // I don't understand the preprocessor well enough to understand why this is necessary, but apparently it is...

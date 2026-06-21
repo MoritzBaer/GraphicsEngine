@@ -5,6 +5,7 @@
 #include "Util/Macros.h"
 #include <array>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 
 // +----------+
@@ -101,7 +102,13 @@ public:
     auto const &assetPath = "res/" + AssetPath<T_Asset>::FromName(assetName);
     auto const &assetSource = Util::FileIO::ReadFile(assetPath);
     auto const &dso = parser.ParseDSO(assetSource);
-    return converter.ConvertDSO(dso);
+    if constexpr (std::is_pointer_v<T_DSO>) {
+      auto asset = converter.ConvertDSO(dso);
+      delete dso;
+      return asset;
+    } else {
+      return converter.ConvertDSO(dso);
+    }
   }
 };
 
@@ -137,6 +144,7 @@ class AssetManager {
   template <typename T_Asset> class ListableTypeManager : public ListableManager {
   public:
     virtual T_Asset LoadAsset(char const *assetName) = 0;
+    virtual ~ListableTypeManager() = default;
   };
 
   template <typename T_Asset, TypeManager<T_Asset> T_ManagerImpl>
@@ -147,6 +155,7 @@ class AssetManager {
   public:
     ListableTypeManagerImpl(T_ManagerImpl const &manager) : manager(manager) {}
     template <typename... ManagerArgs> ListableTypeManagerImpl(ManagerArgs... args) : manager(args...) {}
+    ~ListableTypeManagerImpl() { Cleanup(); }
     T_Asset LoadAsset(char const *assetName) override { return manager.LoadAsset(assetName); }
     void Cleanup() override { manager.Cleanup(); }
   };
@@ -161,7 +170,7 @@ class AssetManager {
 
 public:
   AssetManager() : typeManagers() {}
-  
+
   ~AssetManager() {
     for (int c = 0; c < nextFreeType; c++) {
       if (typeManagers[c])

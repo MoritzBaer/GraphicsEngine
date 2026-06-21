@@ -91,6 +91,25 @@ if(DELIVER_RESOURCES)
     add_custom_command(TARGET Engine POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/debug-symbols ${CMAKE_BINARY_DIR})
 endif()
 
+if (RUN_WITH_ASAN)
+    target_compile_options(Engine PUBLIC
+        -fsanitize=address
+        -fno-omit-frame-pointer
+        -g
+    )
+    target_link_options(Engine PUBLIC
+        -fsanitize=address
+    )
+    # Manualy link ASan
+    execute_process(
+        COMMAND ${CMAKE_CXX_COMPILER} -print-file-name=libasan.so
+        OUTPUT_VARIABLE ASAN_LIBRARY_PATH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    message(STATUS "ASan library: ${ASAN_LIBRARY_PATH}")
+    target_link_libraries(Engine PUBLIC ${ASAN_LIBRARY_PATH})
+endif()
+
 macro(make_app NAME ENTRY_POINT)
     message(STATUS "Building demo app ${NAME}")
     add_executable(${NAME} "src/${ENTRY_POINT}.cpp")
@@ -104,6 +123,7 @@ macro(make_app NAME ENTRY_POINT)
 
     message(STATUS "Build type for GameEngine: ${CMAKE_BUILD_TYPE}")
 endmacro()
+
 
 if(${BUILD_DEMO_APPS})
     make_app(EngineTestFullBuild test)

@@ -1,5 +1,7 @@
 #include "RenderBufferPool.h"
 #include "AssetManager.h"
+#include "Graphics/MemoryAllocator.h"
+#include <cstddef>
 #include <utility>
 
 namespace Engine::Graphics {
@@ -8,7 +10,7 @@ RenderBufferPool::RenderBufferPool(GPUObjectManager RELEASE_CONST *objectManager
     : objectManager(objectManager), bufferMap(), buffers(), bufferStack(), auxiliaryBuffers() {
   auto const initialKey =
       RenderBufferIdentifier{.extent = initialTarget.GetExtent(), .format = initialTarget.GetFormat()};
-  buffers.push_back(std::make_tuple(StoredRenderBuffer{.colourImage = initialTarget, .used = true}, initialKey));
+  buffers.push_back({.buffer = StoredRenderBuffer{.colourImage = initialTarget, .used = true}, .id = initialKey});
 
   bufferStack.push_back(0);
   bufferMap[initialKey] = 0;
@@ -18,24 +20,53 @@ RenderBufferPool::RenderBufferPool(RenderBufferPool &&other)
       bufferMap(std::move(other.bufferMap)), auxiliaryMap(std::move(other.auxiliaryMap)),
       bufferStack(std::move(other.bufferStack)), objectManager(other.objectManager) {}
 RenderBufferPool &RenderBufferPool::operator=(RenderBufferPool &&other) {
+  PurgeAllBuffers<false>();
   objectManager = other.objectManager;
   buffers = std::move(other.buffers);
   auxiliaryBuffers = std::move(other.auxiliaryBuffers);
   bufferMap = std::move(other.bufferMap);
   auxiliaryMap = std::move(other.auxiliaryMap);
   bufferStack = std::move(other.bufferStack);
+  // auto const oldNumBufs = buffers.size();
+  // auto const oldNumAuxBufs = auxiliaryBuffers.size();
+
+  // if (buffers.size() && other.buffers.size()) {
+  //   if (buffers[0].buffer.depthImage) {
+  //     // DeallocateImage(*buffers[0].buffer.depthImage);  // TODO: Mark for deallocation somehow
+  //   }
+  //   buffers[0].buffer = other.buffers[0].buffer;
+  // }
+
+  // for (auto &[b, _] : buffers) {
+  //   b.used = false;
+  // }
+  // buffers.resize(buffers.size() + other.buffers.size());
+  // std::copy(other.buffers.begin(), other.buffers.end(), buffers.begin() + oldNumBufs);
+
+  // for (auto &[b, _] : auxiliaryBuffers) {
+  //   b.used = false;
+  // }
+  // auxiliaryBuffers.resize(auxiliaryBuffers.size() + other.auxiliaryBuffers.size());
+  // std::copy(other.auxiliaryBuffers.begin(), other.auxiliaryBuffers.end(), auxiliaryBuffers.begin() + oldNumAuxBufs);
+
+  // bufferStack = buffers.size() ? std::vector<size_t>({0}) : std::vector<size_t>();
+
+  // for (auto const &[key, value] : other.bufferMap) {
+  //   bufferMap[key] = value;
+  // }
+  // for (auto const &[key, value] : other.auxiliaryMap) {
+  //   auxiliaryMap[key] = value;
+  // }
   return *this;
 }
 RenderBufferPool::~RenderBufferPool() {
-  ENGINE_DEBUG("Clearing render pool with {} main buffers and {} auxiliary buffers", buffers.size(), auxiliaryBuffers.size());
+  ENGINE_DEBUG("Clearing render pool with {} main buffers and {} auxiliary buffers", buffers.size(),
+               auxiliaryBuffers.size());
   PurgeAllBuffers<false>();
-  if (buffers.size() && std::get<0>(buffers[0]).depthImage) {
-    DeallocateImage(*std::get<0>(buffers[0]).depthImage);
-  }
 }
 
 RenderBuffer RenderBufferPool::GetRenderBuffer(CommandRecorder const &submitRecorder) {
-  auto const &i = std::get<0>(buffers[0]).colourImage.Image();
+  auto const &i = buffers[0].buffer.colourImage.Image();
   return RenderBuffer(*this, 0, i.GetExtent(), i.GetFormat(), submitRecorder);
 }
 
@@ -43,7 +74,7 @@ void RenderBufferPool::PushBufferToStack(Maths::Dimension2 const &extent, VkForm
   auto const key = RenderBufferIdentifier{extent, colourFormat};
   if (bufferMap.contains(key)) {
     auto bufIdx = bufferMap[key];
-    std::get<0>(buffers[bufIdx]).used = true;
+    buffers[bufIdx].buffer.used = true;
     bufferStack.push_back(bufIdx);
     return;
   }
@@ -51,7 +82,8 @@ void RenderBufferPool::PushBufferToStack(Maths::Dimension2 const &extent, VkForm
   bufferStack.push_back(buffers.size());
   bufferMap[key] = buffers.size();
   buffers.push_back(
-      std::make_tuple(StoredRenderBuffer{.colourImage = AllocateColourImage(extent, colourFormat), .used = true}, key));
+      {.buffer = StoredRenderBuffer{.colourImage = AllocateColourImage(extent, colourFormat), .used = true},
+       .id = key});
   ENGINE_DEBUG("Created new render buffer; now holding {}.", buffers.size());
 }
 
@@ -61,18 +93,19 @@ Image2 &RenderBufferPool::GetAuxiliaryBuffer(Maths::Dimension2 const &extent, Vk
 
   if (auxiliaryMap.contains(key)) {
     auto const idx = auxiliaryMap[key];
-    std::get<0>(auxiliaryBuffers[idx]).used = true;
-    return std::get<0>(auxiliaryBuffers[idx]).bufferImage.Image();
+    auxiliaryBuffers[idx].buffer.used = true;
+    return auxiliaryBuffers[idx].buffer.bufferImage.Image();
   }
 
   auxiliaryMap[key] = auxiliaryBuffers.size();
-  auxiliaryBuffers.push_back(std::make_tuple(
-      StoredAuxiliaryBuffer{
-          .bufferImage = objectManager->AllocateImage<2>(format, extent, usage, aspect, 1, layerCount), .used = true},
-      key));
+  DEBUG_LABEL("Auxiliary render buffer")
+  auxiliaryBuffers.push_back({.buffer = StoredAuxiliaryBuffer{.bufferImage = objectManager->AllocateImage<2>(
+                                                                  format, extent, usage, aspect, 1, layerCount),
+                                                              .used = true},
+                              .id = key});
 
   ENGINE_DEBUG("Created new auxiliary buffer; now holding {}.", auxiliaryBuffers.size());
-  return std::get<0>(auxiliaryBuffers.back()).bufferImage.Image();
+  return auxiliaryBuffers.back().buffer.bufferImage.Image();
 }
 
 void RenderBufferPool::CollapseStackBuffer(size_t stackElem, CommandRecorder const &rec) {
@@ -81,8 +114,8 @@ void RenderBufferPool::CollapseStackBuffer(size_t stackElem, CommandRecorder con
     return;
   }
 
-  auto &src = std::get<0>(buffers[stackElem]);
-  auto &dst = std::get<0>(buffers[stackElem - 1]);
+  auto &src = buffers[bufferStack[stackElem]].buffer;
+  auto &dst = buffers[bufferStack[stackElem - 1]].buffer;
 
   rec.RecordTransition(src.colourImage.Image(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
   rec.RecordTransition(dst.colourImage.Image(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -102,10 +135,10 @@ void RenderBufferPool::CollapseStackBuffer(size_t stackElem, CommandRecorder con
 void RenderBufferPool::PrepareFrame() { PurgeAllBuffers<true>(); }
 
 Image2 &RenderBufferPool::ColourImage(size_t stackElem) {
-  return std::get<0>(buffers[bufferStack[stackElem]]).colourImage.Image();
+  return buffers[bufferStack[stackElem]].buffer.colourImage.Image();
 }
 Image2 &RenderBufferPool::DepthImage(size_t stackElem) {
-  auto &buf = std::get<0>(buffers[bufferStack[stackElem]]);
+  auto &buf = buffers[bufferStack[stackElem]].buffer;
   auto &di = buf.depthImage;
   if (di) {
     return di->Image();
@@ -114,7 +147,7 @@ Image2 &RenderBufferPool::DepthImage(size_t stackElem) {
 }
 
 bool RenderBufferPool::DepthBufferInUse(size_t stackElem) const {
-  return std::get<0>(buffers[bufferStack[stackElem]]).depthImage.has_value();
+  return buffers[bufferStack[stackElem]].buffer.depthImage.has_value();
 }
 
 RenderBuffer::ColImRef::operator Engine::Graphics::Image2 &() const {
@@ -143,14 +176,14 @@ RenderBuffer::DepthImRef::operator Engine::Graphics::Image2 &() const {
 
 RenderBufferPool::RenderBufferImage RenderBufferPool::AllocateColourImage(Maths::Dimension2 const &extent,
                                                                           VkFormat format) RELEASE_CONST {
-  return {objectManager->AllocateImage<2>(
+  return DEBUG_LABEL("Render buffer") RenderBufferImage{objectManager->AllocateImage<2>(
       format, extent,
       VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-      VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, VK_SAMPLE_COUNT_1_BIT DEBUG_LABEL_VALUE("RENDER_BUFFER"))};
+      VK_IMAGE_ASPECT_COLOR_BIT, 1, 1, VK_SAMPLE_COUNT_1_BIT)};
 }
 
 RenderBufferPool::RenderBufferImage RenderBufferPool::AllocateDepthImage(Maths::Dimension2 const &extent) const {
-  return {objectManager->CreateDepthBuffer(extent)};
+  return DEBUG_LABEL("Depth buffer") RenderBufferImage{objectManager->CreateDepthBuffer(extent)};
 }
 
 void RenderBufferPool::DeallocateImage(RenderBufferImage const &im) const {
@@ -203,13 +236,12 @@ void RenderBuffer::Submit(CommandRecorder const &recorder) {
 template <bool onlyUnused, typename BufferT, typename BufferIdentifierT>
 size_t RenderBufferPool::PurgeBuffers(BufferRange<BufferT, BufferIdentifierT> auto &buffers,
                                       std::unordered_map<BufferIdentifierT, size_t> &indexMap) const {
-  auto cursor = std::begin(buffers);
+  auto cursor = std::begin(buffers) - 1;
   auto end = std::end(buffers);
 
-  while (cursor < end) {
-    auto &buf = std::get<0>(*cursor);
-    auto &key = std::get<1>(*cursor);
-    ++cursor;
+  while (++cursor < end) {
+    auto &buf = cursor->buffer;
+    auto const &key = cursor->id;
 
     if constexpr (onlyUnused) {
       if (buf.used) {
@@ -224,7 +256,7 @@ size_t RenderBufferPool::PurgeBuffers(BufferRange<BufferT, BufferIdentifierT> au
     *cursor = *(--end);
 
     // Update index in map
-    indexMap[std::get<1>(*cursor)] = cursor - buffers.begin();
+    indexMap[cursor->id] = cursor - buffers.begin();
   }
 
   return std::end(buffers) - end;
@@ -242,13 +274,32 @@ template <> void RenderBufferPool::FreeBuffer(RenderBufferPool::StoredAuxiliaryB
 }
 
 template <bool onlyUnused> void RenderBufferPool::PurgeAllBuffers() {
+  if (bufferStack.empty()) { // No buffers allocated, abort
+    ENGINE_ASSERT(buffers.empty(), "There are render buffers on a pool with empty stack!")
+    ENGINE_ASSERT(auxiliaryBuffers.empty(), "There are auxiliary buffers on a pool with empty stack!")
+    return;
+  }
+  ENGINE_ASSERT(!buffers.empty(), "There are no render buffers on a pool with non-empty stack!")
   bufferStack.erase(bufferStack.begin() + 1, bufferStack.end()); // The initial buffer is not removed
+
   auto nonInitialBuffers = std::span{buffers.begin() + 1, buffers.end()};
-  auto numRemoved = PurgeBuffers<onlyUnused, StoredRenderBuffer, RenderBufferIdentifier>(nonInitialBuffers, bufferMap);
-  buffers.erase(buffers.end() - numRemoved, buffers.end());
-  numRemoved =
-      PurgeBuffers<onlyUnused, StoredAuxiliaryBuffer, AuxiliaryBufferIdentifier>(auxiliaryBuffers, auxiliaryMap);
-  auxiliaryBuffers.erase(auxiliaryBuffers.end() - numRemoved, auxiliaryBuffers.end());
+  if (auto numRemoved =
+          PurgeBuffers<onlyUnused, StoredRenderBuffer, RenderBufferIdentifier>(nonInitialBuffers, bufferMap)) {
+    buffers.erase(buffers.end() - numRemoved, buffers.end());
+  }
+
+  if (auxiliaryBuffers.empty()) {
+    return;
+  }
+
+  if (auto numRemoved =
+          PurgeBuffers<onlyUnused, StoredAuxiliaryBuffer, AuxiliaryBufferIdentifier>(auxiliaryBuffers, auxiliaryMap)) {
+    auxiliaryBuffers.erase(auxiliaryBuffers.end() - numRemoved, auxiliaryBuffers.end());
+  }
+
+  if ((!buffers[0].buffer.used && buffers[0].buffer.depthImage) || !onlyUnused) {
+    DeallocateImage(*(buffers[0].buffer.depthImage));
+  }
 }
 
 Image2 &RenderBuffer::GetAuxiliaryBuffer(Maths::Dimension2 const &extent, VkFormat format, VkImageUsageFlags usage,

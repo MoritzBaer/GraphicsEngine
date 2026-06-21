@@ -12,6 +12,7 @@ namespace Engine::Graphics {
 class DrawCallRecorder;
 class VertexBuffer {
 public:
+  virtual ~VertexBuffer() = default;
   virtual VkBuffer GetBuffer() const = 0;
   virtual VmaAllocation GetAllocation() const = 0;
 };
@@ -31,7 +32,7 @@ protected:
 public:
   AllocatedMesh(VertexBuffer *vertexBuffer, Buffer<uint32_t> const &indexBuffer, VkDeviceAddress vertexBufferAddress)
       : vertexBuffer(vertexBuffer), indexBuffer(indexBuffer), vertexBufferAddress(vertexBufferAddress) {}
-  virtual ~AllocatedMesh() {};
+  virtual ~AllocatedMesh() = default;
 
   inline void AppendData(PushConstantsAggregate &aggregate) const { aggregate.PushData(&vertexBufferAddress); }
 };

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdlib>
 #include <cstring>
 
 namespace Engine::Graphics {
@@ -15,6 +16,7 @@ public:
     char *newData = reinterpret_cast<char *>(malloc(size + sizeof(T)));
     memcpy(newData, this->data, size);
     memcpy(newData + size, data, sizeof(T));
+    free(this->data);
     this->data = newData;
     size += sizeof(T);
 

@@ -1,35 +1,61 @@
 #pragma once
+
 #include "vk_mem_alloc.h"
 #include <algorithm>
+#include <string>
 #include <vector>
 
 #ifdef NDEBUG
 #define RELEASE_CONST const
-#define DEBUG_LABEL
-#define DEBUG_LABEL_DEFAULT
-#define DEBUG_LABEL_REFERENCE
-#define DEBUG_LABEL_VALUE(...) __VA_ARGS__
 #else
 #define RELEASE_CONST
-#define DEBUG_LABEL , const char * label
-#define DEBUG_LABEL_DEFAULT(defaultVal) DEBUG_LABEL = defaultVal
-#define DEBUG_LABEL_REFERENCE , label
-#define DEBUG_LABEL_VALUE(...) , __VA_ARGS__
+#endif
+
+#ifndef NDEBUG
+#include <source_location>
 #endif
 
 namespace Engine::Graphics {
+#ifndef NDEBUG
+#include <source_location>
+
+inline thread_local char const *__debug_label = "UNNAMED";
+
+struct __label_scope {
+  __label_scope(char const *lbl) { __debug_label = lbl; }
+  ~__label_scope() { __debug_label = "UNNAMED"; }
+};
+
+#define DEBUG_LABEL(lbl) __label_scope(lbl),
+#define DEBUG_SOURCE_LOCATION_DECLARATION , std::source_location srcLoc = std::source_location::current()
+#define DEBUG_SOURCE_LOCATION_REFERENCE , std::source_location srcLoc
+#define DEBUG_SOURCE_LOCATION_FORWARD , srcLoc
+
+#else
+#define DEBUG_LABEL(lbl)
+#define DEBUG_SOURCE_LOCATION_DECLARATION
+#define DEBUG_SOURCE_LOCATION_REFERENCE
+#define DEBUG_SOURCE_LOCATION_FORWARD
+#endif
+
 class InstanceManager;
 
 class MemoryAllocator {
 private:
   VmaAllocator allocator;
 #ifndef NDEBUG
-  std::vector<std::tuple<VkImage, uint16_t, const char *>> allocatedImages;
-  std::vector<std::tuple<VkBuffer, uint16_t, const char *>> allocatedBuffers;
+  std::vector<std::tuple<VkImage, uint16_t, std::string>> allocatedImages;
+  std::vector<std::tuple<VkBuffer, uint16_t, std::string>> allocatedBuffers;
   VkDevice device;
   VkInstance instance;
-#endif
-
+  #endif
+  
+  private:
+    void _CreateImage(VkImageCreateInfo const *imageCreateInfo, VkImage *image, VmaAllocation *allocation) const;
+  public:
+  private:
+    void _CreateBuffer(VkBufferCreateInfo const *bufferCreateInfo, VmaAllocationCreateInfo const *allocationCreateInfo,
+                       VkBuffer *buffer, VmaAllocation *allocation, VmaAllocationInfo *allocationInfo) const;
 public:
   MemoryAllocator() {};
   inline void Create(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkInstance instance) {
@@ -42,10 +68,10 @@ public:
         .instance = instance,
     };
 
-    #ifndef NDEBUG
-      device = logicalDevice; 
-      this->instance = instance; 
-    #endif
+#ifndef NDEBUG
+    device = logicalDevice;
+    this->instance = instance;
+#endif
 
     vmaCreateAllocator(&allocatorInfo, &allocator);
   }
@@ -53,36 +79,17 @@ public:
   ~MemoryAllocator();
 
 // Allocate memory objects
-#ifdef NDEBUG
-  void CreateImage(VkImageCreateInfo const *imageCreateInfo, VkImage *image, VmaAllocation *allocation) const;
-#else
-private:
-  void _CreateImage(VkImageCreateInfo const *imageCreateInfo, VkImage *image, VmaAllocation *allocation) const;
+void CreateImage(VkImageCreateInfo const *imageCreateInfo, VkImage *image, VmaAllocation *allocation DEBUG_SOURCE_LOCATION_DECLARATION) RELEASE_CONST;
 
-public:
-  void CreateImage(VkImageCreateInfo const *imageCreateInfo, VkImage *image, VmaAllocation *allocation,
-                   char const *label = nullptr);
-#endif
-#ifdef NDEBUG
-  void CreateBuffer(VkBufferCreateInfo const *bufferCreateInfo, VmaAllocationCreateInfo const *allocationCreateInfo,
-                    VkBuffer *buffer, VmaAllocation *allocation, VmaAllocationInfo *allocationInfo) const;
-#else
-private:
-  void _CreateBuffer(VkBufferCreateInfo const *bufferCreateInfo, VmaAllocationCreateInfo const *allocationCreateInfo,
-                     VkBuffer *buffer, VmaAllocation *allocation, VmaAllocationInfo *allocationInfo) const;
-
-public:
-  void CreateBuffer(VkBufferCreateInfo const *bufferCreateInfo, VmaAllocationCreateInfo const *allocationCreateInfo,
-                    VkBuffer *buffer, VmaAllocation *allocation, VmaAllocationInfo *allocationInfo,
-                    char const *label = nullptr);
-#endif
+void CreateBuffer(VkBufferCreateInfo const *bufferCreateInfo, VmaAllocationCreateInfo const *allocationCreateInfo,
+                  VkBuffer *buffer, VmaAllocation *allocation, VmaAllocationInfo *allocationInfo DEBUG_SOURCE_LOCATION_DECLARATION) RELEASE_CONST;
 
   // Free memory objects
   void DestroyImage(VkImage const &image, VmaAllocation const &allocation) RELEASE_CONST {
 #ifndef NDEBUG
     allocatedImages.erase(std::remove_if(
         allocatedImages.begin(), allocatedImages.end(),
-        [image](std::tuple<VkImage, uint16_t, const char *> &tuple) { return std::get<0>(tuple) == image; }));
+        [image](std::tuple<VkImage, uint16_t, std::string> &tuple) { return std::get<0>(tuple) == image; }));
 #endif
     vmaDestroyImage(allocator, image, allocation);
   }
@@ -90,14 +97,14 @@ public:
 #ifndef NDEBUG
     allocatedBuffers.erase(std::remove_if(
         allocatedBuffers.begin(), allocatedBuffers.end(),
-        [buffer](std::tuple<VkBuffer, uint16_t, const char *> const &tuple) { return std::get<0>(tuple) == buffer; }));
+        [buffer](std::tuple<VkBuffer, uint16_t, std::string> const &tuple) { return std::get<0>(tuple) == buffer; }));
 #endif
     vmaDestroyBuffer(allocator, buffer, allocation);
   }
 
-  #ifndef NDEBUG
+#ifndef NDEBUG
   // Set debug labels
-  VkResult SetDebugLabel(VkDevice device, VkDebugUtilsObjectNameInfoEXT const * pNameInfo) const;
-  #endif
+  VkResult SetDebugLabel(VkDevice device, VkDebugUtilsObjectNameInfoEXT const *pNameInfo) const;
+#endif
 };
 } // namespace Engine::Graphics
