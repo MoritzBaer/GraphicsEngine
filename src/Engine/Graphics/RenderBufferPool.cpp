@@ -8,6 +8,8 @@ namespace Engine::Graphics {
 
 RenderBufferPool::RenderBufferPool(GPUObjectManager RELEASE_CONST *objectManager, Image2 const &initialTarget)
     : objectManager(objectManager), bufferMap(), buffers(), bufferStack(), auxiliaryBuffers() {
+  buffers.reserve(4096);
+  auxiliaryBuffers.reserve(4096);
   auto const initialKey =
       RenderBufferIdentifier{.extent = initialTarget.GetExtent(), .format = initialTarget.GetFormat()};
   buffers.push_back({.buffer = StoredRenderBuffer{.colourImage = initialTarget, .used = true}, .id = initialKey});
@@ -151,6 +153,11 @@ bool RenderBufferPool::DepthBufferInUse(size_t stackElem) const {
 }
 
 RenderBuffer::ColImRef::operator Engine::Graphics::Image2 &() const {
+  AssertAttributes();
+  return pool.ColourImage(elem);
+}
+
+void RenderBuffer::ColImRef::AssertAttributes() const {
   auto &currentIm = pool.ColourImage(elem);
   if (currentIm.GetExtent() != resolution || currentIm.GetFormat() != format) {
 
@@ -158,11 +165,14 @@ RenderBuffer::ColImRef::operator Engine::Graphics::Image2 &() const {
 
     elem++;
   }
-
-  return pool.ColourImage(elem);
 }
 
 RenderBuffer::DepthImRef::operator Engine::Graphics::Image2 &() const {
+  AssertAttributes();
+  return pool.DepthImage(elem);
+}
+
+void RenderBuffer::DepthImRef::AssertAttributes() const {
   auto &currentIm = pool.ColourImage(elem);
   if (currentIm.GetExtent() != resolution || currentIm.GetFormat() != colourFormat) {
 
@@ -170,8 +180,6 @@ RenderBuffer::DepthImRef::operator Engine::Graphics::Image2 &() const {
 
     elem++;
   }
-
-  return pool.DepthImage(elem);
 }
 
 RenderBufferPool::RenderBufferImage RenderBufferPool::AllocateColourImage(Maths::Dimension2 const &extent,

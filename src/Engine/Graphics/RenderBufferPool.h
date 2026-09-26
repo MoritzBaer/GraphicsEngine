@@ -80,6 +80,8 @@ class RenderBuffer {
     ColImRef(RenderBufferPool &pool, size_t &elem, Maths::Dimension2 const &resolution, VkFormat const &format)
         : pool(pool), elem(elem), resolution(resolution), format(format) {}
 
+    void AssertAttributes() const;
+
   public:
     operator Image2 &() const;
     Image2 *operator->() const { return &(Image2 &)*this; }
@@ -95,9 +97,17 @@ class RenderBuffer {
     DepthImRef(RenderBufferPool &pool, size_t &elem, Maths::Dimension2 const &resolution, VkFormat const &format)
         : pool(pool), elem(elem), resolution(resolution), colourFormat(format) {}
 
+    void AssertAttributes() const;
+
   public:
     operator Image2 &() const;
   };
+
+  inline static size_t BumpStackElemIfNecessary(RenderBuffer const & buf) {
+    buf.colourImage.AssertAttributes();
+    buf.depthImage.AssertAttributes();
+    return buf.workingStackElem;
+  }
 
 public:
   RenderBuffer(RenderBufferPool &pool, size_t stackElem, Maths::Dimension2 const &initialResolution,
@@ -114,7 +124,8 @@ public:
    * and `Submit` again.
    */
   RenderBuffer(RenderBuffer const &other)
-      : RenderBuffer(other.pool, other.workingStackElem, other.resolution, other.format, other.recorder) {}
+      : RenderBuffer(other.pool, BumpStackElemIfNecessary(other), other.resolution, other.format, other.recorder) {
+  }
 
   /**
    * Must only be called once on any instance of

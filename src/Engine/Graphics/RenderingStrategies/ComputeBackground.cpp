@@ -37,8 +37,8 @@ void ComputeBackground::RecordRenderingCommands(DescriptorAllocator &descriptorA
   recorder.RecordWithBoundPipeline(effect, VK_PIPELINE_BIND_POINT_COMPUTE, [&](MaterialBinder const &binder) {
     binder.RecordDescriptorBind(targetDescriptor);
     binder.RecordPushConstantSet(data, VK_SHADER_STAGE_COMPUTE_BIT);
-    binder.RecordDispatch(std::ceil(backgroundTarget.GetExtent().x() / 16u),
-                          std::ceil(backgroundTarget.GetExtent().y() / 16u));
+    binder.RecordDispatch(std::ceil(backgroundTarget.GetExtent().x() / 16.0f),
+                          std::ceil(backgroundTarget.GetExtent().y() / 16.0f));
   });
 
   recorder.RecordTransition(backgroundTarget, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);

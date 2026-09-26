@@ -3,3 +3,7 @@
 /.VSCodeCounter
 .cache
 /valgrind-out
+CMakeFiles
+CMakeCache.txt
+Makefile
+cmake_install.cmake

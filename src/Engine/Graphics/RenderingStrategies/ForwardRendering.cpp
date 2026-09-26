@@ -72,6 +72,7 @@ void ForwardRendering::RecordRenderingCommands(RenderingRequest const &request, 
   recorder.RecordRenderPass()
       .WithDrawImage(renderBuffer.colourImage)
       .WithDepthImage(renderBuffer.depthImage)
+      .WithDepthBufferLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR)
       .As([&](RenderPassRecorder const &recorder) {
         for (auto const &renderInfo : request.objectsToDraw) {
 

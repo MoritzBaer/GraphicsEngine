@@ -12,15 +12,17 @@ Engine::Graphics::CommandRecorder Engine::Graphics::CommandQueue::GetRecorder(Vk
   VULKAN_ASSERT(vkResetCommandBuffer(mainBuffer, 0), "Failed to reset command buffer!")
 
   VULKAN_ASSERT(vkBeginCommandBuffer(mainBuffer, &beginInfo), "Failed to begin command buffer!")
-
+  ENGINE_DEBUG("Beginning command buffer {}", (void*)mainBuffer)
+  
   return CommandRecorder{mainBuffer};
 }
 
 VkCommandBufferSubmitInfo
 Engine::Graphics::CommandQueue::EnqueueCommandRecord(Engine::Graphics::CommandRecorder const &commands) const {
   PROFILE_FUNCTION()
-
+  
   VULKAN_ASSERT(vkEndCommandBuffer(mainBuffer), "Failed to end command buffer!")
+  ENGINE_DEBUG("Ending command buffer {}", (void*)mainBuffer)
 
   return {.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO, .commandBuffer = mainBuffer, .deviceMask = 0};
 }

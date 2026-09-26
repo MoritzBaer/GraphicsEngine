@@ -6,6 +6,7 @@
 #include "MemoryAllocator.h"
 #include "VulkanUtil.h"
 #include "vulkan/vulkan.h"
+#include <cstdint>
 
 namespace Engine::Graphics {
 
@@ -25,6 +26,8 @@ protected:
   friend class GPUMemoryManager;
   friend class GPUObjectManager;
   friend class CommandRecorder;
+
+  friend struct std::formatter<Engine::Graphics::Image<Dimension>>;
 
 public:
   inline static const VkImageType IMAGE_TYPE;
@@ -102,3 +105,11 @@ inline VkDescriptorImageInfo Image<Dimension>::BindInDescriptor(VkImageLayout la
 }
 
 } // namespace Engine::Graphics
+
+
+template <uint8_t D> struct std::formatter<Engine::Graphics::Image<D>> {
+  constexpr auto parse(std::format_parse_context &ctx) { return ctx.begin(); }
+  auto format(Engine::Graphics::Image<D> const &o, std::format_context &ctx) const {
+    return std::format_to(ctx.out(), "{}", (void*)o.image);
+  }
+};

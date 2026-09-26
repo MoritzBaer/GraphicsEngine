@@ -13,6 +13,7 @@
 #include "Util/AssetParsing/ShaderParsing.h"
 #include "Util/AssetParsing/TextureParsing.h"
 #include "WindowManager.h"
+#include <chrono>
 #include <thread>
 
 using Engine::Graphics::Shader;

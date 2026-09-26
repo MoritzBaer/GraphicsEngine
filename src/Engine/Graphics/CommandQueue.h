@@ -3,6 +3,7 @@
 #include "AssetManager.h"
 #include "Buffer.h"
 #include "Debug/Logging.h"
+#include "Debug/VulkanFormatters.h"
 #include "Graphics/AllocatedMesh.h"
 #include "Graphics/Image.h"
 #include "Graphics/Material.h"
@@ -213,6 +214,8 @@ public:
 
   // +----------- Dispatch ------------+
   inline void RecordDispatch(uint32_t workerGroupsX, uint32_t workerGroupsY = 1, uint32_t workerGroupsZ = 1) const {
+    ENGINE_DEBUG("vkCmdDispatch(commandBuffer={}, groupCountX={}, groupCountY={}, groupCountZ={})", (void *)buffer,
+                 workerGroupsX, workerGroupsY, workerGroupsZ);
     vkCmdDispatch(buffer, workerGroupsX, workerGroupsY, workerGroupsZ);
   }
 };
@@ -287,6 +290,8 @@ public:
   template <std::integral T> void RecordIndexBufferBind(Buffer<T> const &indexBuffer, VkDeviceSize offset = 0) const;
   inline void RecordDraw(uint32_t vertexCount, uint32_t instanceCount = 1, uint32_t firstVertex = 0,
                          uint32_t firstInstance = 0) const {
+    ENGINE_DEBUG("vkCmdDraw(commandBuffer={}, vertexCount={}, instanceCount={}, firstVertex={}, firstInstance={})",
+                 (void *)RenderPassRecorder::buffer, vertexCount, instanceCount, firstVertex, firstInstance);
     vkCmdDraw(RenderPassRecorder::buffer, vertexCount, instanceCount, firstVertex, firstInstance);
   }
   template <typename T>
@@ -322,6 +327,8 @@ template <typename T1, typename T2>
 inline void CommandRecorder::RecordCopy(Buffer<T1> const &src, Buffer<T2> const &dst, size_t numBytes, size_t srcOffset,
                                         size_t dstOffset) const {
   VkBufferCopy region{.srcOffset = srcOffset, .dstOffset = dstOffset, .size = numBytes};
+  ENGINE_DEBUG("vkCmdCopyBuffer(commandBuffer={}, srcBuffer={}, dstBuffer={}, regionCount={}, pRegions={})",
+               (void *)buffer, (void *)src.buffer, (void *)dst.buffer, 1, region);
   vkCmdCopyBuffer(buffer, src.buffer, dst.buffer, 1, &region);
 }
 
@@ -334,6 +341,10 @@ inline void CommandRecorder::RecordCopy(Buffer<T> const &src, Image<D> &dst, Mat
                            .imageOffset = vkutil::DimensionToOffset(dstOffset),
                            .imageExtent = vkutil::DimensionToExtent(pixels)};
 
+  ENGINE_DEBUG(
+      "vkCmdCopyBufferToImage(commandBuffer={}, srcBuffer={}, dstImage={}, dstImageLayout={}, regionCount={}, "
+      "pRegions={})",
+      (void *)buffer, (void *)src.buffer, (void *)dst.image, dst.currentLayout, 1, region);
   vkCmdCopyBufferToImage(buffer, src.buffer, dst.image, dst.currentLayout, 1, &region);
 }
 
@@ -345,13 +356,20 @@ inline void CommandRecorder::RecordCopy(Image<D> &src, Buffer<T> const &dst, Mat
                            .imageSubresource = {.aspectMask = src.aspect, .layerCount = 1},
                            .imageOffset = vkutil::DimensionToOffset(srcOffset),
                            .imageExtent = vkutil::DimensionToExtent(pixels)};
-  vkCmdCopyImageToBuffer(buffer, src.image, src.imageDimension, dst.buffer, 1, &region);
+  // NOTE: logged as `src.currentLayout`, which is what this parameter actually is; the
+  // call below currently passes `src.imageDimension` in this slot, which looks like a bug.
+  ENGINE_MESSAGE(
+      "vkCmdCopyImageToBuffer(commandBuffer={}, srcImage={}, srcImageLayout={}, dstBuffer={}, regionCount={}, "
+      "pRegions={})",
+      (void *)buffer, (void *)src.image, src.currentLayout, (void *)dst.buffer, 1, region);
+  vkCmdCopyImageToBuffer(buffer, src.image, src.currentLayout, dst.buffer, 1, &region);
 }
 
 inline void CommandRecorder::RecordPipelineBarrier(std::initializer_list<VkImageMemoryBarrier2> const &barriers) const {
   VkDependencyInfo const dependency = {.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
                                        .imageMemoryBarrierCount = static_cast<uint32_t>(barriers.size()),
                                        .pImageMemoryBarriers = barriers.begin()};
+  ENGINE_DEBUG("vkCmdPipelineBarrier2(commandBuffer={}, pDependencyInfo={})", (void *)buffer, dependency);
   vkCmdPipelineBarrier2(buffer, &dependency);
 }
 
@@ -359,6 +377,10 @@ template <uint8_t D>
 inline void
 CommandRecorder::RecordColorImageClear(Image<D> const &image, VkClearColorValue const &clearColour,
                                        std::initializer_list<VkImageSubresourceRange> const &subresourceRanges) const {
+  ENGINE_MESSAGE(
+      "vkCmdClearColorImage(commandBuffer={}, image={}, imageLayout={}, pColor={}, rangeCount={}, pRanges={})",
+      (void *)buffer, (void *)image.image, image.currentLayout, clearColour, subresourceRanges.size(),
+      FormatArray(subresourceRanges.begin(), subresourceRanges.size()));
   vkCmdClearColorImage(buffer, image.image, image.currentLayout, clearColour, subresourceRanges.size(),
                        subresourceRanges.begin());
 }
@@ -396,16 +418,13 @@ inline void CommandRecorder::RecordBlit(std::convertible_to<Image<D>> auto const
                                      .regionCount = static_cast<uint32_t>(blitRegions.size()),
                                      .pRegions = blitRegions.begin(),
                                      .filter = filter};
+  ENGINE_DEBUG("vkCmdBlitImage2(commandBuffer={}, pBlitImageInfo={})", (void *)buffer, blitInfo);
   vkCmdBlitImage2(buffer, &blitInfo);
 }
 
 template <uint8_t D = 2>
 inline void CommandRecorder::RecordTransition(std::convertible_to<Image<D>> auto &image,
                                               VkImageLayout newLayout) const {
-  if (((Image2 &)image).currentLayout == newLayout) {
-    return;
-  }
-
   RecordPipelineBarrier(vkinit::ImageMemoryBarrier(((Image2 &)image).image, ((Image2 &)image).currentLayout, newLayout,
                                                    ((Image2 &)image).aspect));
   ((Image2 &)image).currentLayout = newLayout;
@@ -417,6 +436,10 @@ inline void Engine::Graphics::CommandRecorder::RecordRenderPass(std::span<Image2
                                                                 Maths::Dimension2 const &extent,
                                                                 Maths::Dimension2 const &offset,
                                                                 RenderPassDefinition auto const &definition) const {
+  for (auto &image : drawImages) {
+    RecordTransition(image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+  }
+  RecordTransition(depthImage, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
   std::vector<VkRenderingAttachmentInfo> colourAttachmentInfos{};
   colourAttachmentInfos.resize(drawImages.size());
   std::transform(drawImages.begin(), drawImages.end(), colourAttachmentInfos.begin(),
@@ -431,18 +454,24 @@ inline void Engine::Graphics::CommandRecorder::RecordRenderPass(std::span<Image2
       .pColorAttachments = colourAttachmentInfos.data(),
       .pDepthAttachment = &depthAttachment};
 
+  ENGINE_DEBUG("vkCmdBeginRendering(commandBuffer={}, pRenderingInfo={})", (void *)buffer, renderingInfo);
   vkCmdBeginRendering(buffer, &renderingInfo);
 
   definition(RenderPassRecorder{buffer});
 
+  ENGINE_DEBUG("vkCmdEndRendering(commandBuffer={})", (void *)buffer);
   vkCmdEndRendering(buffer);
 }
 
 inline void CommandRecorder::RecordViewports(std::initializer_list<VkViewport> const &viewports) const {
+  ENGINE_DEBUG("vkCmdSetViewport(commandBuffer={}, firstViewport={}, viewportCount={}, pViewports={})", (void *)buffer,
+               0, viewports.size(), FormatArray(viewports.begin(), viewports.size()));
   vkCmdSetViewport(buffer, 0, viewports.size(), viewports.begin());
 }
 
 inline void CommandRecorder::RecordScissors(std::initializer_list<VkRect2D> const &scissors) const {
+  ENGINE_DEBUG("vkCmdSetScissor(commandBuffer={}, firstScissor={}, scissorCount={}, pScissors={})", (void *)buffer, 0,
+               scissors.size(), FormatArray(scissors.begin(), scissors.size()));
   vkCmdSetScissor(buffer, 0, scissors.size(), scissors.begin());
 }
 
@@ -451,7 +480,12 @@ inline void DrawCallRecorder::RecordIndexedDraw(Buffer<T> const &indexBuffer, ui
                                                 uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset,
                                                 uint32_t firstInstance) const {
   RecordIndexBufferBind(indexBuffer);
-  vkCmdDrawIndexed(RenderPassRecorder::buffer, static_cast<uint32_t>(indexBuffer.Size()), instanceCount, firstIndex, vertexOffset, firstInstance);
+  ENGINE_DEBUG("vkCmdDrawIndexed(commandBuffer={}, indexCount={}, instanceCount={}, firstIndex={}, vertexOffset={}, "
+                 "firstInstance={})",
+                 (void *)RenderPassRecorder::buffer, static_cast<uint32_t>(indexBuffer.Size()), instanceCount,
+                 firstIndex, vertexOffset, firstInstance);
+  vkCmdDrawIndexed(RenderPassRecorder::buffer, static_cast<uint32_t>(indexBuffer.Size()), instanceCount, firstIndex,
+                   vertexOffset, firstInstance);
 }
 
 template <typename T_GPU>
@@ -465,16 +499,23 @@ inline void DrawCallRecorder::RecordVertexBufferBind(std::span<VertexBufferBindi
     offsets.push_back(binding.offset);
   });
 
+  ENGINE_DEBUG("vkCmdBindVertexBuffers(commandBuffer={}, firstBinding={}, bindingCount={}, pBuffers={}, pOffsets={})",
+                 (void *)RenderPassRecorder::buffer, 0, bindings.size(),
+                 FormatHandleArray(buffers.data(), buffers.size()), FormatArray(offsets.data(), offsets.size()));
   vkCmdBindVertexBuffers(RenderPassRecorder::buffer, 0, bindings.size(), buffers.data(), offsets.data());
 }
 
 template <std::integral T>
 inline void DrawCallRecorder::RecordIndexBufferBind(Buffer<T> const &indexBuffer, VkDeviceSize offset) const {
+  ENGINE_DEBUG("vkCmdBindIndexBuffer(commandBuffer={}, buffer={}, offset={}, indexType={})",
+               (void *)RenderPassRecorder::buffer, (void *)indexBuffer.GetBuffer(), offset, IndexType<T>::type);
   vkCmdBindIndexBuffer(RenderPassRecorder::buffer, indexBuffer.GetBuffer(), offset, IndexType<T>::type);
 }
 
 inline void CommandRecorder::RecordWithBoundPipeline(Graphics::Pipeline const &pipeline, VkPipelineBindPoint bindPoint,
                                                      MaterialBind auto const &bind) const {
+  ENGINE_DEBUG("vkCmdBindPipeline(commandBuffer={}, pipelineBindPoint={}, pipeline={})", (void *)buffer, bindPoint,
+               (void *)pipeline.pipeline);
   vkCmdBindPipeline(buffer, bindPoint /* TODO: Take from pipeline directly? */, pipeline.pipeline);
   bind(MaterialBinder(buffer, pipeline.layout, bindPoint));
 }
@@ -482,21 +523,31 @@ inline void CommandRecorder::RecordWithBoundPipeline(Graphics::Pipeline const &p
 inline void RenderPassRecorder::RecordWithBoundPipeline(Graphics::Pipeline const &pipeline,
                                                         VkPipelineBindPoint bindPoint,
                                                         DrawCall auto const &drawCall) const {
+  ENGINE_DEBUG("vkCmdBindPipeline(commandBuffer={}, pipelineBindPoint={}, pipeline={})", (void *)buffer, bindPoint,
+               (void *)pipeline.pipeline);
   vkCmdBindPipeline(buffer, bindPoint /* TODO: Take from pipeline directly? */, pipeline.pipeline);
   drawCall(DrawCallRecorder(buffer, pipeline.layout, bindPoint));
 }
 
 inline void MaterialBinder::RecordDescriptorBind(std::span<VkDescriptorSet const> const &descriptors) const {
+  ENGINE_DEBUG("vkCmdBindDescriptorSets(commandBuffer={}, pipelineBindPoint={}, layout={}, firstSet={}, "
+                 "descriptorSetCount={}, pDescriptorSets={}, dynamicOffsetCount={}, pDynamicOffsets={})",
+                 (void *)buffer, usedBindpoint, (void *)boundLayout, 0, descriptors.size(),
+                 FormatHandleArray(descriptors.data(), descriptors.size()), 0, "nullptr");
   vkCmdBindDescriptorSets(buffer, usedBindpoint, boundLayout, 0, descriptors.size(), descriptors.data(), 0, nullptr);
 }
 
 template <>
 inline void MaterialBinder::RecordPushConstantSet<PushConstantsAggregate>(PushConstantsAggregate const &constants,
                                                                           VkShaderStageFlags stage) const {
+  ENGINE_DEBUG("vkCmdPushConstants(commandBuffer={}, layout={}, stageFlags={}, offset={}, size={}, pValues={})",
+               (void *)buffer, (void *)boundLayout, stage, 0, constants.Size(), (void const *)constants.Data());
   vkCmdPushConstants(buffer, boundLayout, stage, 0, constants.Size(), constants.Data());
 }
 template <typename T>
 inline void MaterialBinder::RecordPushConstantSet(T const &constants, VkShaderStageFlags stage) const {
+  ENGINE_DEBUG("vkCmdPushConstants(commandBuffer={}, layout={}, stageFlags={}, offset={}, size={}, pValues={})",
+               (void *)buffer, (void *)boundLayout, stage, 0, sizeof(T), (void const *)&constants);
   vkCmdPushConstants(buffer, boundLayout, stage, 0, sizeof(T), &constants);
 }
 
