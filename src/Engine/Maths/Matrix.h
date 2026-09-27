@@ -79,6 +79,7 @@ template <uint8_t n, typename T, uint8_t index> inline constexpr T const &Access
 
 template <uint8_t n, typename T, uint8_t... indices> class EntryReference {
   VectorT<n, T> &parent;
+  inline static constexpr std::array<T, sizeof...(indices)> indexArr = {indices...};
 
 public:
   inline static constexpr uint8_t numEntries = static_cast<uint8_t>(sizeof...(indices));
@@ -101,12 +102,11 @@ public:
     return Access<n, T, idxs[0]>(parent);
   }
   inline constexpr T const &operator[](uint8_t entry) const {
-    VectorT<numEntries, T> ref = *this;
-    return ref[entry];
+    return parent[indexArr[entry]];
   }
   inline constexpr T &operator[](uint8_t entry) {
     VectorT<numEntries, T> ref = *this;
-    return ref[entry];
+    return parent[indexArr[entry]];
   }
   inline constexpr VectorT<numEntries, T> operator-() const {
     return VectorT<numEntries, T>(-Access<n, T, indices>(parent)...);
@@ -202,11 +202,13 @@ public:
   }
   template <AdditiveAutoCasting<T> T2, uint8_t other_n, uint8_t other_index>
   inline constexpr EntryReference<n, T, indices...> &operator+=(EntryReference<other_n, T2, other_index> const &value) {
-    return *this += value[0];
+    T2 val = value[0];
+    return *this += val;
   }
   template <AdditiveAutoCasting<T> T2, uint8_t other_n, uint8_t other_index>
   inline constexpr EntryReference<n, T, indices...> &operator-=(EntryReference<other_n, T2, other_index> const &value) {
-    return *this -= value[0];
+    T2 val = value[0];
+    return *this -= val;
   }
 
   // Adding vectors
@@ -296,7 +298,7 @@ public:
     return entries * value;
   }
   template <MultiplicativeAutoCasting<T> T2> inline constexpr VectorT<numEntries, T> operator/(T2 const &value) const {
-    return VectorT<numEntries, T>((Access<n, T, indices>(parent) - value)...);
+    return VectorT<numEntries, T>((Access<n, T, indices>(parent) / value)...);
   }
   template <MultiplicativeAutoCasting<T> T2>
   inline constexpr EntryReference<n, T, indices...> &operator*=(T2 const &value) {
