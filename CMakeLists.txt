@@ -129,7 +129,7 @@ if(${BUILD_DEMO_APPS})
     make_app(EngineTestFullBuild test)
     make_app(EngineDemo main)
 
-    add_executable(EngineTest "src/test.cpp" "src/Engine/Core/ECS.cpp")
+    add_executable(EngineTest "src/test.cpp" "src/Engine/Core/ECS.cpp" "src/Engine/Graphics/Camera.cpp")
     target_include_directories(EngineTest PRIVATE
         "src/"
         "src/Engine")

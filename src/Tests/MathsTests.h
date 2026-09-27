@@ -66,7 +66,7 @@ TEST_CASE("Accessing vector entries works correctly") {
     VERIFY(test == expected);
 
     Vector4 test2 = v.Entries<0, 2, 7, 4>();
-    Vector2 compounded = test2.xz() += test2.yw();
+    Vector2 compounded = (test2.xz() += test2.yw());
     Vector2 expectedCompund = {135, 183};
     Vector2 xz = test2.xz();
     VERIFY_MEM_EQUAL(xz, compounded, float);

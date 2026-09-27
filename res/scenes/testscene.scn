@@ -14,7 +14,7 @@
                     {
                         "Engine::MeshRendererDSO": {
                             "meshName": "suzanne",
-                            "materialName": "speeder"
+                            "materialName": "flat"
                         }
                     }
                 ]
@@ -54,7 +54,7 @@
                     {
                         "Engine::MeshRendererDSO": {
                             "meshName": "cube",
-                            "materialName": "guns"
+                            "materialName": "flat"
                         }
                     }
                 ]

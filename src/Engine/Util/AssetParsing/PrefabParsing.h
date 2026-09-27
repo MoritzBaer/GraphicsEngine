@@ -83,6 +83,7 @@ struct CameraDSO : public ComponentDSO_T<Graphics::Camera> {
   float aspectRatio;
 
   void FillValues(Graphics::Camera *camera, AssetManager *assetManger) override {
+    camera->aspectRatio = aspectRatio;
     camera->projection = Maths::Transformations::Perspective(nearClip, farClip, fov, aspectRatio);
   }
 };

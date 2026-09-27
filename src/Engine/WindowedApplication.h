@@ -3,10 +3,12 @@
 #include "Debug/Logging.h"
 #include "Debug/Profiling.h"
 #include "Game.h"
+#include "Graphics/Camera.h"
 #include "Graphics/CommandQueue.h"
 #include "Graphics/DescriptorHandling.h"
 #include "Graphics/RenderBufferPool.h"
 #include "Graphics/RenderResourceProvider.h"
+#include "Maths/Transformations.h"
 #include "WindowManager.h"
 
 using namespace Engine::Graphics;
@@ -100,6 +102,7 @@ public:
     windowedApplication.GetWindow()->SetRestoreCallback([this]() { game.rendering = true; });
     windowedApplication.GetWindow()->SetResizeCallback([this](Engine::Maths::Dimension2 newWindowSize) {
       windowedApplication.GetSwapChainProvider()->SetWindowSize(newWindowSize);
+      game.activeScene->mainCamera.template GetComponent<Engine::Graphics::Camera>()->SetAspectRatio(float(newWindowSize.x()) / newWindowSize.y());
     });
   }
 
