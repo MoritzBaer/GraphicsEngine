@@ -427,98 +427,79 @@ public:
   // |    Vector-specific operations  |
   // +--------------------------------+
 
-  inline T operator*(VectorT<n, T> const &other) const
+  inline constexpr T operator*(VectorT<n, T> const &other) const
     requires(m == 1)
   {
     return (other.Transposed() * *this)[X];
   }
-  inline T SqrMagnitude() const
+  inline constexpr T SqrMagnitude() const
     requires(m == 1)
   {
     return *this * *this;
   }
-  inline T Length() const
+  inline constexpr T Length() const
     requires(m == 1)
   {
     return std::sqrt(SqrMagnitude());
   }
-  inline T &operator[](uint8_t i)
+  inline constexpr T &operator[](uint8_t i)
     requires(m == 1)
   {
     return data[i];
   }
-  inline T const &operator[](uint8_t i) const
+  inline constexpr T const &operator[](uint8_t i) const
     requires(m == 1)
   {
     return data[i];
   }
-  inline VectorT<n, T> Normalized() const
+  inline constexpr VectorT<n, T> Normalized() const
     requires(m == 1)
   {
     return *this / this->Length();
   }
-  inline VectorT<n, T> &Normalize()
+  inline constexpr VectorT<n, T> &Normalize()
     requires(m == 1)
   {
     return (*this /= this->Length());
   }
-  inline VectorT<3, T> Cross(VectorT<3, T> const &other) const
+  inline constexpr VectorT<3, T> Cross(VectorT<3, T> const &other) const
     requires(m == 1 && n == 3);
 
-  inline T Volume() const
+  inline constexpr T Volume() const
     requires(m == 1);
 
   // Vectors of the standard basis
 
   inline static constexpr VectorT<n, T> _Left() {
-    auto v = Zero();
-    v.x() = -1;
+    auto v = Zero;
+    v[0] = -1;
     return v;
   }
   inline static constexpr VectorT<n, T> Left = _Left();
 
-  inline static constexpr VectorT<n, T> _Right() {
-    auto v = Zero();
-    v.x() = 1;
-    return v;
-  }
-  inline static constexpr VectorT<n, T> Right = _Right();
+  inline static constexpr VectorT<n, T> Right = -Left;
 
   inline static constexpr VectorT<n, T> _Forward()
     requires(n > 1)
   {
-    auto v = Zero();
-    v.y() = 1;
+    auto v = Zero;
+    v[1] = 1;
     return v;
   }
   inline static constexpr VectorT<n, T> Forward = _Forward();
   
-  inline static constexpr VectorT<n, T> _Backward()
-    requires(n > 1)
-  {
-    auto v = Zero();
-    v.y() = -1;
-    return v;
-  }
-  inline static constexpr VectorT<n, T> Backward = _Backward();
+  inline static constexpr VectorT<n, T> Backward = -Forward;
 
   inline static constexpr VectorT<n, T> _Up()
     requires(n > 2)
   {
-    auto v = Zero();
-    v.z() = 1;
+    auto v = Zero;
+    v[2] = 1;
     return v;
   }
   inline static constexpr VectorT<n, T> Up = _Up();
 
-  inline static constexpr VectorT<n, T> _Down()
-    requires(n > 2)
-  {
-    auto v = Zero();
-    v.z() = -1;
-    return v;
-  }
-  inline static constexpr VectorT<n, T> Down = _Down();
+  inline static constexpr VectorT<n, T> Down = -Up;
 
   // "Properties" for easier access
 private:
@@ -1323,7 +1304,7 @@ inline MatrixT<n, n, T> MatrixT<n, m, T>::_Identity()
 }
 
 template <uint8_t n, uint8_t m, typename T>
-inline VectorT<3, T> MatrixT<n, m, T>::Cross(VectorT<3, T> const &other) const
+inline constexpr VectorT<3, T> MatrixT<n, m, T>::Cross(VectorT<3, T> const &other) const
   requires(m == 1 && n == 3)
 {
   return VectorT<3, T>{data[Y] * other[Z] - data[Z] * other[Y], data[Z] * other[X] - data[X] * other[Z],
@@ -1331,7 +1312,7 @@ inline VectorT<3, T> MatrixT<n, m, T>::Cross(VectorT<3, T> const &other) const
 }
 
 template <uint8_t n, uint8_t m, typename T>
-inline T MatrixT<n, m, T>::Volume() const
+inline constexpr T MatrixT<n, m, T>::Volume() const
   requires(m == 1)
 {
   T res = data[0];

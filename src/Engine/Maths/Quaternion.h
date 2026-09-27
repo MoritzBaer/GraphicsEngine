@@ -2,6 +2,7 @@
 
 #include "Matrix.h"
 #include "json-parsing.h"
+#include <algorithm>
 
 namespace Engine::Maths {
 class Quaternion {
@@ -52,8 +53,8 @@ public:
     Vector3 newForward = (target - position).Normalized();
 
     // Project forward, newForward to vector space orthogonal to up
-    Vector3 forwardFlat = ProjectToOrthogonalVectorSpace(forward, up);
-    Vector3 newForwardFlat = ProjectToOrthogonalVectorSpace(newForward, up);
+    Vector3 forwardFlat = ProjectToOrthogonalVectorSpace(forward, up).Normalized();
+    Vector3 newForwardFlat = ProjectToOrthogonalVectorSpace(newForward, up).Normalized();
 
     // Calculate rotation perpendicular to up
     Vector3 rotationAxisFlat = forwardFlat.Cross(newForwardFlat);
@@ -63,7 +64,7 @@ public:
       rotationAxisFlat.Normalize();
     }
 
-    float dotFlat = newForwardFlat * forwardFlat;
+    float dotFlat = std::clamp(newForwardFlat * forwardFlat, -1.0f, 1.0f);
     float angleFlat = acosf(dotFlat);
 
     Quaternion rotateFlat = RotateAroundAxis(rotationAxisFlat, angleFlat);

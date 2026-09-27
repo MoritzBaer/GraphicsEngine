@@ -39,9 +39,9 @@ struct Transform : public Core::HierarchicalComponent<Transform> {
   }
   inline Quaternion WorldRotation() const;
 
-  inline Vector3 Right() const { return Transformations::RotateByQuaternion(Vector3(1, 0, 0), WorldRotation()); }
-  inline Vector3 Forward() const { return Transformations::RotateByQuaternion(Vector3(0, 1, 0), WorldRotation()); }
-  inline Vector3 Up() const { return Transformations::RotateByQuaternion(Vector3(0, 0, 1), WorldRotation()); }
+  inline Vector3 Right() const { return Transformations::RotateByQuaternion(Vector3::Right, WorldRotation()); }
+  inline Vector3 Forward() const { return Transformations::RotateByQuaternion(Vector3::Forward, WorldRotation()); }
+  inline Vector3 Up() const { return Transformations::RotateByQuaternion(Vector3::Up, WorldRotation()); }
   inline Vector3 Left() const { return -Right(); }
   inline Vector3 Down() const { return -Up(); }
   inline Vector3 Backward() const { return -Forward(); }

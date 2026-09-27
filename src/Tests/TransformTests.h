@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Maths/Matrix.h"
 #include "Test.h"
 
 #include "Debug/Logging.h"
@@ -19,19 +20,24 @@ TEST_CASE("Transform component works correctly") {
   auto transform = entity.AddComponent<Transform>();
 
   Vector3 target = {-3, 4, -5};
-  Vector3 modelSpaceTarget = (transform->WorldToModelMatrix() * Vector4(target[X], target[Y], target[Z], 1)).xyz();
+  Vector4 projModelSpaceTarget = transform->WorldToModelMatrix() * Vector4(target[X], target[Y], target[Z], 1);
+  Vector3 modelSpaceTarget = projModelSpaceTarget.xyz() / projModelSpaceTarget.w();
 
   SUB_GROUP("Model rotation is identity on creation") { VERIFY(target == modelSpaceTarget); }
 
   SUB_GROUP("LookAt quaternion rotates forward vector correctly") {
     transform->LookAt(target);
     auto M = transform->ModelToWorldMatrix();
+    Vector4 targetFromModelSpaceProj = M * Vector4(0, (transform->position - target).Length(), 0, 1);
+    Vector3 targetFromModelSpace = targetFromModelSpaceProj.xyz() / targetFromModelSpaceProj.w();
 
-    Vector3 rotatedV = Transformations::RotateByQuaternion(Vector3(0, 0, (transform->position - target).Length()),
+    VERIFY(targetFromModelSpace == target)
+
+    Vector3 rotatedV = Transformations::RotateByQuaternion(Vector3(0, (transform->position - target).Length(), 0),
                                                            transform->rotation);
     VERIFY(rotatedV == target);
 
-    rotatedV = transform->rotation.RotationMatrix() * Vector3(0, 0, (transform->position - target).Length());
+    rotatedV = transform->rotation.RotationMatrix() * Vector3(0, (transform->position - target).Length(), 0);
     VERIFY(rotatedV == target);
   }
 
@@ -55,12 +61,14 @@ TEST_CASE("Transform component works correctly") {
     VERIFY(nT == tF);
 
     Vector3 transformedV =
-        (transform->ModelToWorldMatrix() * Vector4(0, 0, (transform->position - target).Length(), 1)).xyz();
+        (transform->ModelToWorldMatrix() * Vector4(0, (transform->position - target).Length(), 0, 1)).xyz();
     VERIFY(transformedV == target);
 
-    modelSpaceTarget = (transform->WorldToModelMatrix() * Vector4(target[X], target[Y], target[Z], 1)).xyz();
-    VERIFY(Vector3(modelSpaceTarget[X], modelSpaceTarget[Y], abs(modelSpaceTarget[Z] - target.Length())) ==
-            Vector3::Zero);
+    Vector4 projModelSpaceTarget = transform->WorldToModelMatrix() * Vector4(target[X], target[Y], target[Z], 1);
+    Vector3 modelSpaceTarget = projModelSpaceTarget.xyz() / projModelSpaceTarget.w();
+    VERIFY(Vector3(float(modelSpaceTarget.x()), float(modelSpaceTarget.y()), float(modelSpaceTarget.z())) -
+               Vector3::Forward * target.Length() ==
+           Vector3::Zero);
   }
 
   SUB_GROUP("Follow moving target") {
@@ -73,12 +81,12 @@ TEST_CASE("Transform component works correctly") {
       transform->LookAt(target);
       auto M = transform->ModelToWorldMatrix();
 
-      auto rotatedV = Transformations::RotateByQuaternion(Vector3(0, 0, (transform->position - target).Length()),
+      auto rotatedV = Transformations::RotateByQuaternion(Vector3::Forward * (transform->position - target).Length(),
                                                           transform->rotation) +
                       transform->position;
       VERIFY(rotatedV == target);
 
-      rotatedV = transform->rotation.RotationMatrix() * Vector3(0, 0, (transform->position - target).Length()) +
+      rotatedV = transform->rotation.RotationMatrix() * (Vector3::Forward * (transform->position - target).Length()) +
                  transform->position;
 
       VERIFY(rotatedV == target);
@@ -96,13 +104,13 @@ TEST_CASE("Transform component works correctly") {
       VERIFY(nT == tF);
 
       Vector3 const transformedV =
-          (transform->ModelToWorldMatrix() * Vector4(0, 0, (transform->position - target).Length(), 1)).xyz();
+          (transform->ModelToWorldMatrix() * (Vector4::Forward * (transform->position - target).Length() + Vector4(0,0,0,1))).xyz();
       VERIFY(transformedV == target);
 
       auto const modelSpaceTarget =
           (transform->WorldToModelMatrix() * Vector4(target[X], target[Y], target[Z], 1)).xyz();
-      VERIFY(Vector3(modelSpaceTarget[X], modelSpaceTarget[Y], abs(modelSpaceTarget[Z] - target.Length())) ==
-              Vector3::Zero);
+      VERIFY(Vector3(modelSpaceTarget[X], modelSpaceTarget[Y], modelSpaceTarget[Z]) - (transform->position - target).Length() * Vector3::Forward ==
+             Vector3::Zero);
     }
   }
 }
